@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Patient, WorklistTask } from '../types';
 import {
   X,
@@ -14,6 +14,14 @@ import {
   HeartPulse,
   Droplet,
   ArrowLeft,
+  CreditCard,
+  KeyRound,
+  Fingerprint,
+  Lock,
+  RefreshCw,
+  Radio,
+  ScanFace,
+  Sparkles,
 } from 'lucide-react';
 
 interface TransfusionWorkflowModalProps {
@@ -43,7 +51,7 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
   });
   const [isVisualInspected, setIsVisualInspected] = useState<boolean>(false);
 
-  // Step 2 State: Dual Nurse Sign-off
+  // Step 2 State: Dual Nurse Sign-off & Auth
   const [firstNurse] = useState('이수진 N (담당간호사 - N2341)');
   const [secondNurse, setSecondNurse] = useState('김영희 N (확인간호사 - N1892)');
   const [dualCheckItems, setDualCheckItems] = useState({
@@ -53,6 +61,13 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
     crossMatchMatch: false,
     expirationMatch: false,
   });
+
+  // Dual Nurse Authentication State
+  const [showNurseAuth, setShowNurseAuth] = useState<boolean>(false);
+  const [authMode, setAuthMode] = useState<'rfid' | 'idpw' | 'bio'>('rfid');
+  const [nurseIdInput, setNurseIdInput] = useState<string>('N1892');
+  const [nursePwInput, setNursePwInput] = useState<string>('');
+  const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
 
   // Step 3 State: Barcode Tagging
   const [scannedPatient, setScannedPatient] = useState<boolean>(false);
@@ -68,14 +83,57 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
     spo2: patient.vitals?.spo2 || 98,
   });
 
-  // Step 5 State: Transfusion In Progress
-  const [infusionRate, setInfusionRate] = useState<number>(15); // gtt/min
+  // Step 5 State: Transfusion In Progress & Timer
+  const [infusionRate] = useState<number>(15); // gtt/min
   const [startTime, setStartTime] = useState<string | null>(null);
+  const [isTransfusionStarted, setIsTransfusionStarted] = useState<boolean>(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    if (isTransfusionStarted) {
+      timer = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setElapsedSeconds(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isTransfusionStarted]);
+
+  const formatElapsed = (totalSec: number) => {
+    const hrs = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    if (hrs > 0) {
+      return `${pad(hrs)}시간 ${pad(mins)}분 ${pad(secs)}초`;
+    }
+    return `${pad(mins)}분 ${pad(secs)}초 (${pad(mins)}:${pad(secs)})`;
+  };
 
   const allDualChecked = Object.values(dualCheckItems).every(Boolean);
 
   const toggleDualCheck = (key: keyof typeof dualCheckItems) => {
-    setDualCheckItems((prev) => ({ ...prev, [key]: !prev[key] }));
+    setDualCheckItems((prev) => {
+      const updated = { ...prev, [key]: !prev[key] };
+      if (Object.values(updated).every(Boolean)) {
+        setShowNurseAuth(true);
+      } else {
+        setShowNurseAuth(false);
+      }
+      return updated;
+    });
+  };
+
+  const handleAuthenticateNurse = () => {
+    setIsAuthenticating(true);
+    setTimeout(() => {
+      setIsAuthenticating(false);
+      setCurrentStep(3); // STEP 3 바코드 태깅 단계로 이동
+    }, 700);
   };
 
   const handleStartTransfusion = () => {
@@ -86,7 +144,7 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
       second: '2-digit',
     });
     setStartTime(formattedTime);
-    setCurrentStep(5);
+    setIsTransfusionStarted(true);
   };
 
   const handleFinishWorkflow = () => {
@@ -245,7 +303,13 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
 
             {/* Visual Inspection Checkbox */}
             <div
-              onClick={() => setIsVisualInspected(!isVisualInspected)}
+              onClick={() => {
+                const nextVal = !isVisualInspected;
+                setIsVisualInspected(nextVal);
+                if (nextVal) {
+                  setCurrentStep(2);
+                }
+              }}
               className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center space-x-3 shadow-xs ${
                 isVisualInspected
                   ? 'bg-rose-50 border-rose-300 text-rose-950'
@@ -273,13 +337,13 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
           </div>
         )}
 
-        {/* STEP 2: Dual Nurse Sign-off */}
+        {/* STEP 2: Dual Nurse Sign-off & Authentication */}
         {currentStep === 2 && (
           <div className="space-y-3 animate-fade-in">
             <div className="bg-indigo-50 border border-indigo-200 p-3.5 rounded-xl flex items-center space-x-3 text-indigo-950">
               <UserCheck className="w-7 h-7 text-indigo-600 shrink-0" />
               <div>
-                <h3 className="font-extrabold text-sm text-indigo-900">
+                <h3 className="font-bold text-[19px] leading-[28px] text-indigo-900" style={{ fontWeight: 'bold', fontSize: '19px', lineHeight: '28px' }}>
                   STEP 2. 간호사 2인 동시 이중점검 (Dual Sign-off)
                 </h3>
                 <p className="text-[11px] text-indigo-700 font-medium">
@@ -317,7 +381,7 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
             </div>
 
             {/* Checklist Items */}
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2 shadow-xs">
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2 shadow-xs pt-0 mt-2" style={{ paddingTop: '0px', marginTop: '8px' }}>
               <h4 className="font-bold text-slate-800 text-xs border-b border-slate-100 pb-2">
                 2인 공동 이중점검 항목
               </h4>
@@ -365,10 +429,231 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
               ))}
             </div>
 
-            {allDualChecked && (
-              <div className="bg-indigo-50 border border-indigo-300 p-3 rounded-xl text-center text-indigo-900 font-bold flex items-center justify-center space-x-2 animate-scale-up">
-                <ShieldCheck className="w-5 h-5 text-indigo-600" />
-                <span>간호사 2인 이중확인 최종 전자서명 완료</span>
+            {/* 2nd Nurse Authentication Pop-up Modal */}
+            {showNurseAuth && (
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
+                <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden space-y-0 animate-scale-up">
+                  {/* Modal Header */}
+                  <div className="bg-indigo-900 text-white p-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="p-2 bg-indigo-800 text-indigo-200 rounded-xl">
+                        <Lock className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-sm text-white flex items-center space-x-1.5">
+                          <span>간호사 2인 본인인증 & 전자서명</span>
+                          <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
+                        </h4>
+                        <p className="text-[11px] text-indigo-200 font-medium">
+                          수혈 안전 2인 이중점검 Dual Sign-off
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowNurseAuth(false)}
+                      className="p-1 text-indigo-300 hover:text-white rounded-lg hover:bg-indigo-800 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Modal Body */}
+                  <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+                    {/* 1st Nurse Info Box */}
+                    <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs">
+                          1차
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-emerald-700 font-extrabold block">
+                            1차 확인 간호사 (담당간호사)
+                          </span>
+                          <span className="text-xs font-bold text-slate-900">
+                            {firstNurse}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] bg-emerald-600 text-white font-extrabold px-2 py-0.5 rounded-full flex items-center space-x-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>서명 완료</span>
+                      </span>
+                    </div>
+
+                    {/* 2nd Nurse Selection & Info Box */}
+                    <div className="bg-indigo-50/70 border border-indigo-200 p-3 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-indigo-800 font-extrabold block">
+                          2차 확인 간호사 (동료간호사)
+                        </span>
+                        <span className="text-[10px] text-indigo-600 font-bold bg-indigo-100 px-1.5 py-0.2 rounded">
+                          인증 대기중
+                        </span>
+                      </div>
+                      <select
+                        value={secondNurse}
+                        onChange={(e) => setSecondNurse(e.target.value)}
+                        className="w-full bg-white text-indigo-950 font-extrabold p-2 rounded-lg border border-indigo-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                      >
+                        <option value="김영희 N (확인간호사 - N1892)">
+                          김영희 N (확인간호사 - N1892)
+                        </option>
+                        <option value="박민지 N (확인간호사 - N2014)">
+                          박민지 N (확인간호사 - N2014)
+                        </option>
+                        <option value="정지원 N (책임간호사 - N1102)">
+                          정지원 N (책임간호사 - N1102)
+                        </option>
+                      </select>
+                    </div>
+
+                    {/* Authentication Method Tabs */}
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-extrabold text-slate-700 block">
+                        본인 인증 수단 선택 (기본: RFID 태깅)
+                      </label>
+                      <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl text-center text-xs font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setAuthMode('rfid')}
+                          className={`py-2 rounded-lg flex items-center justify-center space-x-1 transition-all ${
+                            authMode === 'rfid'
+                              ? 'bg-indigo-600 text-white shadow-xs font-extrabold'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                          <span>RFID 태깅</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAuthMode('idpw')}
+                          className={`py-2 rounded-lg flex items-center justify-center space-x-1 transition-all ${
+                            authMode === 'idpw'
+                              ? 'bg-indigo-600 text-white shadow-xs font-extrabold'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <KeyRound className="w-3.5 h-3.5" />
+                          <span>ID/PW</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAuthMode('bio')}
+                          className={`py-2 rounded-lg flex items-center justify-center space-x-1 transition-all ${
+                            authMode === 'bio'
+                              ? 'bg-indigo-600 text-white shadow-xs font-extrabold'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Fingerprint className="w-3.5 h-3.5" />
+                          <span>생체인증</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Tab Content 1: RFID Tagging (Default) */}
+                    {authMode === 'rfid' && (
+                      <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-center space-y-3">
+                        <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+                          <div className="absolute inset-0 bg-indigo-400/20 rounded-full animate-ping" />
+                          <div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-md relative z-10">
+                            <Radio className="w-7 h-7 animate-pulse" />
+                          </div>
+                        </div>
+                        <div>
+                          <h5 className="font-extrabold text-xs text-indigo-950">
+                            PDA 사원증 리더기 태깅 대기 중
+                          </h5>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            확인간호사의 RFID 사원증 카드를 PDA 상단 센서에 접촉해 주세요.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab Content 2: ID / PW Login */}
+                    {authMode === 'idpw' && (
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                            확인간호사 사원번호 (ID)
+                          </label>
+                          <input
+                            type="text"
+                            value={nurseIdInput}
+                            onChange={(e) => setNurseIdInput(e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            placeholder="사원번호 입력"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                            비밀번호 (PW)
+                          </label>
+                          <input
+                            type="password"
+                            value={nursePwInput}
+                            onChange={(e) => setNursePwInput(e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            placeholder="••••••••"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab Content 3: Biometric Auth */}
+                    {authMode === 'bio' && (
+                      <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-center space-y-3">
+                        <div className="flex justify-center space-x-3">
+                          <div className="w-12 h-12 bg-indigo-100 text-indigo-700 rounded-xl flex items-center justify-center border border-indigo-200">
+                            <Fingerprint className="w-6 h-6 animate-pulse" />
+                          </div>
+                          <div className="w-12 h-12 bg-indigo-100 text-indigo-700 rounded-xl flex items-center justify-center border border-indigo-200">
+                            <ScanFace className="w-6 h-6" />
+                          </div>
+                        </div>
+                        <div>
+                          <h5 className="font-extrabold text-xs text-indigo-950">
+                            생체 인식 (지문 / Face ID) 대기
+                          </h5>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            PDA 전면 카메라에 얼굴을 비추거나 지문 인식 센서에 터치하세요.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowNurseAuth(false)}
+                      className="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isAuthenticating}
+                      onClick={handleAuthenticateNurse}
+                      className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center space-x-2"
+                    >
+                      {isAuthenticating ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>인증 및 승인 처리 중...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>2차 확인 서명 완료 및 다음 단계</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -415,7 +700,12 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
 
               {!scannedPatient ? (
                 <button
-                  onClick={() => setScannedPatient(true)}
+                  onClick={() => {
+                    setScannedPatient(true);
+                    if (scannedBloodBag) {
+                      setTimeout(() => setCurrentStep(4), 600);
+                    }
+                  }}
                   className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-lg shadow-xs"
                 >
                   스캔 실행
@@ -454,7 +744,13 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
 
               {!scannedBloodBag ? (
                 <button
-                  onClick={() => setScannedBloodBag(true)}
+                  onClick={() => {
+                    setScannedBloodBag(true);
+                    if (!scannedPatient) {
+                      setScannedPatient(true);
+                    }
+                    setTimeout(() => setCurrentStep(4), 600);
+                  }}
                   className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-xs"
                 >
                   스캔 실행
@@ -591,44 +887,168 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
 
         {/* STEP 5: Transfusion Active & 15min Reaction Monitoring */}
         {currentStep === 5 && (
-          <div className="space-y-3 animate-fade-in text-center">
-            <div className="bg-emerald-50 border border-emerald-300 p-4 rounded-xl space-y-2 text-emerald-950">
-              <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto animate-bounce" />
-              <h3 className="font-black text-base text-emerald-900">
-                수혈 개시 완료! (Transfusion Started)
-              </h3>
-              <p className="text-xs text-emerald-800 font-medium">
-                수혈 시작시각: <span className="font-bold text-emerald-950 font-mono bg-emerald-100 px-2 py-0.5 rounded">{startTime}</span>
-              </p>
-            </div>
-
-            {/* Infusion Rate and Alert Setup */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2 text-left shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-xs text-slate-600">
-                  초기 주입 속도
-                </span>
-                <span className="font-extrabold text-sm text-rose-600">
-                  {infusionRate} gtt/min (약 15분간 서서히)
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500">
-                첫 15분 동안은 발열, 오한, 두드러기, 호흡곤란, 혈압강하 등 용혈성/알레르기 부작용 관찰이 필수적입니다.
-              </p>
-            </div>
-
-            {/* 15-min Auto Reminder Scheduled */}
-            <div className="bg-indigo-50 border border-indigo-200 p-3.5 rounded-xl flex items-center space-x-3 text-left">
-              <Clock className="w-6 h-6 text-indigo-600 shrink-0" />
+          <div className="space-y-3.5 animate-fade-in text-center">
+            {/* Header Banner */}
+            <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-xl flex items-center space-x-3 text-rose-950 text-left">
+              <Droplet className="w-7 h-7 text-rose-600 shrink-0 fill-current" />
               <div>
-                <span className="font-bold text-xs text-indigo-950 block">
-                  ⏰ 15분 후 수혈 부작용 점검 알림 자동 등록됨
-                </span>
-                <span className="text-[11px] text-indigo-700">
-                  PDA 업무 리스트에 15분 후 V/S 및 부작용 점검 Task가 자동 생성되었습니다.
-                </span>
+                <h3 className="font-extrabold text-sm text-rose-900">
+                  STEP 5. 수혈 개시 및 부작용 관찰
+                </h3>
+                <p className="text-[11px] text-rose-700 font-medium">
+                  최종 검증 완료된 수혈 제제를 환자 라인에 연결하고 수혈을 개시합니다.
+                </p>
               </div>
             </div>
+
+            {!isTransfusionStarted ? (
+              /* Pre-Start Readiness Card */
+              <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 text-left shadow-xs">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                  <span className="font-extrabold text-xs text-slate-800 flex items-center space-x-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>수혈 준비 및 5-Rights 검증 완료</span>
+                  </span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded-full">
+                    준비 완료
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-[10px] text-slate-500 font-medium block">수혈 제제</span>
+                    <span className="font-extrabold text-slate-900">{bloodBagInfo.productName}</span>
+                  </div>
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-[10px] text-slate-500 font-medium block">혈액형 / 용량</span>
+                    <span className="font-extrabold text-rose-700">{bloodBagInfo.bloodTypeBag} ({bloodBagInfo.volume})</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
+                  <span className="text-[10px] text-slate-500 font-medium block">기저 활력징후 (Baseline V/S)</span>
+                  <span className="font-bold text-slate-800 font-mono">
+                    BP {vitals.bpSys}/{vitals.bpDia} mmHg · BT {vitals.bt}℃ · HR {vitals.hr} bpm
+                  </span>
+                </div>
+
+                <button
+                  onClick={handleStartTransfusion}
+                  className="w-full py-4 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-black text-sm rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center space-x-2 mt-2"
+                >
+                  <Droplet className="w-5 h-5 fill-current animate-bounce" />
+                  <span>수혈 시작 (Start Transfusion)</span>
+                </button>
+              </div>
+            ) : (
+              /* Transfusion Active Screen with Dripping Blood Animation & Timer */
+              <div className="space-y-3">
+                <style>{`
+                  @keyframes bloodDrip {
+                    0% { transform: translateY(0) scale(1); opacity: 1; }
+                    70% { transform: translateY(30px) scale(0.85); opacity: 0.9; }
+                    100% { transform: translateY(40px) scale(0.3); opacity: 0; }
+                  }
+                  .animate-drip-1 { animation: bloodDrip 1.2s infinite ease-in; }
+                  .animate-drip-2 { animation: bloodDrip 1.2s infinite ease-in 0.4s; }
+                  .animate-drip-3 { animation: bloodDrip 1.2s infinite ease-in 0.8s; }
+                `}</style>
+
+                <div className="bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 text-white rounded-2xl p-4 shadow-xl space-y-4 border border-rose-900/50 relative overflow-hidden">
+                  {/* Animated Blood Bag Graphic */}
+                  <div className="flex flex-col items-center justify-center space-y-2 py-1">
+                    <div className="relative">
+                      {/* Bag Hanger Notch */}
+                      <div className="w-8 h-2.5 bg-slate-700 rounded-t-md mx-auto border-b border-slate-600" />
+
+                      {/* Blood Bag Body */}
+                      <div className="w-36 bg-gradient-to-b from-rose-700 via-red-700 to-rose-900 border-2 border-rose-500/80 rounded-b-3xl rounded-t-lg p-2.5 shadow-2xl text-center space-y-1 relative">
+                        <div className="absolute top-1.5 left-2 right-2 h-1 bg-rose-400/30 rounded-full animate-pulse" />
+                        <span className="text-[9.5px] bg-white/20 text-white px-2 py-0.5 rounded-full font-mono font-bold block w-fit mx-auto">
+                          {bloodBagInfo.bloodBagNo}
+                        </span>
+                        <h4 className="font-extrabold text-[11px] text-white tracking-wide">
+                          {bloodBagInfo.productName}
+                        </h4>
+                        <div className="inline-block bg-white text-rose-900 text-[11px] font-black px-2 py-0.2 rounded-md shadow-xs">
+                          혈액형 {bloodBagInfo.bloodTypeBag}
+                        </div>
+                      </div>
+
+                      {/* IV Drip Chamber & Tube with Dripping Blood Droplets */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-3.5 h-1.5 bg-slate-700" />
+                        <div className="w-7 h-12 bg-slate-800/90 border border-slate-500/60 rounded-lg relative flex flex-col items-center justify-between p-1 backdrop-blur-xs">
+                          <div className="w-2 h-1.5 bg-rose-600 rounded-b-xs" />
+                          
+                          {/* Animated Dripping Blood Drops */}
+                          <div className="absolute top-2 left-1/2 -translate-x-1/2 w-full h-8 overflow-hidden pointer-events-none flex justify-center">
+                            <Droplet className="w-3 h-3 text-rose-500 fill-current absolute top-0 animate-drip-1" />
+                            <Droplet className="w-3 h-3 text-rose-500 fill-current absolute top-0 animate-drip-2" />
+                            <Droplet className="w-3 h-3 text-rose-500 fill-current absolute top-0 animate-drip-3" />
+                          </div>
+
+                          <div className="w-full h-2.5 bg-rose-700/80 rounded-b-md animate-pulse" />
+                        </div>
+                        <div className="w-1.5 h-5 bg-rose-600/70 animate-pulse rounded-full" />
+                      </div>
+                    </div>
+
+                    <div className="text-center space-y-0.5">
+                      <span className="inline-flex items-center space-x-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/40 px-3 py-0.5 rounded-full text-xs font-bold animate-pulse">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                        <span>수혈 주입 진행 중 (Transfusion Active)</span>
+                      </span>
+                      <p className="text-[11px] text-slate-300 font-medium">
+                        주입 속도: <strong className="text-rose-400 font-bold">{infusionRate} gtt/min</strong> (약 15분간 서서히)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Elapsed Time Counter (하단 수혈 경과 시간 카운트) */}
+                  <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 space-y-2 text-left shadow-inner">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                      <div className="flex items-center space-x-2 text-rose-400 font-bold text-xs">
+                        <Clock className="w-4 h-4 animate-spin" />
+                        <span>수혈 경과 시간 (Elapsed Time)</span>
+                      </div>
+                      <span className="text-[10px] text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded font-mono font-bold">
+                        ● 실시간 측정 중
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline justify-between pt-1">
+                      <span className="text-xs text-slate-400 font-medium">수혈 경과 시간:</span>
+                      <span className="text-2xl font-black font-mono text-rose-400 tracking-wider">
+                        {formatElapsed(elapsedSeconds)}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-2 border-t border-slate-800/80 text-slate-400">
+                      <div>
+                        시작시각: <span className="font-mono text-slate-200 font-bold">{startTime}</span>
+                      </div>
+                      <div>
+                        15분 점검 알림: <span className="text-indigo-300 font-bold">자동 등록됨</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 15-min Auto Reminder Scheduled */}
+                <div className="bg-indigo-50 border border-indigo-200 p-3 rounded-xl flex items-center space-x-3 text-left">
+                  <Clock className="w-5 h-5 text-indigo-600 shrink-0" />
+                  <div>
+                    <span className="font-bold text-xs text-indigo-950 block">
+                      ⏰ 15분 후 수혈 부작용 점검 알림 자동 등록됨
+                    </span>
+                    <span className="text-[10.5px] text-indigo-700">
+                      PDA 업무 리스트에 15분 후 V/S 및 부작용 점검 Task가 자동 생성되었습니다.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -665,14 +1085,20 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
         {currentStep === 2 && (
           <button
             disabled={!allDualChecked}
-            onClick={() => setCurrentStep(3)}
+            onClick={() => {
+              if (showNurseAuth) {
+                handleAuthenticateNurse();
+              } else {
+                setShowNurseAuth(true);
+              }
+            }}
             className={`ml-auto px-5 py-3 rounded-xl font-extrabold text-xs text-white flex items-center space-x-1 shadow-sm transition-all ${
               allDualChecked
                 ? 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98]'
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed'
             }`}
           >
-            <span>바코드 태깅 단계로</span>
+            <span>{showNurseAuth ? '2차 확인간호사 서명 승인' : '간호사 본인 인증 진행'}</span>
             <ChevronRight className="w-4 h-4" />
           </button>
         )}
@@ -694,18 +1120,23 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
 
         {currentStep === 4 && (
           <button
-            onClick={handleStartTransfusion}
-            className="ml-auto px-6 py-3.5 bg-gradient-to-r from-rose-600 to-emerald-600 hover:from-rose-700 hover:to-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center space-x-1.5"
+            onClick={() => setCurrentStep(5)}
+            className="ml-auto px-6 py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center space-x-1.5"
           >
-            <Droplet className="w-4 h-4 fill-current" />
-            <span>수혈 개시 (Start Transfusion)</span>
+            <span>수혈전 V/S 입력 완료 (수혈개시 화면 전개)</span>
+            <ChevronRight className="w-4 h-4" />
           </button>
         )}
 
         {currentStep === 5 && (
           <button
+            disabled={!isTransfusionStarted}
             onClick={handleFinishWorkflow}
-            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center justify-center space-x-1.5"
+            className={`w-full py-3.5 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center space-x-1.5 ${
+              isTransfusionStarted
+                ? 'bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98]'
+                : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+            }`}
           >
             <FileCheck2 className="w-5 h-5" />
             <span>수혈 기록지 완료 및 EMR 전송</span>
