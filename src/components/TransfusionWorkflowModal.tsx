@@ -198,7 +198,7 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
           <div
             key={item.step}
             onClick={() => {
-              if (item.step < currentStep) setCurrentStep(item.step);
+              setCurrentStep(item.step);
             }}
             className={`flex-1 text-center py-1.5 rounded-lg transition-all cursor-pointer mx-0.5 ${
               currentStep === item.step
@@ -964,10 +964,10 @@ export const TransfusionWorkflowModal: React.FC<TransfusionWorkflowModalProps> =
                       {/* Blood Bag Body */}
                       <div className="w-36 bg-gradient-to-b from-rose-700 via-red-700 to-rose-900 border-2 border-rose-500/80 rounded-b-3xl rounded-t-lg p-2.5 shadow-2xl text-center space-y-1 relative">
                         <div className="absolute top-1.5 left-2 right-2 h-1 bg-rose-400/30 rounded-full animate-pulse" />
-                        <span className="text-[9.5px] bg-white/20 text-white px-2 py-0.5 rounded-full font-mono font-bold block w-fit mx-auto">
+                        <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-mono font-normal block w-fit mx-auto" style={{ fontWeight: 'normal', fontSize: '12px' }}>
                           {bloodBagInfo.bloodBagNo}
                         </span>
-                        <h4 className="font-extrabold text-[11px] text-white tracking-wide">
+                        <h4 className="font-normal text-sm text-white tracking-wide" style={{ fontWeight: 'normal', fontSize: '14px' }}>
                           {bloodBagInfo.productName}
                         </h4>
                         <div className="inline-block bg-white text-rose-900 text-[11px] font-black px-2 py-0.2 rounded-md shadow-xs">

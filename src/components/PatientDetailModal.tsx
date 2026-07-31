@@ -1,21 +1,43 @@
 import React, { useState } from 'react';
-import { Patient } from '../types';
-import { ChevronLeft, Mic, Camera, Menu, RotateCcw, AlertTriangle, Pill, ShieldAlert, CheckSquare, Square, Star } from 'lucide-react';
+import { Patient, Prescription, WorklistTask } from '../types';
+import { ChevronLeft, Mic, Camera, Menu, RotateCcw, AlertTriangle, Pill, ShieldAlert, CheckSquare, Square, Star, Activity, Syringe, Droplets, HeartPulse } from 'lucide-react';
+import { getPatientBadges } from '../utils/patientTaskUtils';
 
 interface PatientDetailModalProps {
   patient: Patient;
+  hasHamRx?: boolean;
+  prescriptions?: Prescription[];
+  tasks?: WorklistTask[];
   onClose: () => void;
   onProceedToMedication: (patient: Patient) => void;
+  onProceedToVitals?: (patient: Patient) => void;
+  onProceedToBloodSampling?: (patient: Patient) => void;
+  onProceedToTransfusion?: (patient: Patient) => void;
   onResetPatient?: () => void;
+  onOpenScanner?: () => void;
 }
 
 export const PatientDetailModal: React.FC<PatientDetailModalProps> = ({
   patient,
+  hasHamRx = false,
+  prescriptions = [],
+  tasks = [],
   onClose,
   onProceedToMedication,
+  onProceedToVitals,
+  onProceedToBloodSampling,
+  onProceedToTransfusion,
   onResetPatient,
+  onOpenScanner,
 }) => {
   const [isChecked, setIsChecked] = useState<boolean>(true);
+
+  // Compute patient tasks/badges using standard utility
+  const { hasMedication, hasVs, hasBlood, hasTransfusion } = getPatientBadges(
+    patient,
+    prescriptions,
+    tasks
+  );
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex justify-center items-start overflow-y-auto">
@@ -30,7 +52,11 @@ export const PatientDetailModal: React.FC<PatientDetailModalProps> = ({
             </button>
             <div className="flex items-center space-x-3">
               <Mic className="w-5 h-5 cursor-pointer hover:opacity-80" />
-              <Camera className="w-5 h-5 cursor-pointer hover:opacity-80" />
+              <Camera
+                onClick={onOpenScanner}
+                className="w-5 h-5 cursor-pointer hover:opacity-80 hover:scale-110 transition-transform"
+                title="팔찌/약품 바코드 촬영"
+              />
               <Menu className="w-5 h-5 cursor-pointer hover:opacity-80" />
             </div>
           </div>
@@ -45,15 +71,19 @@ export const PatientDetailModal: React.FC<PatientDetailModalProps> = ({
           {/* Main Patient Name Block */}
           <div className="flex items-start justify-between mt-1">
             <div>
-              <div className="flex items-center space-x-2">
-                <h2 className="text-2xl font-black text-yellow-300 tracking-tight">{patient.name}</h2>
-                <span className="text-xs font-semibold text-white">{patient.gender}/{patient.age}세/{patient.bloodType}</span>
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              </div>
-              <div className="mt-1">
-                <span className="bg-yellow-300 text-slate-900 text-xs font-black px-2 py-0.5 rounded-full shadow-xs">
-                  환자 확인 됨
-                </span>
+              <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                <h2 className="text-2xl font-normal text-yellow-300 tracking-tight" style={{ fontWeight: 'normal' }}>{patient.name}</h2>
+                <span className="text-xs font-normal text-white" style={{ fontWeight: 'normal' }}>{patient.gender}/{patient.age}세/{patient.bloodType}</span>
+                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 shrink-0" />
+                {patient.isVerified ? (
+                  <span className="bg-yellow-300 text-slate-900 text-xs font-black px-2 py-0.5 rounded-full shadow-xs shrink-0">
+                    환자 확인 됨
+                  </span>
+                ) : (
+                  <span className="bg-rose-500 text-white text-xs font-black px-2 py-0.5 rounded-full shadow-xs shrink-0">
+                    팔찌 미인식
+                  </span>
+                )}
               </div>
             </div>
 
@@ -163,21 +193,102 @@ export const PatientDetailModal: React.FC<PatientDetailModalProps> = ({
             <span className="text-sm font-bold text-slate-800">위 주의정보를 확인하였습니다</span>
           </div>
 
-          {/* Action Buttons matching Screenshot #2 */}
-          <div className="mt-4 space-y-2">
-            <button
-              disabled={!isChecked}
-              onClick={() => {
-                onProceedToMedication(patient);
-              }}
-              className={`w-full py-3.5 rounded-xl font-bold text-white text-base shadow-lg transition-all ${
-                isChecked
-                  ? 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99]'
-                  : 'bg-slate-300 cursor-not-allowed'
-              }`}
-            >
-              확인 (5 Rights / HAM 이중확인)
-            </button>
+          {/* Action Task Selection Bar */}
+          <div className="mt-4 space-y-2.5">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+              <div className="text-xs font-bold text-slate-800 flex items-center justify-between mb-1">
+                <span className="flex items-center space-x-1">
+                  <span className="text-emerald-600 font-extrabold">✓ 환자식별 확인:</span>
+                  <span className="text-slate-900 font-black">{patient.name}님</span>
+                </span>
+                <span className="text-[11px] text-slate-500">{patient.roomBed}</span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-medium">
+                수행할 업무(뱃지)를 선택하면 해당 업무 검증 화면으로 이동합니다:
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              {hasMedication && (
+                <button
+                  disabled={!isChecked}
+                  onClick={() => onProceedToMedication(patient)}
+                  className={`p-3 rounded-xl font-bold text-xs flex items-center space-x-2.5 shadow-md transition-all text-left cursor-pointer ${
+                    isChecked
+                      ? 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}
+                >
+                  <Syringe className="w-5 h-5 shrink-0" />
+                  <div>
+                    <div className="text-sm font-extrabold">투약 수행</div>
+                    <div className="text-[10px] opacity-90 font-normal">
+                      {hasHamRx ? '5 Rights & HAM 고위험약물 이중확인' : '5 Rights 약품 투약 검증'}
+                    </div>
+                  </div>
+                </button>
+              )}
+
+              {hasVs && (
+                <button
+                  disabled={!isChecked}
+                  onClick={() => {
+                    if (onProceedToVitals) onProceedToVitals(patient);
+                  }}
+                  className={`p-3 rounded-xl font-bold text-xs flex items-center space-x-2.5 shadow-md transition-all text-left cursor-pointer ${
+                    isChecked
+                      ? 'bg-blue-600 hover:bg-blue-700 active:scale-95 text-white'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}
+                >
+                  <Activity className="w-5 h-5 shrink-0" />
+                  <div>
+                    <div className="text-sm font-extrabold">VS 측정 (생체징후)</div>
+                    <div className="text-[10px] opacity-90 font-normal">혈압 / 체온 / 맥박 / SpO2 측정</div>
+                  </div>
+                </button>
+              )}
+
+              {hasBlood && (
+                <button
+                  disabled={!isChecked}
+                  onClick={() => {
+                    if (onProceedToBloodSampling) onProceedToBloodSampling(patient);
+                  }}
+                  className={`p-3 rounded-xl font-bold text-xs flex items-center space-x-2.5 shadow-md transition-all text-left cursor-pointer ${
+                    isChecked
+                      ? 'bg-pink-600 hover:bg-pink-700 active:scale-95 text-white'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}
+                >
+                  <Droplets className="w-5 h-5 shrink-0" />
+                  <div>
+                    <div className="text-sm font-extrabold">채혈 수행</div>
+                    <div className="text-[10px] opacity-90 font-normal">채혈 용기 라벨 & 바코드 스캔</div>
+                  </div>
+                </button>
+              )}
+
+              {hasTransfusion && (
+                <button
+                  disabled={!isChecked}
+                  onClick={() => {
+                    if (onProceedToTransfusion) onProceedToTransfusion(patient);
+                  }}
+                  className={`p-3 rounded-xl font-bold text-xs flex items-center space-x-2.5 shadow-md transition-all text-left cursor-pointer ${
+                    isChecked
+                      ? 'bg-rose-600 hover:bg-rose-700 active:scale-95 text-white'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}
+                >
+                  <HeartPulse className="w-5 h-5 shrink-0" />
+                  <div>
+                    <div className="text-sm font-extrabold">수혈 수행</div>
+                    <div className="text-[10px] opacity-90 font-normal">혈액제제 확인 & 2인 이중교대</div>
+                  </div>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
