@@ -278,31 +278,31 @@ export const BloodSamplingView: React.FC<BloodSamplingViewProps> = ({
         {/* STEP 2: 환자팔찌 촬영 / 스캔 */}
         {currentStep === 2 && (
           <div className="space-y-3 animate-fade-in">
-            {/* Simulated Camera Viewfinder */}
-            <div className="bg-slate-950 p-4 rounded-2xl border-2 border-slate-800 flex flex-col items-center justify-center relative overflow-hidden min-h-[200px]">
-              {/* Viewfinder Corners */}
-              <div className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-rose-500" />
-              <div className="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2 border-rose-500" />
-              <div className="absolute bottom-3 left-3 w-6 h-6 border-b-2 border-l-2 border-rose-500" />
-              <div className="absolute bottom-3 right-3 w-6 h-6 border-b-2 border-r-2 border-rose-500" />
-
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
               {isWristbandScanned ? (
-                <div className="text-center space-y-2 text-white animate-fade-in">
-                  <div className="w-14 h-14 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center mx-auto">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                <div className="text-center space-y-2 animate-fade-in py-2">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                   </div>
-                  <div className="text-base font-black text-emerald-300">
-                    환자팔찌 인식 완료! (상단 환자정보 연동)
+                  <div className="text-sm font-black text-slate-900">
+                    환자팔찌 인식 완료!
                   </div>
-                  <div className="text-xs text-slate-300 font-mono bg-slate-900/80 px-3 py-1 rounded-full border border-slate-700 inline-block">
+                  <div className="text-xs text-slate-600 font-mono bg-slate-100 px-3 py-1 rounded-full border border-slate-200 inline-block">
                     {patient.name} ({patient.id}) · {patient.roomBed}
                   </div>
                 </div>
               ) : (
-                <div className="text-center space-y-3 text-white">
-                  <Barcode className="w-14 h-14 text-rose-400 mx-auto animate-pulse" />
-                  <div className="text-xs text-slate-300">
-                    환자의 손목 팔찌 바코드를 촬영하세요
+                <div className="text-center space-y-3 py-2">
+                  <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center mx-auto text-rose-600">
+                    <Barcode className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-900">
+                      환자식별 바코드 스캔
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      하단 '스캔/촬영' 기능과 연동하여 환자 손목 팔찌를 촬영합니다
+                    </div>
                   </div>
                   <button
                     disabled={isScanningWristband}
@@ -316,12 +316,10 @@ export const BloodSamplingView: React.FC<BloodSamplingViewProps> = ({
               )}
             </div>
 
-
-
             <div className="flex space-x-2 pt-1">
               <button
                 onClick={() => setCurrentStep(1)}
-                className="flex-1 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-2xl font-bold text-xs"
+                className="flex-1 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-2xl font-bold text-xs cursor-pointer"
               >
                 이전
               </button>

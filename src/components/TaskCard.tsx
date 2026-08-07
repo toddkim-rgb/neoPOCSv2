@@ -136,12 +136,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         <div className="p-3.5 flex-1 flex flex-col justify-between bg-white text-slate-900">
           {/* Header Row: Ward/Patient + Title & Dose */}
           <div>
-            <div className="flex items-center justify-between text-xs mb-1">
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center space-x-2">
-                <span className="font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
+                <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md text-[14px]">
                   {task.wardRoom}
                 </span>
-                <span className="font-bold text-slate-900 text-sm">{task.patientName}</span>
+                <span className="font-bold text-slate-900 text-[20px] tracking-tight">{task.patientName}</span>
                 {task.isHam && (
                   <span className="bg-rose-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded shadow-xs">
                     HAM
@@ -165,13 +165,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               )}
             </div>
 
-            {/* Title & Dose (Matching screenshot top row) */}
+            {/* Title & Dose */}
             <div className="flex items-baseline justify-between mt-1">
-              <h3 className="font-bold text-lg md:text-xl text-slate-900 tracking-tight leading-snug">
+              <h3 className="font-bold text-[18px] text-slate-900 tracking-tight leading-snug">
                 {details.name}
               </h3>
               {details.dose && (
-                <span className="font-bold text-lg md:text-xl text-slate-900 font-mono ml-2">
+                <span className="font-bold text-[17px] text-slate-900 font-mono ml-2">
                   {details.dose}
                 </span>
               )}
@@ -180,11 +180,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
           {/* AI Reasons Tags */}
           {task.reasons && task.reasons.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
+            <div className="mt-2 pt-[5px] flex flex-wrap gap-1">
               {task.reasons.map((reason, idx) => (
                 <span
                   key={idx}
-                  className="bg-indigo-50 text-indigo-900 border border-indigo-200/80 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center space-x-1"
+                  className="mr-2 bg-indigo-50 text-indigo-900 border border-indigo-200/80 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center space-x-1"
                 >
                   <span className="text-amber-500 font-black">#</span>
                   <span>{reason}</span>
