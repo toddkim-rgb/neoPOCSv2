@@ -1,8 +1,16 @@
 node_modules/
-build/
 dist/
-coverage/
-.DS_Store
+build-debug.log
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/build/
+android/app/src/main/assets/public/
+android/keystore.properties
+android/keystore/
+# not shared on GitHub: build logs and APK deliverables (the prototype is shared as the Vercel web URL)
 *.log
-.env*
-!.env.example
+release/*.apk
+.claude/
+android/.idea/

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- 3D-style tile: same white glossy rounded square as the Figma icon set -->
+  <defs>
+    <linearGradient id="cm-tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.7" stop-color="#f7f8fb"/>
+      <stop offset="1" stop-color="#e6e9f0"/>
+    </linearGradient>
+    <linearGradient id="cm-edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d5dae4"/>
+    </linearGradient>
+    <linearGradient id="cm-body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6aa9ff"/>
+      <stop offset="0.5" stop-color="#3478f0"/>
+      <stop offset="1" stop-color="#1d4fd8"/>
+    </linearGradient>
+    <linearGradient id="cm-top" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a9cdff"/>
+      <stop offset="1" stop-color="#5b97f5"/>
+    </linearGradient>
+    <linearGradient id="cm-ring" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#c3d3f2"/>
+    </linearGradient>
+    <radialGradient id="cm-glass" cx="0.38" cy="0.32" r="0.8">
+      <stop offset="0" stop-color="#6a8ee8"/>
+      <stop offset="0.45" stop-color="#26408f"/>
+      <stop offset="1" stop-color="#0d1a45"/>
+    </radialGradient>
+    <linearGradient id="cm-flash" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe58a"/>
+      <stop offset="1" stop-color="#f7b500"/>
+    </linearGradient>
+    <filter id="cm-shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#8d97ad" flood-opacity="0.35"/>
+    </filter>
+    <filter id="cm-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.4" flood-color="#1d3f9a" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect x="6" y="4" width="108" height="108" rx="27" fill="url(#cm-edge)" filter="url(#cm-shadow)"/>
+  <rect x="8" y="6" width="104" height="103" rx="25.5" fill="url(#cm-tile)"/>
+  <!-- camera body -->
+  <g filter="url(#cm-soft)">
+    <path d="M44 34l4.5-7.5c1-1.7 2.8-2.7 4.8-2.7h13.4c2 0 3.8 1 4.8 2.7L76 34z" fill="url(#cm-top)"/>
+    <rect x="20" y="33" width="80" height="54" rx="13" fill="url(#cm-body)"/>
+  </g>
+  <path d="M27 42c2.5-3.6 6.2-5 11-5h44" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="3" stroke-linecap="round"/>
+  <rect x="82" y="40" width="10" height="6.5" rx="3" fill="url(#cm-flash)"/>
+  <!-- lens -->
+  <circle cx="60" cy="61" r="20" fill="url(#cm-ring)"/>
+  <circle cx="60" cy="61" r="14.5" fill="url(#cm-glass)"/>
+  <circle cx="60" cy="61" r="8" fill="none" stroke="#7fa2f0" stroke-opacity="0.45" stroke-width="2"/>
+  <circle cx="54.5" cy="55.5" r="4" fill="#ffffff" fill-opacity="0.85"/>
+  <circle cx="64.5" cy="66" r="1.8" fill="#ffffff" fill-opacity="0.5"/>
+</svg>

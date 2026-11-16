@@ -1,0 +1,52 @@
+/* Design tokens extracted from the Figma file (Page 3, neo POCS V2).
+   Names in comments are the Figma variable names where one exists. */
+:root {
+  --font: 'Pretendard Variable', Pretendard, -apple-system, 'Noto Sans KR', sans-serif;
+
+  --c-text: #333333;          /* neo-black */
+  --c-white: #ffffff;         /* neo-white */
+  --c-slate: #45556c;         /* med-tertiary — primary buttons, Y tag, secondary text */
+  --c-gray: #99a4b4;          /* neo-gray-01 — labels, card borders */
+  --c-surface: #f8fafc;       /* neo-gray-03 */
+  --c-muted: #bdbdbd;         /* dates, disabled chips, neutral badge borders */
+  --c-line: #ccd1d9;          /* sheet row borders, disabled tag */
+  --c-badge: #f6f6f6;
+  --c-badge-text: #525252;
+  --c-on-surface: #1d1b20;    /* M3 on-surface */
+
+  --c-blue: #65bde9;
+  --c-blue-light: #65c6e9;
+  --c-blue-deep: #1878bc;
+  --grad: linear-gradient(90deg, #65bde9 0%, #1878bc 100%);
+  --grad-cta: linear-gradient(90deg, #65c6e9 0%, #1878bc 100%);
+
+  --c-danger: #ff5e5e;        /* narcotic badge, high-alert borders */
+  --c-danger-text: #d05151;   /* TXT-Red — errors, NO tag, non-Y statuses */
+  --c-danger-bg: #fff0f0;
+  --c-danger-bg-2: #fff5f5;
+  --c-warn: #fe9239;          /* high-cost badge, allergy */
+  --c-warn-bg: #fff7ed;
+  --c-warn-bg-2: #fffaf4;
+  --c-warn-chip: #ffe9ce;
+  --c-ai: #8b5cf6;
+  --c-ai-deep: #5b2bc7;
+  --c-ai-bg: #f7f3ff;
+
+  --bar-routine: rgba(153, 164, 180, 0.7);
+  --bar-bundle: rgba(81, 192, 255, 0.7);
+  --bar-discharge: rgba(254, 146, 57, 0.7);
+  --bar-procedure: rgba(16, 169, 87, 0.7);
+
+  --shadow1: 2px 4px 10px rgba(0, 0, 0, 0.05);   /* shadow1 */
+  --dim: rgba(0, 0, 0, 0.6);
+
+  --r-card: 12px;
+  --r-item: 8px;
+  --r-badge: 4px;
+  --pad-x: 16px;
+
+  /* runtime, set from JS */
+  --s: 1;
+  --safe-top: 0px;
+  --safe-bottom: 0px;
+}

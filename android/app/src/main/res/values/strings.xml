@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">neo POCS</string>
+    <string name="title_activity_main">neo POCS</string>
+    <string name="package_name">com.softbowl.neopocs.prototype</string>
+    <string name="custom_url_scheme">com.softbowl.neopocs.prototype</string>
+</resources>

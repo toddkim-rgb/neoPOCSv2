@@ -1,0 +1,189 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #f9faff;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font);
+  font-weight: 500;
+  color: var(--c-text);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+p,
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: inherit;
+}
+
+svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+img {
+  display: block;
+  -webkit-user-drag: none;
+}
+
+/* ---------- root / scaling ----------
+   Everything is laid out on a 412px-wide design canvas (#stage) that is scaled with
+   `zoom`, so any device shows the Figma proportions. --st / --sb are the system bar
+   insets converted to design px; on desktop they emulate the Figma status/gesture bars. */
+#root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #f9faff;
+}
+
+#viewport {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+}
+
+#stage {
+  position: relative;
+  width: 412px;
+  height: var(--stage-h, 892px);
+  zoom: var(--s);
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+#stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+}
+
+#root[data-bg='screen'] #stage::before {
+  background-image: url('../assets/img/bg-screen.png');
+  background-size: cover;
+  background-position: center;
+}
+
+/* 사용자설정 · 햄버거메뉴: flat light gray */
+#root[data-bg='gray'] #stage::before {
+  background: #f7f7f7;
+}
+
+/* 측정 계열 (활력징후): green background, generated from the SSol render (scripts/make_green_bg.py) */
+#root[data-bg='green'] #stage::before {
+  background-image: url('../assets/img/bg-green.png');
+  background-size: cover;
+  background-position: center;
+}
+
+#root[data-bg='splash'] #stage::before {
+  background-color: #c4cdfc;
+  background-image: url('../assets/img/bg-splash.png');
+  background-size: 412px 892px;
+  background-position: 0 calc(var(--st) - 52px);
+}
+
+/* ---------- desktop preview: the stage becomes a 412×892 phone frame ---------- */
+html.desktop #root {
+  background: #e7ebf3;
+}
+html.desktop #viewport {
+  align-items: center;
+}
+html.desktop #stage {
+  border-radius: 18px;
+  box-shadow: 0 24px 64px rgba(40, 60, 100, 0.22);
+  transform: scale(var(--desk-s, 1));
+}
+
+.fake-status,
+.fake-handle {
+  display: none;
+}
+html.desktop .fake-status {
+  position: absolute;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 52px;
+  padding: 0 24px 10px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  pointer-events: none;
+  font-family: Roboto, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.14px;
+  color: #1d1b20;
+}
+html.desktop .fake-status .icons {
+  position: relative;
+  width: 46px;
+  height: 17px;
+  margin-bottom: 0;
+}
+html.desktop .fake-status .icons img {
+  position: absolute;
+  top: 0;
+}
+html.desktop .fake-handle {
+  display: block;
+  position: absolute;
+  z-index: 50;
+  left: 152px;
+  bottom: 10px;
+  width: 108px;
+  height: 4px;
+  border-radius: 12px;
+  background: #1d1b20;
+  pointer-events: none;
+}
+html.shot .fake-status,
+html.shot .fake-handle {
+  visibility: hidden;
+}
+html.shot #stage {
+  border-radius: 0;
+  box-shadow: none;
+}

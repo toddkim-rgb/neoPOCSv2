@@ -1,6 +1,0 @@
-{
-  "name": "스마트 간호 PDA (CLMA)",
-  "description": "병원 간호 업무용 PDA 애플리케이션 - 5 Rights 투약, V/S 활력징후 측정(BLE/수동/음성), HAM 이중확인, 음성 구조화 기록, AI 워크리스트, DDI/알레르기 검증, SBAR 인계 요약",
-  "requestFramePermissions": ["camera", "microphone"],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

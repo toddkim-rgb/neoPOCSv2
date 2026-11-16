@@ -2,13 +2,36 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>스마트 간호 PDA (CLMA & V/S)</title>
-    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="theme-color" content="#F9FAFF" />
+    <title>neo POCS</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="stylesheet" href="/src/styles/fonts.css" />
+    <link rel="stylesheet" href="/src/styles/tokens.css" />
+    <link rel="stylesheet" href="/src/styles/base.css" />
+    <link rel="stylesheet" href="/src/styles/components.css" />
+    <link rel="stylesheet" href="/src/styles/screens.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div id="root" data-bg="splash">
+      <div id="viewport">
+        <div id="stage">
+          <div id="screens"></div>
+          <div id="sheet-layer"></div>
+          <div id="toast" role="status" aria-live="polite"></div>
+          <div class="fake-status" aria-hidden="true">
+            <span>9:30</span>
+            <span class="icons">
+              <img src="/src/assets/icons/status-wifi.svg" alt="" style="left: 0; width: 17px; height: 17px" />
+              <img src="/src/assets/icons/status-signal.svg" alt="" style="left: 16px; width: 17px; height: 17px" />
+              <img src="/src/assets/icons/status-battery.svg" alt="" style="left: 38px; top: 1px; width: 8px; height: 15px" />
+            </span>
+          </div>
+          <div class="fake-handle" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
   </body>
 </html>
-
