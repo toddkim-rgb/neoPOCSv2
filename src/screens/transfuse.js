@@ -8,14 +8,14 @@
 //   [긴급 종료] → 사유 선택 → 종료 시각·투여량 기록 → 수혈 중단 기록
 // The demo clock starts at the real time of 수혈 시작 and can run ×60 / ×600 so that a 2-hour unit can be shown.
 import { register, go, pop, replace, backTo, rerender } from '../router.js';
-import { header, button, badge, esc, toast, openSheet, closeSheet, openDialog, asset3d, statusBlock } from '../ui.js';
+import { header, button, badge, esc, toast, openSheet, closeSheet, openDialog, asset3d, statusBlock, patientLine } from '../ui.js';
 import { icon } from '../icons.js';
 import { patientTitle, NURSE, DEMO_DATE, bloodType } from '../data.js';
 import { PATIENTS } from '../patients.js';
 import { state, completeTask, trfUnits, trfNext, trfLeft } from '../state.js';
 import { confirmReset, openMedDialog, openScanSim, FAIL_SIM } from './med.js';
 import { flagOf } from './vitals.js';
-import { toWorkScan, prevLine, prevValues, stepValue, flagTag } from './work.js';
+import { toWorkScan, prevLine, prevValues, prevVital, stepValue, flagTag } from './work.js';
 import { voiceButton, openVoiceInput, flashVoiced } from '../vvoice.js';
 
 const MIN = 60000;
@@ -214,7 +214,7 @@ register('trfrun', {
   bg: 'screen',
   render: () => {
     const run = trfRun();
-    if (!run) return `${header({ title: patientTitle(), left: 'back' })}<div class="screen-body"></div>`;
+    if (!run) return `${header({ title: '수혈하기', left: 'back' })}<div class="screen-body"></div>`;
     const w = state.work.trf;
     const bag = run;
     const e = elapsed(run);
@@ -222,8 +222,9 @@ register('trfrun', {
     const started = run.phase === 'running' || run.phase === 'empty';
     const [status, tone] = STATUS[run.phase === 'running' && run.chk === 'due' ? 'due' : run.phase];
     return `
-      ${header({ title: patientTitle(), left: 'back', right: 'menu' })}
+      ${header({ title: '수혈하기', left: 'back', right: 'menu' })}
       <div class="screen-body scroll trf-run">
+        ${patientLine()}
         <section class="tr-card tr-head">
           <div class="tr-name"><span>${esc(bag.name)}</span><img class="warn" src="${asset3d('warning-red')}" alt="고위험">${badge(`${seqOf()}/${trfUnits().length} 단위`, 'count-grad')}</div>
           <p class="tr-sub">혈액번호 <b>${bag.unit || '스캔 대기'}</b><i></i><b class="abo">혈액형 : ${esc(bloodType(bag))}</b><i></i>${bag.volume}ml</p>
@@ -571,8 +572,9 @@ register('trfcheck', {
     const f = checkForm();
     const any = f.reactions.length > 0;
     return `
-      ${header({ title: patientTitle(), right: 'close' })}
+      ${header({ title: '수혈하기', right: 'close' })}
       <div class="screen-body scroll trf-check">
+        ${patientLine()}
         <div class="ham-hero">
           <img src="${asset3d('vital')}" alt="">
           <h2 class="status-title gtext">15분 중간 체크</h2>
@@ -596,7 +598,22 @@ register('trfcheck', {
   },
   mount(el) {
     el.querySelectorAll('.vval').forEach((input) => {
-      input.addEventListener('focus', () => input.select());
+      // 입력 칸을 누르면 직전 값이 채워지고 선택됨
+      input.addEventListener('focus', () => {
+        const k = input.dataset.k;
+        if (!input.value && prevVital(k)) {
+          checkForm().values[k] = prevVital(k).v;
+          refresh(el, k);
+        }
+        input.select();
+        input.dataset.focused = '1';
+      });
+      // the click that focused the cell must not undo the selection on mouseup
+      input.addEventListener('mouseup', (e) => {
+        if (!input.dataset.focused) return;
+        delete input.dataset.focused;
+        e.preventDefault();
+      });
       input.addEventListener('input', () => {
         input.value = input.value.replace(/[^0-9.]/g, '');
         checkForm().values[input.dataset.k] = input.value;
@@ -688,8 +705,9 @@ register('trfdone', {
     const stopped = !!w.result?.stopped;
     const ml = w.log.reduce((n, l) => n + l.ml, 0);
     return `
-      ${header({ title: patientTitle() })}
+      ${header({ title: '수혈하기' })}
       <div class="screen-body scroll trf-done${stopped ? ' stopped' : ''}">
+        ${patientLine()}
         <span class="spacer" style="flex-grow: 50"></span>
         ${statusBlock(
           stopped

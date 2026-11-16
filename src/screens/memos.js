@@ -93,7 +93,7 @@ register('vpatient', {
     const tab = state.memoTab;
     const list = state.memos.filter((m) => m.kind === tab);
     return `
-      ${header({ title: patientTitle(), left: 'back', right: 'menu' })}
+      ${header({ title: '음성간호메모', left: 'back', right: 'menu' })}
       <div class="screen-body scroll vpatient">
         ${patientCard({ prn: state.orders.some((o) => o.prn) })}
         <div class="sort-row memo-tabs" role="tablist">

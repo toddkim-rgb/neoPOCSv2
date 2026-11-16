@@ -11,7 +11,7 @@
 // Every flow works for the six sample patients: a wristband selects that patient, 채혈관/혈액 barcodes belong to one
 // patient (another patient's label is 불일치), and a patient without that order gets '수행할 오더 없음'.
 import { register, go, replace, backTo, rerender } from '../router.js';
-import { header, button, aiButton, statusBlock, patientCard, badge, esc, toast, openSheet, closeSheet, openDialog, asset3d } from '../ui.js';
+import { header, button, aiButton, statusBlock, patientCard, patientLine, badge, esc, toast, openSheet, closeSheet, openDialog, asset3d } from '../ui.js';
 import { icon } from '../icons.js';
 import { patientTitle, PATIENT, NURSE, DEMO_DATE, VITAL_STEP, bloodType } from '../data.js';
 import { PATIENTS, DEFAULT_PID, patientByCode } from '../patients.js';
@@ -201,7 +201,7 @@ function bloodTask() {
       : done < n
         ? button('다른 채혈관 바코드 스캔', 'scan-tube', { long: 'scan-sim-tube' })
         : button('채혈 확인', 'blood-confirm', { cta: true });
-  return `${header({ title: patientTitle(), left: 'back', right: 'menu' })}
+  return `${header({ title: KINDS.bld.title, left: 'back', right: 'menu' })}
     <div class="screen-body scroll task-w">
       <div class="task-top">${aiButton()}${patientCard({ prn: state.orders.some((o) => o.prn) })}</div>
       <div class="medlist wlist">
@@ -375,7 +375,7 @@ register('wtask', {
     if (kind === 'bld') return bloodTask();
     const w = state.work[kind];
     const { patient, drug } = w.scan;
-    const hdr = header({ title: patientTitle(), left: 'back', right: 'menu' });
+    const hdr = header({ title: KINDS[kind].title, left: 'back', right: 'menu' });
     const prn = state.orders.some((o) => o.prn);
     // blood bag first: the wristband is still missing
     if (drug && !patient) {
@@ -591,7 +591,7 @@ register('vital', {
     const v = state.work.vital;
     const values = vitalValues();
     return `
-      ${header({ title: patientTitle(), left: 'back', right: 'menu' })}
+      ${header({ title: KINDS.vital.title, left: 'back', right: 'menu' })}
       <div class="screen-body scroll task-w vital-body">
         <div class="task-top">${aiButton()}${patientCard({ prn: state.orders.some((o) => o.prn) })}</div>
         <section class="vcard">
@@ -607,7 +607,22 @@ register('vital', {
   },
   mount(el) {
     el.querySelectorAll('.vval').forEach((input) => {
-      input.addEventListener('focus', () => input.select());
+      // 입력 칸을 누르면 직전 값이 채워지고 선택됨 (바로 치면 바뀜)
+      input.addEventListener('focus', () => {
+        const k = input.dataset.k;
+        if (!input.value && prevVital(k)) {
+          vitalValues()[k] = prevVital(k).v;
+          refreshCell(k);
+        }
+        input.select();
+        input.dataset.focused = '1';
+      });
+      // the click that focused the cell must not undo the selection on mouseup
+      input.addEventListener('mouseup', (e) => {
+        if (!input.dataset.focused) return;
+        delete input.dataset.focused;
+        e.preventDefault();
+      });
       input.addEventListener('input', () => {
         input.value = input.value.replace(/[^0-9.]/g, '');
         vitalValues()[input.dataset.k] = input.value;
@@ -679,8 +694,9 @@ register('vital', {
 register('wdone', {
   bg: ({ kind }) => themeBg(kind),
   render: ({ kind }) => `
-    ${header({ title: patientTitle() })}
+    ${header({ title: KINDS[kind].title })}
     <div class="screen-body center-status">
+      ${patientLine()}
       <span class="spacer" style="flex-grow: 204"></span>
       ${statusBlock(
         kind === 'bld'

@@ -356,6 +356,69 @@ html.shot .screen {
   background: var(--c-surface);
   text-align: left;
 }
+/* 환자 이름 · 등록번호 (moved here from the header) */
+.pcard-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 4px;
+  padding: 0 4px 8px;
+  border-bottom: 1px solid var(--c-line);
+}
+.pn {
+  font-size: 17px;
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--c-text);
+}
+.pid {
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--c-slate);
+  font-variant-numeric: tabular-nums;
+}
+.pcard-go {
+  align-self: center;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  color: var(--c-gray);
+}
+/* screens without the patient box: one line */
+.pline {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--c-gray);
+  border-radius: var(--r-card);
+  background: var(--c-surface);
+  font-size: 12px;
+  line-height: 15px;
+  color: var(--c-slate);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ocr-review > .pline,
+.voice-review > .pline,
+.voice-rec > .pline {
+  margin-bottom: 16px;
+}
+.center-status > .pline {
+  margin-top: 12px;
+}
+.pline .pn {
+  font-size: 15px;
+  line-height: 18px;
+}
+.pline i {
+  align-self: center;
+  width: 1px;
+  height: 10px;
+  background: var(--c-line);
+}
 .pcard-row {
   display: flex;
   align-items: flex-end;

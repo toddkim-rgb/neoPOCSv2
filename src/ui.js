@@ -42,8 +42,17 @@ export const statusBlock = ({ img, title, desc }) => `
 // 주의사항: 감염 · 알러지 icons when the patient has any (planning: "1개라도 존재 시 아이콘 표기"),
 // plus a PRN icon (opens the PRN 안내 popup) when the patient has PRN orders.
 // `scanWarn`: the patient was matched from a prescription but their wristband is not scanned yet.
+// 환자 이름 · 등록번호 sit in the patient box, not the header (요청: the hub header shows the nurse, so a name up
+// there was confusing); the header shows the 업무명 instead.
+const patientName = () => `<span class="pn">${esc(PATIENT.name)}</span><span class="pid">${PATIENT.id}</span>`;
+
+/** Screens without the patient box: one line with 이름 · 등록번호 · 병상 · 상세정보. */
+export const patientLine = () => `
+  <div class="pline">${patientName()}<i></i><span>${PATIENT.bed}</span><i></i><span>${PATIENT.detail}</span></div>`;
+
 export const patientCard = ({ prn = false, scanWarn = false, act = 'patient-detail' } = {}) => `
   <div class="pcard${scanWarn ? ' warn' : ''}"${act ? ` data-act="${act}" role="button" aria-label="환자 상세 보기"` : ''}>
+    <div class="pcard-name">${patientName()}${act ? `<span class="pcard-go">${icon.chevronRight}</span>` : ''}</div>
     <div class="pcard-row"><span class="k">상세정보</span><span>${PATIENT.detail}</span></div>
     <div class="pcard-row"><span class="k">병상정보</span><span>${PATIENT.bed}</span></div>
     <div class="pcard-row"><span class="k">주진단명</span><span>${esc(PATIENT.dx)}</span></div>

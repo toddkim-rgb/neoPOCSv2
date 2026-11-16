@@ -2,7 +2,7 @@
 // Shows the selected patient (PATIENT); AI 음성간호메모 = memos saved in this session first, then the patient's EMR history.
 import { register, go, pop, rerender } from '../router.js';
 import { confirmReset } from './med.js';
-import { header, aiButton, badge, esc, medGroups } from '../ui.js';
+import { header, aiButton, badge, esc, medGroups, patientLine } from '../ui.js';
 import { icon, sparkles } from '../icons.js';
 import { patientTitle, PATIENT, NURSE } from '../data.js';
 import { state } from '../state.js';
@@ -81,8 +81,9 @@ register('detail', {
   render: () => {
     const ai = aiEntries();
     return `
-    ${header({ title: patientTitle(), left: 'back', right: 'menu' })}
+    ${header({ title: '환자 상세', left: 'back', right: 'menu' })}
     <div class="screen-body scroll detail">
+      ${patientLine()}
       ${aiButton()}
       ${infoCard('환자상세', [['상세정보', PATIENT.detail], ['병상정보', PATIENT.bed], ['체격정보', PATIENT.body]])}
       ${infoCard('진료상세', [['주진단명', PATIENT.dx], ['시술명', PATIENT.surgery], ['진료과', PATIENT.dept], ['담당의', PATIENT.doctor], ['입원일시', PATIENT.admitted]])}

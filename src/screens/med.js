@@ -6,7 +6,7 @@
 // wristband/prescription of two different patients is 환자/처방 불일치.
 import { register, go, replace, backTo, rerender } from '../router.js';
 import {
-  header, button, aiButton, statusBlock, patientCard, medList, badge, esc, toast, openSheet, closeSheet, openDialog, asset3d,
+  header, button, aiButton, statusBlock, patientCard, patientLine, medList, badge, esc, toast, openSheet, closeSheet, openDialog, asset3d,
 } from '../ui.js';
 import { icon } from '../icons.js';
 import { patientTitle, PATIENT, NURSE, NURSE2, TIME_SLOTS, STATUS_OPTIONS, HAM_CHECKS, TRF_CHECKS, bloodType } from '../data.js';
@@ -239,7 +239,7 @@ register('task', {
   bg: 'screen',
   render: () => {
     const { patient, drug } = state.scan;
-    const hdr = header({ title: patientTitle(), left: 'back', right: 'menu' });
+    const hdr = header({ title: '투약하기', left: 'back', right: 'menu' });
     if (!patient && !drug) {
       // a chosen patient: their 투약 list first, locked until the wristband is scanned
       return `${hdr}
@@ -547,7 +547,7 @@ register('ham', {
   render: ({ step, kind = 'med' }) => {
     const c = CHECK[kind];
     const ham = c.get() || c.set(newHamCheck(c.checks.length));
-    const hdr = header({ title: patientTitle(), right: 'close' });
+    const hdr = header({ title: kind === 'trf' ? '수혈하기' : '투약하기', right: 'close' });
     if (step === 'done') {
       return `${hdr}
         <div class="screen-body scroll ham-done">
@@ -633,8 +633,9 @@ function nudgeChecks() {
 register('done', {
   bg: 'screen',
   render: () => `
-    ${header({ title: patientTitle() })}
+    ${header({ title: '투약하기' })}
     <div class="screen-body center-status">
+      ${patientLine()}
       <span class="spacer" style="flex-grow: 204"></span>
       ${statusBlock({ img: 'check-blue', title: '수행 완료', desc: '환자 및 처방 바코드 교차 검증 후\nEMR 시스템에 실시간 전송되었습니다.' })}
       <span class="spacer" style="flex-grow: 263"></span>

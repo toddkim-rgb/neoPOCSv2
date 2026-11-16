@@ -7,13 +7,13 @@
 // Not in the Figma file: built from the existing components (header, cards, badges, vitals cells, sheets).
 import { Capacitor } from '@capacitor/core';
 import { register, go, replace, pop, rerender } from '../router.js';
-import { header, button, statusBlock, badge, esc, toast, openSheet, closeSheet } from '../ui.js';
+import { header, button, statusBlock, badge, esc, toast, openSheet, closeSheet, patientLine } from '../ui.js';
 import { icon } from '../icons.js';
 import { PATIENT, NURSE, patientTitle } from '../data.js';
 import { state, completeTask, selectPatient } from '../state.js';
 import { askPatient } from '../patientscan.js';
 import { voiceButton, openVoiceInput, flashVoiced } from '../vvoice.js';
-import { prevLine, prevValues } from './work.js';
+import { prevLine, prevValues, prevVital } from './work.js';
 import sceneUrl from '../assets/img/icu-bedside.jpg';
 import screenUrl from '../assets/img/monitor-screen.jpg';
 
@@ -749,8 +749,9 @@ register('vreview', {
     const pending = OCR_FIELDS.filter((f) => needsCheck(f, o)).length;
     const attach = cap.mode === 'attach';
     return `
-      ${header({ title: patientTitle(), left: 'back', right: 'close' })}
+      ${header({ title: '활력징후', left: 'back', right: 'close' })}
       <div class="screen-body scroll ocr-review">
+        ${patientLine()}
         ${o.manual ? `
         <h2 class="vr-title gtext">활력징후 직접 입력</h2>
         <p class="vr-desc">${attach ? '첨부한' : '촬영한'} 이미지에서 측정값을 인식하지 못했습니다.<br>환자 모니터를 보고 측정값을 직접 입력해 주세요.</p>` : `
@@ -780,7 +781,26 @@ register('vreview', {
   },
   mount(el) {
     el.querySelectorAll('.vf-in').forEach((input) => {
-      input.addEventListener('focus', () => input.select());
+      // an empty field (미인식 · 직접 입력): tapping it fills the previous value, selected
+      input.addEventListener('focus', () => {
+        const k = input.dataset.k;
+        const p = prevVital(k);
+        if (!input.value && p) {
+          const f = OCR_FIELDS.find((x) => x.k === k);
+          state.vocr.values[k] = p.v;
+          state.vocr.edited[k] = p.v !== readOf(f, state.vocr);
+          input.value = p.v;
+          input.className = `vf-in ${flagOf(k, p.v) || ''}`;
+        }
+        input.select();
+        input.dataset.focused = '1';
+      });
+      // the click that focused the cell must not undo the selection on mouseup
+      input.addEventListener('mouseup', (e) => {
+        if (!input.dataset.focused) return;
+        delete input.dataset.focused;
+        e.preventDefault();
+      });
       input.addEventListener('input', () => {
         input.value = input.value.replace(/[^0-9.]/g, '');
         const k = input.dataset.k;
@@ -908,8 +928,9 @@ function openConfirm() {
 register('vdone', {
   bg: 'screen',
   render: () => `
-    ${header({ title: patientTitle() })}
+    ${header({ title: '활력징후' })}
     <div class="screen-body center-status">
+      ${patientLine()}
       <span class="spacer" style="flex-grow: 186"></span>
       ${statusBlock({ img: 'check-blue', title: '활력징후 전송 완료', desc: '확인한 측정값이 EMR 임상관찰기록에\n실시간 전송되었습니다.' })}
       <span class="spacer" style="flex-grow: 241"></span>

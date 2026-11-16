@@ -423,6 +423,12 @@ try {
   if (firstCells) throw new Error(`활력징후 cells should start empty: ${firstCells}`);
   const prevSbp = await page.$eval('.vt-cell[data-k="SBP"] .vt-prev', (e) => e.textContent);
   if (prevSbp !== '이전 118 · 15:30') throw new Error(`previous SBP: ${prevSbp}`);
+  if ((await page.$eval('.hdr-title', (e) => e.textContent)) !== '활력징후') throw new Error('활력징후 header should be the 업무명');
+  // tapping an empty cell fills the previous value (selected, so typing replaces it)
+  await page.click('.vval[data-k="DBP"]');
+  await sleep(150);
+  const dbpFilled = await page.$eval('.vval[data-k="DBP"]', (e) => [e.value, e.selectionStart, e.selectionEnd].join(','));
+  if (dbpFilled !== '76,0,2') throw new Error(`tap should fill the previous DBP, selected: ${dbpFilled}`);
   if (!(await page.$('.vt-cell[data-k="PR"] .vt-prev b.danger'))) throw new Error('a previous 경고 value should be red');
   await tap('[data-act="vstep"][data-k="SBP"][data-d="1"]', 'vital-sbp-plus'); // from the previous 118
   const sbp = await page.$eval('.vval[data-k="SBP"]', (e) => e.value);
@@ -539,7 +545,18 @@ try {
 
   // ---------- 샘플 환자별 업무 ----------
   const title = () => page.$eval('.hdr-title', (e) => e.textContent.trim());
+  // the patient's 이름(등록번호) is in the patient box / strip, the header shows the 업무명
+  const shownPatient = () =>
+    page.evaluate(() => {
+      const n = document.querySelector('#screens .screen .pn');
+      return n ? `${n.textContent}(${n.parentElement.querySelector('.pid').textContent})` : '';
+    });
   const expectTitle = async (t) => {
+    if (/\(\d{8}\)$/.test(t)) {
+      if ((await shownPatient()) !== t) throw new Error(`expected patient ${t}, got ${await shownPatient()}`);
+      if (/\(\d{8}\)/.test(await title())) throw new Error(`the header should show the 업무명, not ${await title()}`);
+      return;
+    }
     if ((await title()) !== t) throw new Error(`expected header ${t}, got ${await title()}`);
   };
   const urgentHead = () => page.$eval('.tab-urgent .hub-headline', (e) => e.textContent.replace(/\s+/g, ' '));

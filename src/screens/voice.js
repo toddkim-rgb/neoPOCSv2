@@ -4,7 +4,7 @@
 // 음성메모 from the AI 커맨드바 (+) starts without a patient (`free`): record → 환자 팔찌 스캔 → review → save.
 // The 녹음 input's + opens the same menu as the AI 커맨드바 (음성메모 · 사진 촬영 · 스캔 · 사진첨부); leaving drops the recording.
 import { register, go, replace, pop, rerender } from '../router.js';
-import { header, button, statusBlock, esc, toast, openDialog, closeSheet } from '../ui.js';
+import { header, button, statusBlock, esc, toast, openDialog, closeSheet, patientLine } from '../ui.js';
 import { icon, sparkles } from '../icons.js';
 import { patientTitle, PATIENT, NURSE, DEMO_DATE } from '../data.js';
 
@@ -81,8 +81,9 @@ register('voice', {
   render: ({ step, shown, free }) => {
     if (step === 'done') {
       return `
-        ${header({ title: patientTitle() })}
+        ${header({ title: '음성간호메모' })}
         <div class="screen-body center-status">
+          ${patientLine()}
           <span class="spacer" style="flex-grow: 186"></span>
           ${statusBlock({ img: 'check-blue', title: 'AI 음성간호메모 완료', desc: '음성간호메모가 EMR에 정상적으로 저장되었습니다.\n환자상세정보에서 조회가 가능합니다.' })}
           <span class="spacer" style="flex-grow: 241"></span>
@@ -103,8 +104,9 @@ register('voice', {
         )
         .join('');
       return `
-        ${header({ title: patientTitle(), right: 'close' })}
+        ${header({ title: '음성간호메모', right: 'close' })}
         <div class="screen-body scroll voice-review">
+          ${patientLine()}
           <h2 class="vr-title gtext">음성간호메모</h2>
           <p class="vr-desc">대화 요약 내용을 확인하고 수정합니다.<br>음성간호메모는 환자 상세에서 확인 가능합니다.</p>
           <div class="ai-card vr-card">
@@ -126,8 +128,9 @@ register('voice', {
     const lines = talk(free).slice(0, shown ?? talk(free).length);
     const notes = state.voice.notes;
     return `
-      ${header({ title: free ? '음성메모' : patientTitle(), right: 'close' })}
+      ${header({ title: free ? '음성메모' : '음성간호메모', right: 'close' })}
       <div class="screen-body scroll voice-rec">
+        ${free ? '' : patientLine()}
         <div class="transcript">
           ${lines.map((l) => `<div class="tl"><p class="tl-who">${esc(l.who)} ${l.time}</p><p class="tl-text">${esc(l.text)}</p></div>`).join('')}
           ${notes.map((n) => `<div class="tl note"><p class="tl-who">${esc(NURSE.label)} · 수기 기록</p><p class="tl-text">${esc(n)}</p></div>`).join('')}
