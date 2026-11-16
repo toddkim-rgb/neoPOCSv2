@@ -10,7 +10,7 @@ import { register, go, replace, pop, rerender } from '../router.js';
 import { header, button, statusBlock, badge, esc, toast, openSheet, closeSheet, patientLine } from '../ui.js';
 import { icon } from '../icons.js';
 import { PATIENT, NURSE, patientTitle } from '../data.js';
-import { state, completeTask, selectPatient } from '../state.js';
+import { state, completeTask, selectPatient, recordVitals } from '../state.js';
 import { askPatient } from '../patientscan.js';
 import { voiceButton, openVoiceInput, flashVoiced } from '../vvoice.js';
 import { prevLine, prevValues, prevVital } from './work.js';
@@ -906,7 +906,7 @@ function openConfirm() {
       send: () => {
         closeSheet();
         // the detail screen's 임상관찰기록 now shows these values
-        state.vitals = {
+        recordVitals({
           time: MEASURED.time,
           who: NURSE.label,
           items: OCR_FIELDS.map((f) => ({
@@ -916,7 +916,7 @@ function openConfirm() {
             at: `${MEASURED.date.slice(5).replace('-', '/')} ${MEASURED.time}`,
             flag: flagOf(f.k, o.values[f.k]),
           })),
-        };
+        });
         completeTask('vital', MEASURED.time);
         replace('vdone', {}, 'fade');
       },

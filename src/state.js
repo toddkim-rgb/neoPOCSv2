@@ -1,4 +1,4 @@
-import { PATIENT, HAM_CHECKS, NURSE, MENU_GROUPS, DEFAULT_QUICK } from './data.js';
+import { PATIENT, HAM_CHECKS, NURSE, NURSE2, MENU_GROUPS, DEFAULT_QUICK } from './data.js';
 import { PATIENTS, DEFAULT_PID, URGENT, patientById, profileOf } from './patients.js';
 
 /** 사용자설정 defaults (design: 투약·수혈 알림 on 30분, 퀵메뉴 투약/채혈/활력/산모아기, 2차인증 on, 자동 로그아웃 30분). */
@@ -26,11 +26,43 @@ function newWork(p) {
   };
 }
 
+/* 임상관찰기록 이전 측정 (환자 상세 '상세보기'): demo records before the patient's latest one, a little different each time */
+const HIST_HOURS = [4, 8, 12, 20];
+const HIST_DELTA = { SBP: [4, -3, 6, -2], DBP: [2, -1, 3, 0], PR: [-5, 3, -8, 2], RR: [0, 2, -2, 1], BT: [-0.3, 0.2, -0.5, 0.1], SpO2: [1, -1, 0, 1] };
+const pad2 = (n) => String(n).padStart(2, '0');
+function vitalHistory(v) {
+  const [md, hm] = (v.items[0]?.at || `09/17 ${v.time}`).split(' ');
+  const [mo, d] = md.split('/').map(Number);
+  const [h, mi] = hm.split(':').map(Number);
+  const base = new Date(2026, mo - 1, d, h, mi).getTime();
+  return HIST_HOURS.map((hrs, n) => {
+    const t = new Date(base - hrs * 3600e3);
+    const values = Object.fromEntries(
+      v.items.map((i) => {
+        const x = parseFloat(i.v) + (HIST_DELTA[i.k]?.[n] || 0);
+        return [i.k, i.k === 'BT' ? x.toFixed(1) : String(Math.round(i.k === 'SpO2' ? Math.min(100, x) : x))];
+      }),
+    );
+    return { at: `${pad2(t.getMonth() + 1)}/${pad2(t.getDate())} ${pad2(t.getHours())}:${pad2(t.getMinutes())}`, who: n % 2 ? NURSE2.label : NURSE.label, values };
+  });
+}
+
+/** One 임상관찰기록 record as a row: { at: 'MM/DD HH:MM', who, values: { SBP: '118', … } }. */
+export const vitalRow = (v) => ({ at: v.items[0]?.at || v.time, who: v.who, values: Object.fromEntries(v.items.map((i) => [i.k, i.v])) });
+
+/** A new measurement becomes the latest 임상관찰기록; the previous latest moves to the history (newest first). */
+export function recordVitals(rec) {
+  const s = state.pt[state.pid];
+  s.vhist.unshift(vitalRow(s.vitals));
+  s.vitals = rec;
+}
+
 function newPatientState(p) {
   return {
     orders: p.orders(),
     work: newWork(p),
     vitals: { time: p.vitals.time, who: p.vitals.who, items: p.vitals.items.map((v) => ({ ...v })) },
+    vhist: vitalHistory(p.vitals), // 이전 측정 (newest first)
     memos: p.memos(),
     last: { ...p.my }, // MY환자 칩: 마지막 처리 업무
     done: {}, // menu → 완료 시각: that task is finished today (긴급 처리 업무 해소 · 업무 선택 시트 '완료')
@@ -54,6 +86,7 @@ export const state = {
   settings: defaultSettings(), // 사용자설정 — kept across logins, cleared by 로그아웃
   room: null, // 주사실 설정
   memoTab: 'perform', // 수행별 | 병상 라운딩
+  vhistOpen: false, // 환자 상세 · 임상관찰기록 '상세보기'
 };
 
 // orders · work (채혈·수혈·활력징후) · vitals (임상관찰기록) · memos always belong to the selected patient
@@ -211,6 +244,7 @@ export function resetDemo() {
   state.scriptOpen = { review: false, detail: [true, false] };
   state.vocr = null;
   state.memoTab = 'perform';
+  state.vhistOpen = false;
   selectPatient(DEFAULT_PID, { force: true });
 }
 

@@ -470,6 +470,15 @@ try {
   if (!saved.includes('37.9')) throw new Error('saved BT not shown on the detail screen');
   const savedAt = await page.$eval('.dcard.vitals .dcard-meta', (e) => e.textContent);
   if (!savedAt.includes(picked)) throw new Error(`saved 측정 시간: ${savedAt} (picked ${picked})`);
+  // 상세보기: every measurement, newest first — the new one (최종) above the record it replaced
+  await tap('[data-act="vitals-more"]', 'vital-history');
+  const vh = await page.$$eval('.vhist .vh-row:not(.vh-head)', (els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
+  console.log('임상관찰기록 상세보기:', vh.slice(0, 3));
+  if (vh.length !== 6 || !vh[0].includes(picked) || !vh[0].includes('최종') || !vh[0].includes('37.9') || !vh[1].startsWith('09/04 15:30')) {
+    throw new Error(`vitals history: ${JSON.stringify(vh)}`);
+  }
+  await tap('[data-act="vitals-more"]', 'vital-history-close');
+  if (!(await page.$('.dcard.vitals .vgrid'))) throw new Error('접기 should show the latest record again');
 
   // ---------- 사용자설정: alarms and quick menu change the hub ----------
   await tap('[data-act="hdr-menu"]', 'detail-menu');

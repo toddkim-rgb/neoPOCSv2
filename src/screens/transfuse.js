@@ -12,7 +12,7 @@ import { header, button, badge, esc, toast, openSheet, closeSheet, openDialog, a
 import { icon } from '../icons.js';
 import { patientTitle, NURSE, DEMO_DATE, bloodType } from '../data.js';
 import { PATIENTS } from '../patients.js';
-import { state, completeTask, trfUnits, trfNext, trfLeft } from '../state.js';
+import { state, completeTask, trfUnits, trfNext, trfLeft, recordVitals } from '../state.js';
 import { confirmReset, openMedDialog, openScanSim, FAIL_SIM } from './med.js';
 import { flagOf } from './vitals.js';
 import { toWorkScan, prevLine, prevValues, prevVital, stepValue, flagTag } from './work.js';
@@ -690,11 +690,11 @@ function refresh(el, k) {
 
 /** The check's vitals go to the 임상관찰기록 (환자상세). */
 function saveVitals(f, at) {
-  state.vitals = {
+  recordVitals({
     time: at,
     who: NURSE.label,
     items: state.vitals.items.map((i) => ({ ...i, v: f.values[i.k], at: `${DEMO_DATE.slice(5).replace('-', '/')} ${at}`, flag: flagOf(i.k, f.values[i.k]) })),
-  };
+  });
 }
 
 /* ---------------- 수혈 완료 · 중단 기록 ---------------- */

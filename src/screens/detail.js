@@ -5,7 +5,8 @@ import { confirmReset } from './med.js';
 import { header, aiButton, badge, esc, medGroups, patientLine } from '../ui.js';
 import { icon, sparkles } from '../icons.js';
 import { patientTitle, PATIENT, NURSE } from '../data.js';
-import { state } from '../state.js';
+import { state, vitalRow } from '../state.js';
+import { flagOf } from './vitals.js';
 import { scriptBubbles } from './voice.js';
 
 const infoCard = (title, rows) => `
@@ -14,12 +15,40 @@ const infoCard = (title, rows) => `
     ${rows.map(([k, v]) => `<div class="drow"><span class="k">${k}</span><span>${esc(v)}</span></div>`).join('')}
   </section>`;
 
-const vitalCell = (v) => `
+// one measurement = one time: it is shown once in the card head, so the cells are shorter (same fonts).
+// A cell keeps its own time only if it differs from the rest.
+const vitalCell = (v, head) => `
   <div class="vcell">
     <div class="vcell-top"><span class="vk">${v.k}</span>${v.flag ? `<span class="vflag ${v.flag}">${v.flag === 'danger' ? '경고' : '주의'}</span>` : ''}</div>
     <div class="vcell-mid"><span class="vv ${v.flag || ''}">${v.v}</span><span class="vu">${v.unit}</span></div>
-    <p class="vat">${v.at}</p>
+    ${v.at && v.at !== head ? `<p class="vat">${v.at}</p>` : ''}
   </div>`;
+/** 측정 일시 (MM/DD HH:MM) of the latest record. */
+const measuredAt = () => state.vitals.items[0]?.at || state.vitals.time;
+
+/* 임상관찰기록 상세보기: every measurement, newest first — MM/DD HH:MM + the six values (주의 · 경고 coloured) */
+const VH_KEYS = [
+  ['SBP', 'mmHg'],
+  ['DBP', 'mmHg'],
+  ['PR', '회/min'],
+  ['RR', '회/min'],
+  ['BT', '°C'],
+  ['SpO2', '%'],
+];
+function vitalHistoryTable() {
+  const rows = [vitalRow(state.vitals), ...state.pt[state.pid].vhist];
+  const cell = (k, v) => `<span class="vh-v ${flagOf(k, v) || ''}">${esc(v ?? '-')}</span>`;
+  return `
+    <div class="vhist" role="table" aria-label="임상관찰기록 이전 측정">
+      <div class="vh-row vh-head" role="row"><span class="vh-at">측정 일시</span>${VH_KEYS.map(([k, u]) => `<span>${k}<small>${u}</small></span>`).join('')}</div>
+      ${rows
+        .map(
+          (r, i) =>
+            `<div class="vh-row${i === 0 ? ' latest' : ''}" role="row"><span class="vh-at">${r.at}${i === 0 ? '<em>최종</em>' : ''}</span>${VH_KEYS.map(([k]) => cell(k, r.values[k])).join('')}</div>`,
+        )
+        .join('')}
+    </div>`;
+}
 
 const aiEntry = (e, i) => {
   const open = state.scriptOpen.detail[i];
@@ -96,8 +125,11 @@ register('detail', {
         <div class="pills">${pills(PATIENT.infections)}</div>
       </section>
       <section class="dcard vitals">
-        <div class="dcard-head"><h3 class="dcard-title">임상관찰기록</h3><span class="dcard-meta">${state.vitals.who} (${state.vitals.time})</span></div>
-        <div class="vgrid">${state.vitals.items.map(vitalCell).join('')}</div>
+        <div class="dcard-head"><h3 class="dcard-title">임상관찰기록</h3><span class="dcard-meta vmeta">${icon.alarmOutline}<b>${measuredAt()}</b><i></i>${state.vitals.who}</span></div>
+        ${state.vhistOpen ? vitalHistoryTable() : `<div class="vgrid">${state.vitals.items.map((v) => vitalCell(v, measuredAt())).join('')}</div>`}
+        <button class="vhist-toggle" data-act="vitals-more" aria-expanded="${state.vhistOpen}">${
+          state.vhistOpen ? '최종 측정만 보기' : `상세보기 · 이전 측정 ${state.pt[state.pid].vhist.length}건`
+        }<span class="chev">${state.vhistOpen ? icon.arrowUp : icon.arrowDown}</span></button>
       </section>
       <section class="dcard ai-records">
         <div class="dcard-head"><h3 class="ai-label"><span class="ai-spark">${sparkles('dt-spark', '#B07CFF', '#5B2BC7')}</span>AI 음성간호메모</h3><span class="ai-count">총 ${ai.count}건</span></div>
@@ -112,6 +144,11 @@ register('detail', {
     voice: () => {
       state.voice.origin = 'detail';
       go('voice', { step: 'record' });
+    },
+    // 임상관찰기록: 기본 = 최종 측정 · 상세보기 = 이전 측정까지 (MM/DD HH:MM + VS)
+    'vitals-more': () => {
+      state.vhistOpen = !state.vhistOpen;
+      rerender();
     },
     toggle: (t) => {
       const i = +t.dataset.i;

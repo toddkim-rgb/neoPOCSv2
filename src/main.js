@@ -188,6 +188,7 @@ function startShot(name) {
   }
   if (p.done && state.work[p.kind]) state.work[p.kind].ham = { ...newHamCheck(), done: true };
   if (p.open) state.scriptOpen.detail = [true, false];
+  if (p.vhist) state.vhistOpen = true; // 환자 상세 · 임상관찰기록 상세보기
   // common-voice-02 'Stroke Active': script open, summary and script edited
   if (p.script === '1') {
     Object.assign(state.voice, { sumActive: true, scriptEdited: true });

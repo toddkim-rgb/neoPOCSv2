@@ -15,7 +15,7 @@ import { header, button, aiButton, statusBlock, patientCard, patientLine, badge,
 import { icon } from '../icons.js';
 import { patientTitle, PATIENT, NURSE, DEMO_DATE, VITAL_STEP, bloodType } from '../data.js';
 import { PATIENTS, DEFAULT_PID, patientByCode } from '../patients.js';
-import { state, resetWork, selectPatient, completeTask, taskStatus, trfUnits, unitStatus, trfNext, trfLeft } from '../state.js';
+import { state, resetWork, selectPatient, completeTask, taskStatus, trfUnits, unitStatus, trfNext, trfLeft, recordVitals } from '../state.js';
 import { openMedDialog, confirmReset, startCheck, openNoOrders, openScanSim, patientSims, FAIL_SIM } from './med.js';
 import { flagOf } from './vitals.js';
 import { voiceButton, openVoiceInput, flashVoiced } from '../vvoice.js';
@@ -669,8 +669,8 @@ register('vital', {
       const values = vitalValues();
       const empty = state.vitals.items.filter((i) => !String(values[i.k]).trim());
       if (empty.length) return toast(`${empty.map((i) => i.k).join(', ')} 값을 입력해 주세요.`);
-      // the detail screen's 임상관찰기록 now shows these values
-      state.vitals = {
+      // the detail screen's 임상관찰기록 now shows these values (the previous record moves to its history)
+      recordVitals({
         time: v.time,
         who: NURSE.label,
         items: state.vitals.items.map((i) => ({
@@ -679,7 +679,7 @@ register('vital', {
           at: `${DEMO_DATE.slice(5).replace('-', '/')} ${v.time}`,
           flag: flagOf(i.k, values[i.k]),
         })),
-      };
+      });
       completeTask('vital', v.time);
       go('wdone', { kind: 'vital' });
     },
