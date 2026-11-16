@@ -17,6 +17,8 @@ const meta = (m) => `<span class="meta">${esc(m[0])}<i class="sep">|</i>${esc(m[
 const chip = (text, tone) => `<span class="gchip ${tone}"><span>${esc(text)}</span></span>`;
 
 /* ---------------- 환자허브: 긴급처리업무 + 퀵메뉴 ---------------- */
+const UC_TASK = { med: '투약', bld: '채혈', vital: 'V/S', trf: '수혈' }; // 업무명 under the card icon
+
 function urgentTab() {
   const items = urgentItems();
   const quick = state.settings.quick.map((k) => MENU_ITEM[k]).filter(Boolean);
@@ -31,7 +33,7 @@ function urgentTab() {
           const p = patientById(u.pid);
           return `
         <button class="ucard" data-act="urgent" data-go="${u.menu}" data-pid="${p.id}">
-          <img class="ucard-ico" src="${asset3d(u.icon)}" alt="">
+          <span class="ucard-task"><img class="ucard-ico" src="${asset3d(u.icon)}" alt=""><span class="ucard-tname">${UC_TASK[u.menu]}</span></span>
           <span class="ucard-body">
             <span class="ucard-name">${esc(fullName(p))}</span>
             ${meta([p.bed, p.detail])}

@@ -84,18 +84,36 @@ function nowRow(o, interactive) {
   return `<div class="trow now"><span class="l"><span class="alarm-pill${off ? ' off' : ''}"${timeAct}>${icon.alarmFill}<span>${o.now.time} </span></span>${statusTag(o.now.st, { off, act: tagAct, id: o.id })}</span><span class="who">${esc(o.now.who)}</span></div>`;
 }
 
+// 이번 투약에서 제외된 약: the dose row shows the reason code and 되돌리기
+const exclRow = (o, interactive) =>
+  `<div class="trow excl-row"><span class="l"><span class="alarm-pill off">${icon.alarmFill}<span>${o.now.time} </span></span>${statusTag(o.excl.code)}<span class="excl-why">${esc(o.excl.label)}</span></span>${
+    interactive ? `<button class="excl-undo" data-act="excl-undo" data-id="${o.id}">되돌리기</button>` : ''
+  }</div>`;
+
+/** A dose of this round that can be taken out of it: swipe left (or long-press) → 삭제 · 취소 (swipe.js). */
+export const canExclude = (o) => !!o.now && !o.prn && !o.excl;
+
 function medCard(o, { interactive = false, future = false } = {}) {
   const tags = o.tags.map((t) => badge(t.t, t.kind || '')).join('');
   const warn = o.ham ? `<img class="warn" src="${asset3d('warning-red')}" alt="고위험">` : '';
   const count = o.count ? `${o.count[0]}/${o.count[1]}회` : 'PRN';
   let rows = o.hist.map(timeRow).join('');
-  if (o.now) rows += nowRow(o, interactive);
+  if (o.now && o.excl) rows += exclRow(o, interactive);
+  else if (o.now) rows += nowRow(o, interactive);
   else if (future) rows += `<div class="trow future"><span class="l"><span class="dot"></span><span class="t">17:00 </span>${statusTag('Y', { off: true })}</span><span class="who"></span></div>`;
-  return `
-    <div class="med-card${o.ham ? ' alert' : ''}">
+  const card = `
+    <div class="med-card${o.ham ? ' alert' : ''}${o.excl ? ' excluded' : ''}">
       <div class="med-top"><span class="l">${badge(o.type)}${tags}${warn}</span>${badge(count)}</div>
       <div><p class="med-name">${esc(o.name)}</p><p class="med-date">${esc(o.date)}</p></div>
       <div class="med-rows">${rows}</div>
+    </div>`;
+  if (!interactive) return card;
+  // the 투약 list (both scans done): every card sits in a swipe row, only this round's doses can be swiped
+  if (!canExclude(o)) return `<div class="mswipe fixed">${card}</div>`;
+  return `
+    <div class="mswipe" data-id="${o.id}">
+      <div class="mswipe-acts"><button class="mswipe-btn del" data-act="excl" data-id="${o.id}">삭제</button><button class="mswipe-btn cancel" data-act="swipe-close">취소</button></div>
+      ${card}
     </div>`;
 }
 
@@ -110,15 +128,23 @@ export function medGroups(orders) {
 }
 
 export function medList({ interactive = false, title = '약물 투약하기', chips = true, orders = state.orders } = {}) {
-  const groups = medGroups(orders)
-    .map(
-      (g) => `
+  const groupsOf = (list) =>
+    medGroups(list)
+      .map(
+        (g) => `
       <div class="med">
         <span class="med-bar" style="background: var(--bar-${g.bar})"></span>
         <div class="med-cards">${g.items.map((o) => medCard(o, { interactive })).join('')}</div>
       </div>`,
-    )
-    .join('');
+      )
+      .join('');
+  // 이번 투약에서 제외된 약 go to the bottom of the list (흐리게, 사유 · 되돌리기)
+  const active = orders.filter((o) => !o.excl);
+  const excluded = orders.filter((o) => o.excl);
+  const groups = active.length ? groupsOf(active) : '<p class="meds-empty">이번에 투약할 약이 없습니다.</p>';
+  const exclHtml = excluded.length
+    ? `<div class="excl-head"><span>이번 투약에서 제외</span>${badge(`${excluded.length}건`)}</div><div class="meds excl">${groupsOf(excluded)}</div>`
+    : '';
   const plan = state.planMode === 'plan';
   const chipHtml = chips
     ? `<span class="chips">
@@ -130,9 +156,10 @@ export function medList({ interactive = false, title = '약물 투약하기', ch
     <div class="medlist">
       <div class="medlist-head">
         <span class="l"><span class="medlist-title gtext">${esc(title)}</span>${chipHtml}</span>
-        ${badge(`총 ${orders.length}건`, 'count-grad')}
+        ${badge(`총 ${active.length}건`, 'count-grad')}
       </div>
       <div class="meds">${groups}</div>
+      ${exclHtml}
     </div>`;
 }
 

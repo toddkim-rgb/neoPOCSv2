@@ -60,6 +60,42 @@ async function expectDialog(title) {
   const d = await dialog();
   if (d !== title) throw new Error(`expected popup "${title}", got "${d}"`);
 }
+// 활력징후 음성 입력: the demo sentence (headless Chrome has no microphone) → 입력하기
+async function voiceDemo(label) {
+  await tap('[data-act="vvoice"]', `${label}-voice`);
+  await page.waitForSelector('.sheet.vv [data-sheet-act="demo"]', { visible: true });
+  await page.click('.sheet.vv [data-sheet-act="demo"]');
+  await waitFor(() => document.querySelector('.sheet.vv [data-sheet-act="apply"]')?.disabled === false, `${label} voice result`, 8000);
+  const heard = await page.$eval('.sheet.vv .vv-text', (e) => e.textContent);
+  await page.click('.sheet.vv [data-sheet-act="apply"]');
+  await sleep(450);
+  return heard;
+}
+// 수혈 목록: each 혈액번호 with its state, and the footer buttons
+const unitsNow = () => page.$$eval('.unit', (els) => els.map((e) => `${e.querySelector('.no').textContent}:${e.className.replace('unit ', '')}`).join(' '));
+const footBtns = () => page.$$eval('.sticky-foot .btn', (els) => els.map((e) => e.textContent).join('|'));
+// 투약 리스트: drag a card to the left / hold it (swipe.js)
+async function swipeLeft(sel) {
+  await page.$eval(sel, (e) => e.scrollIntoView({ block: 'center' }));
+  await sleep(80);
+  const b = await (await page.$(sel)).boundingBox();
+  const y = b.y + b.height / 2;
+  await page.mouse.move(b.x + b.width - 30, y);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) await page.mouse.move(b.x + b.width - 30 - i * 22, y), await sleep(16);
+  await page.mouse.up();
+  await sleep(350);
+}
+async function longPress(sel) {
+  await page.$eval(sel, (e) => e.scrollIntoView({ block: 'center' }));
+  await sleep(80);
+  const b = await (await page.$(sel)).boundingBox();
+  await page.mouse.move(b.x + b.width / 2, b.y + 20);
+  await page.mouse.down();
+  await sleep(750);
+  await page.mouse.up();
+  await sleep(300);
+}
 async function scanWedge(code) {
   await page.keyboard.type(code, { delay: 5 });
   await page.keyboard.press('Enter');
@@ -128,6 +164,13 @@ try {
   const heard = await page.$eval('.ai-input', (e) => e.value);
   if (!heard) throw new Error('voice simulation left the field empty');
   await tap('[data-act="ai-go"]', 'voice-command');
+  // "김철수 환자 투약하기" names the patient → their 투약 list first, locked until the wristband
+  await expect('task');
+  if (!(await page.$('.task-lock'))) throw new Error('a named patient should open the locked 투약 list');
+  await tap('[data-act="hdr-back"]', 'voice-command-leave');
+  await tap('.dlg [data-sheet-act="ok"]', 'voice-command-leave-ok');
+  await expect('hub');
+  await command('투약'); // no patient → 바코드 스캔 first
   await expect('scan');
 
   // 바코드 스캔 → 뒤로가기 asks before leaving
@@ -138,17 +181,19 @@ try {
   await scanWedge('#FAIL');
   await expectDialog('바코드 인식 불가');
   await tap('.dlg [data-sheet-act="ok"]', 'fail-ok');
-  await tap('[data-act="scan"]', 'task-patient');
+  // the wristband alone activates the 투약 list (no 처방 바코드 step): 고위험약물 → 1차 인증 opens at once
+  await tap('[data-act="scan"]', 'ham-first');
+  await expect('ham');
+  await tap('[data-act="hdr-close"]', 'ham-close-first');
   await expect('task');
+  if (!(await page.$('.task-b'))) throw new Error('the wristband should open the active 투약 list');
   await scanWedge('D9999');
   await expectDialog('환자/처방 불일치');
   await tap('.dlg [data-sheet-act="ok"]', 'mismatch-ok');
   await tap('[data-act="prn-info"]', 'prn-popup');
   await expectDialog('PRN 처방');
   await tap('.dlg [data-sheet-act="ok"]', 'prn-ok');
-
-  // 처방 스캔 completes both scans → 고위험약물 1차 인증 opens at once
-  await tap('[data-act="scan-drug"]', 'ham-first');
+  await tap('[data-act="administer"]', 'ham-again'); // 인증 전 투약수행 → 1차 인증 again
   await expect('ham');
   await tap('[data-act="next"]', 'ham-incomplete');
   await expectDialog('');
@@ -158,7 +203,14 @@ try {
   await scanWedge('NURSE-RFID-77');
   const second = await page.$eval('.ham-nurse .v', (e) => e.textContent.trim());
   if (second !== '김수아 간호사 N23240183') throw new Error(`2nd nurse not set by RFID: ${second}`);
-  for (let i = 0; i < 5; i++) await page.click(`.ham-check[data-i="${i}"]`), await sleep(120);
+  // 전체 확인: one tap checks all 5, a second tap clears them, a third checks them again
+  await tap('[data-act="check-all"]', 'ham-check-all');
+  if ((await page.$$('.ham-check.on')).length !== 5) throw new Error('전체 확인 should check every item');
+  await tap('[data-act="check-all"]', 'ham-uncheck-all');
+  if ((await page.$$('.ham-check.on')).length !== 0) throw new Error('전체 확인 again should clear them');
+  await tap('[data-act="check-all"]', 'ham-check-all-2');
+  const cnt = await page.$eval('.ham-count', (e) => e.textContent);
+  if (cnt !== '확인 항목 5 / 5') throw new Error(`check count: ${cnt}`);
   await tap('[data-act="next"]', 'ham-done');
   const who = await page.$$eval('.ham-who .v', (els) => els.map((e) => e.textContent.trim()).join(' / '));
   console.log('이중점검:', who);
@@ -180,6 +232,31 @@ try {
   if (!st.startsWith('H') || !st.includes('no')) throw new Error(`status not updated: ${st}`);
   if (await page.$('.tag.off[data-act]')) throw new Error('PRN status should not be selectable');
   if (await page.$('.alarm-pill.off[data-act]')) throw new Error('PRN time should not be selectable');
+
+  // 투약 리스트 삭제: 왼쪽 스와이프 → 삭제 · 취소 (길게 누르기도 같음) → 사유 → 이번 투약에서 제외 · 되돌리기
+  if (await page.$('.mswipe[data-id="o4"]')) throw new Error('PRN cards should not swipe');
+  await swipeLeft('.mswipe[data-id="o1"] > .med-card');
+  if (!(await page.$('.mswipe[data-id="o1"].open'))) throw new Error('swipe left should show 삭제 · 취소');
+  await tap('.mswipe[data-id="o1"] [data-act="swipe-close"]', 'swipe-cancel');
+  if (await page.$('.mswipe.open')) throw new Error('취소 should close the row');
+  await longPress('.mswipe[data-id="o1"] > .med-card');
+  if (!(await page.$('.mswipe[data-id="o1"].open'))) throw new Error('long-press should show 삭제 · 취소');
+  await tap('.mswipe[data-id="o1"] [data-act="excl"]', 'excl-sheet');
+  await tap('.sheet .opt[data-i="1"]', 'excl-N');
+  await sleep(400);
+  const ex = await page.evaluate(() => ({
+    n: document.querySelector('.medlist-head .badge').textContent,
+    head: document.querySelector('.excl-head')?.textContent,
+    why: document.querySelector('.excl-row')?.textContent.replace(/\s+/g, ' '),
+  }));
+  console.log('제외:', ex);
+  if (ex.n !== '총 4건' || !ex.head?.includes('1건') || !ex.why?.includes('금식')) throw new Error(`exclusion: ${JSON.stringify(ex)}`);
+  await tap('[data-act="excl-undo"]', 'excl-undo');
+  if (await page.$('.excl-head')) throw new Error('되돌리기 should put it back');
+  await swipeLeft('.mswipe[data-id="o1"] > .med-card');
+  await tap('.mswipe[data-id="o1"] [data-act="excl"]', 'excl-sheet-2');
+  await tap('.sheet .opt[data-i="1"]', 'excl-N-2');
+  await sleep(400);
 
   await tap('.pcard[data-act="patient-detail"] .pcard-row', 'detail');
   await expect('detail');
@@ -208,6 +285,8 @@ try {
 
   await tap('[data-act="administer"]', 'done');
   await expect('done');
+  const exToast = await page.$eval('#toast', (e) => e.textContent);
+  if (!exToast.includes('제외한 1건')) throw new Error(`투약수행 should record the exclusion: ${exToast}`);
   await tap('[data-act="ok"]', 'scan-after-done');
   await expect('scan');
 
@@ -254,19 +333,36 @@ try {
   await tap('[data-act="ok"]', 'hub-from-bld');
   await expect('hub');
 
-  // ---------- 수혈하기 (고위험수행 이중확인) ----------
+  // ---------- 수혈하기: 혈액백 = 혈액번호 + 혈액제제 바코드, 혈액백마다 고위험수행 이중확인 ----------
   await command('수혈');
   await expect('wscan');
-  await scanWedge('T1002');
+  await scanWedge('T1002'); // Red Cell's 혈액제제 first: it names 김철수, the wristband is still missing
   await expect('wtask');
   if (!(await page.$('.scan-warn'))) throw new Error('수혈: patient-scan warning missing');
   await scanWedge('P21212457');
-  await expect('wtask'); // no auto check: the list first, 수행하기 opens the 이중 인증
+  await expect('wtask'); // no auto check: the list first
   if (await page.$('.scan-warn')) throw new Error('수혈: warning should go away after the wristband');
+  if (await page.$('.wcard .tag, .wcard .alarm-pill')) throw new Error('수혈 list should not have the time / flag row');
+  const hintNow = () => page.$eval('.tube-hint', (e) => e.textContent);
+  if (!(await hintNow()).includes('혈액번호를 스캔')) throw new Error(`the 혈액제제 read first should ask for its 혈액번호: ${await hintNow()}`);
+  await scanWedge('0918039240'); // White Cell's 혈액번호 with Red Cell's 혈액제제
+  await expectDialog('혈액번호/혈액제제 불일치');
+  await tap('.dlg [data-sheet-act="ok"]', 'trf-pair-mismatch-ok');
+  await scanWedge('0918039242'); // 혈액번호 first …
+  if ((await unitsNow()).split(' ')[2] !== '0918039242:half') throw new Error(`half-scanned bag: ${await unitsNow()}`);
+  await scanWedge('T1002'); // … then its 혈액제제
+  const kimUnits = await unitsNow();
+  console.log('김철수 혈액번호:', kimUnits);
+  if (!kimUnits.includes('0918039242:ok') || !kimUnits.includes('0918039241:wait')) throw new Error(`bag not confirmed: ${kimUnits}`);
+  const kimN = await page.$$eval('.unit-n', (els) => els.map((e) => e.textContent).join(' / '));
+  if (kimN !== '확인 0 / 1 / 확인 1 / 7') throw new Error(`확인 counts: ${kimN}`);
+  if ((await footBtns()) !== '혈액 스캔|수행하기') throw new Error(`수혈 buttons: ${await footBtns()}`);
   await tap('[data-act="perform"]', 'trf-check-first');
   await expect('ham');
   const trfTitle = await page.$eval('.ham-hero .status-title', (e) => e.textContent);
   if (trfTitle !== '수혈하기 1차 인증') throw new Error(`trf check title: ${trfTitle}`);
+  const kimBag = await page.$eval('.ham-card .ham-sub', (e) => e.textContent);
+  if (!kimBag.includes('0918039242') || !kimBag.includes('1/8 단위')) throw new Error(`이중 인증 is for the confirmed bag: ${kimBag}`);
   for (let i = 0; i < 4; i++) await page.click(`.ham-check[data-i="${i}"]`), await sleep(120);
   await tap('[data-act="next"]', 'trf-second-popup');
   await expectDialog('고위험수행 이중 확인');
@@ -280,14 +376,11 @@ try {
   await expect('trfrun'); // 이중 확인 완료 → 수혈 진행 화면 (수혈 시작 전)
   const kimBags = await page.$eval('.tr-name .badge', (e) => e.textContent);
   if (kimBags !== '1/8 단위') throw new Error(`김철수 units: ${kimBags}`);
-  // before 수혈 시작 the list is still reachable
+  const runUnit = await page.$eval('.tr-sub b', (e) => e.textContent);
+  if (runUnit !== '0918039242') throw new Error(`수혈 진행 bag: ${runUnit}`);
+  // before 수혈 시작 the list is still reachable, and the bag's 이중 인증 still counts
   await tap('[data-act="hdr-back"]', 'trf-list');
   await expect('wtask');
-  await tap('.tag[data-id="t2"]', 'trf-status-sheet');
-  await tap('.sheet .opt[data-v="E"]', 'trf-status-E');
-  await sleep(300);
-  const tst = await page.$eval('.tag[data-id="t2"]', (e) => e.textContent.trim() + '|' + e.className);
-  if (!tst.startsWith('E') || !tst.includes('no')) throw new Error(`수혈 status not updated: ${tst}`);
   await tap('[data-act="perform"]', 'trf-run-2');
   await expect('trfrun');
   await tap('[data-act="speed"][data-s="600"]', 'trf-speed-600');
@@ -324,7 +417,14 @@ try {
   await tap('[data-act="scan"]', 'vital-task');
   await expect('vital');
   if ((await page.$eval('#root', (e) => e.dataset.bg)) !== 'green') throw new Error('활력징후 should use the green theme');
-  await tap('[data-act="vstep"][data-k="SBP"][data-d="1"]', 'vital-sbp-plus');
+  if (await page.$('.scr-vital [data-act="mode"]')) throw new Error('활력징후 should not have 플랜 / 실시간');
+  // cells start empty, the previous record under each one
+  const firstCells = await page.$$eval('.vval', (els) => els.map((e) => e.value).join(''));
+  if (firstCells) throw new Error(`활력징후 cells should start empty: ${firstCells}`);
+  const prevSbp = await page.$eval('.vt-cell[data-k="SBP"] .vt-prev', (e) => e.textContent);
+  if (prevSbp !== '이전 118 · 15:30') throw new Error(`previous SBP: ${prevSbp}`);
+  if (!(await page.$('.vt-cell[data-k="PR"] .vt-prev b.danger'))) throw new Error('a previous 경고 value should be red');
+  await tap('[data-act="vstep"][data-k="SBP"][data-d="1"]', 'vital-sbp-plus'); // from the previous 118
   const sbp = await page.$eval('.vval[data-k="SBP"]', (e) => e.value);
   if (sbp !== '119') throw new Error(`SBP stepper: ${sbp}`);
   await page.click('.vval[data-k="BT"]', { clickCount: 3 });
@@ -332,13 +432,24 @@ try {
   await sleep(150);
   const bt = await page.$eval('.vt-cell[data-k="BT"] .vflag-tag', (e) => e.textContent + '|' + e.className);
   if (!bt.startsWith('경고')) throw new Error(`BT flag: ${bt}`);
-  await tap('[data-act="mode"][data-mode="plan"]', 'vital-time-sheet');
-  await tap('.sheet .opt[data-v="09:00"]', 'vital-time-0900');
-  await sleep(300);
-  const foot = await page.$eval('.vcard-foot span', (e) => e.textContent);
-  if (!foot.endsWith('09:00')) throw new Error(`측정 시간 not applied: ${foot}`);
-  // 초기화 restores the last saved values; set BT again and save
+  // 측정 시간: 지금 → 시 · 분 (1분 단위)
+  await tap('[data-act="time-sheet"]', 'vital-time-sheet');
+  await page.click('.sheet.vtime [data-sheet-act="m"][data-d="1"]');
+  await page.click('.sheet.vtime [data-sheet-act="m"][data-d="1"]');
+  await page.click('.sheet.vtime [data-sheet-act="h"][data-d="-1"]');
+  const picked = await page.$eval('.sheet.vtime', (s) => `${s.querySelector('[data-v="h"]').textContent}:${s.querySelector('[data-v="m"]').textContent}`);
+  await tap('.sheet.vtime [data-sheet-act="ok"]', 'vital-time-ok');
+  const foot = await page.$eval('.vtime-btn b', (e) => e.textContent);
+  if (foot !== picked) throw new Error(`측정 시간 not applied: ${foot} (picked ${picked})`);
+  // 초기화 empties the cells; 음성 입력 fills all six, then BT is corrected by hand and saved
   await tap('[data-act="vreset"]', 'vital-reset');
+  if (await page.$$eval('.vval', (els) => els.some((e) => e.value))) throw new Error('초기화 should empty the cells');
+  await tap('[data-act="save"]', 'vital-save-empty');
+  if (!(await page.$eval('#toast', (e) => e.textContent)).includes('값을 입력해')) throw new Error('empty cells must not be saved');
+  const vHeard = await voiceDemo('vital');
+  const voiced = await page.$$eval('.vval', (els) => els.map((e) => e.value).join(' '));
+  console.log('음성 입력:', vHeard, '→', voiced);
+  if (voiced.split(' ').filter(Boolean).length !== 6) throw new Error(`voice should fill all six: ${voiced}`);
   await page.click('.vval[data-k="BT"]', { clickCount: 3 });
   await page.type('.vval[data-k="BT"]', '37.9');
   await tap('[data-act="save"]', 'vital-done');
@@ -351,6 +462,8 @@ try {
   const saved = await page.$$eval('.vgrid .vcell', (els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()).join(' | '));
   console.log('임상관찰기록:', saved);
   if (!saved.includes('37.9')) throw new Error('saved BT not shown on the detail screen');
+  const savedAt = await page.$eval('.dcard.vitals .dcard-meta', (e) => e.textContent);
+  if (!savedAt.includes(picked)) throw new Error(`saved 측정 시간: ${savedAt} (picked ${picked})`);
 
   // ---------- 사용자설정: alarms and quick menu change the hub ----------
   await tap('[data-act="hdr-menu"]', 'detail-menu');
@@ -375,11 +488,13 @@ try {
   const hub = await page.evaluate(() => ({
     head: document.querySelector('.tab-urgent .hub-headline').textContent.replace(/\s+/g, ' '),
     chips: [...document.querySelectorAll('.ucard .gchip')].map((e) => e.textContent).join(' / '),
+    tasks: [...document.querySelectorAll('.ucard-tname')].map((e) => e.textContent).join(' / '),
     quick: [...document.querySelectorAll('.shortcut span')].map((e) => e.textContent).join(' / '),
   }));
   console.log('hub after settings:', hub);
   if (!hub.head.includes('2건') || !hub.chips.includes('수혈 오더 20분 경과') || hub.chips.includes('투약')) throw new Error('alarm settings not applied to 긴급 처리 업무');
   if (!hub.quick.endsWith('신체계측')) throw new Error('quick slot 4 not applied');
+  if (hub.tasks !== '수혈 / V/S') throw new Error(`긴급 card 업무명: ${hub.tasks}`);
 
   // ---------- 햄버거메뉴 → 주사실 설정 ----------
   await tap('[data-act="hdr-menu"]', 'navmenu-2');
@@ -455,36 +570,60 @@ try {
   await tap('[data-act="scan"]', 'jmh-wristband');
   await expect('wtask');
   await expectTitle('정민호(20812233)');
-  // 수혈 오더 straight away — no 처방 스캔 step
+  // 수혈 오더 straight away — no 처방 스캔 step; nothing to give until a bag's two barcodes are scanned
   const jmhList = await page.evaluate(() => ({
     status: document.querySelector('.status-title')?.textContent || '',
     cards: [...document.querySelectorAll('.wcard .wcard-name')].map((e) => e.textContent.trim()),
     button: document.querySelector('.sticky-foot .btn')?.textContent,
   }));
   console.log('정민호 수혈 목록:', jmhList);
-  if (jmhList.status || jmhList.cards.length !== 1 || jmhList.button !== '수행하기') throw new Error('정민호: wristband should open the 수혈하기 list');
+  if (jmhList.status || jmhList.cards.length !== 1 || jmhList.button !== '혈액 바코드 스캔') throw new Error('정민호: wristband should open the 수혈하기 list');
   await scanWedge('T1002'); // 김철수's 혈액 제제
   await expectDialog('환자/처방 불일치');
   await tap('.dlg [data-sheet-act="ok"]', 'jmh-mismatch-ok');
+  // bag 1: the scan button reads its 혈액번호, then its 혈액제제; only that bag is given, 0918039312 stays 대기
+  await tap('[data-act="scan-bag"]', 'jmh-bag1-unit');
+  await tap('[data-act="scan-bag"]', 'jmh-bag1-code');
+  if ((await unitsNow()) !== '0918039311:ok 0918039312:wait') throw new Error(`정민호 bag 1: ${await unitsNow()}`);
   await tap('[data-act="perform"]', 'jmh-check-first');
   await expect('ham');
   const jmhUnits = await page.$eval('.ham-card .ham-sub', (e) => e.textContent);
-  if (!jmhUnits.includes('0918039311')) throw new Error(`정민호 혈액번호: ${jmhUnits}`);
+  if (!jmhUnits.includes('0918039311') || !jmhUnits.includes('1/2 단위')) throw new Error(`정민호 혈액번호: ${jmhUnits}`);
   await passChecks(4, 'jmh');
   await expect('trfrun');
   await tap('[data-act="speed"][data-s="600"]', 'jmh-speed-600');
   for (const n of [1, 2]) {
     if (n === 2) {
+      // same 항목: no new 이중 인증 — the next bag needs only its 혈액번호, right on the 수혈 진행 화면
+      await expect('trfrun');
+      if ((await trfStatus()) !== '다음 혈액백 대기') throw new Error(`between bags: ${await trfStatus()}`);
       await scanWedge('0918039999'); // not this patient's blood
       await expectDialog('환자/처방 불일치');
       await tap('.dlg [data-sheet-act="ok"]', 'jmh-unit-mismatch-ok');
+      await scanWedge('0918039311');
+      if ((await page.$eval('#toast', (e) => e.textContent)) !== '이미 수혈한 혈액입니다.') throw new Error('a given bag should be refused');
+      await scanWedge('T6001');
+      if (!(await page.$eval('#toast', (e) => e.textContent)).includes('혈액번호만')) throw new Error('the 혈액제제 is not needed for the next bag');
       await scanWedge('0918039312');
-      const ready = await page.$eval('[data-act="start"]', (e) => !!e).catch(() => false);
-      if (!ready) throw new Error('unit 2 should be ready after its 혈액번호 scan');
+      if ((await trfStatus()) !== '수혈 대기') throw new Error(`bag 2 should be ready: ${await trfStatus()}`);
+      const bag2 = await page.evaluate(() => [document.querySelector('.tr-sub b').textContent, document.querySelector('.tr-name .badge').textContent].join(' '));
+      if (bag2 !== '0918039312 2/2 단위') throw new Error(`bag 2: ${bag2}`);
+      if (!(await page.$('[data-act="speed"][data-s="600"].on'))) throw new Error('the demo speed should carry over to the next bag');
+      // before 수혈 시작 the list shows it confirmed, and 수행하기 comes straight back (no 이중 인증)
+      await tap('[data-act="hdr-back"]', 'jmh-list-2');
+      await expect('wtask');
+      if ((await unitsNow()) !== '0918039311:done 0918039312:ok') throw new Error(`정민호 bag 2: ${await unitsNow()}`);
+      await tap('[data-act="perform"]', 'jmh-run-2');
+      await expect('trfrun');
     }
     await tap('[data-act="start"]', `jmh-start-${n}`);
     await waitFor(() => document.querySelector('.dlg-title')?.textContent === '15분 중간 체크', `정민호 15분 체크 ${n}`);
     await tap('.dlg [data-sheet-act="ok"]', `jmh-check-${n}`);
+    if (n === 1) {
+      await tap('[data-act="check-ok"]', 'jmh-check-empty');
+      if ((await screen()) !== 'trfcheck') throw new Error('the 15분 체크 needs its vitals');
+    }
+    await voiceDemo(`jmh-check-${n}`);
     await tap('[data-act="check-ok"]', `jmh-check-ok-${n}`);
     await expect('trfrun');
     await waitFor(() => document.querySelector('[data-act="complete"]'), `정민호 bag ${n} empty`);
@@ -516,20 +655,43 @@ try {
   console.log('강태우 업무:', ktwRows);
   if (ktwRows !== 'med:대기 3건 / bld:대기 1관 / trf:오더 없음(off) / vital:17:00 예정') throw new Error(`강태우 sheet: ${ktwRows}`);
   await tap('.sheet .task-opt[data-k="med"]', 'ktw-med');
-  await expect('scan');
-  await tap('[data-act="scan"]', 'ktw-wristband');
+  // a chosen patient: their 투약 list first, locked until the wristband is scanned
   await expect('task');
   await expectTitle('강태우(20733345)');
+  if (!(await page.$('.task-lock'))) throw new Error('강태우: the 투약 list should open locked');
+  const locked = await page.$$eval('.task-lock .med-card', (els) => els.length);
+  if (!locked) throw new Error('the locked list should show the 투약 orders');
+  if (await page.$('.task-lock [data-act="status-sheet"], .task-lock [data-act="time-sheet"], .task-lock .mswipe')) throw new Error('a locked list must not be editable');
+  if ((await footBtns()) !== '환자 팔찌 스캔') throw new Error(`locked list button: ${await footBtns()}`);
   const ktwCard = await page.$eval('.pcard', (e) => e.textContent.replace(/\s+/g, ' '));
   if (!ktwCard.includes('케톤산증') || !ktwCard.includes('033-05-01')) throw new Error(`강태우 card: ${ktwCard}`);
   if (await page.$('.pcard .mini-badge.infection')) throw new Error('강태우 has no infection — no icon');
   await scanWedge('D1001'); // 김철수's 처방
   await expectDialog('환자/처방 불일치');
   await tap('.dlg [data-sheet-act="ok"]', 'ktw-mismatch-ok');
-  await tap('[data-act="scan-drug"]', 'ktw-drug'); // 염화칼륨 = 고위험약물
+  await scanWedge('P21212457'); // another patient's wristband is asked about
+  await expectDialog('환자 불일치');
+  await tap('.dlg [data-sheet-act="cancel"]', 'ktw-other-cancel');
+  await expectTitle('강태우(20733345)');
+  await tap('[data-act="scan-patient"]', 'ktw-drug'); // 강태우's wristband → active; 염화칼륨 = 고위험약물
   await expect('ham');
   const ktwHam = await page.$eval('.ham-drug', (e) => e.textContent);
   if (!ktwHam.includes('염화칼륨')) throw new Error(`강태우 고위험약물: ${ktwHam}`);
+  // taking the 고위험약물 out of this round drops the 이중 인증; 되돌리기 needs it again
+  await tap('[data-act="hdr-close"]', 'ktw-ham-close');
+  await expect('task');
+  const kcl = await page.$$eval('.mswipe[data-id]', (els) => els.find((e) => e.textContent.includes('염화칼륨'))?.dataset.id);
+  await swipeLeft(`.mswipe[data-id="${kcl}"] > .med-card`);
+  await tap(`.mswipe[data-id="${kcl}"] [data-act="excl"]`, 'ktw-excl');
+  await tap('.sheet .opt[data-i="3"]', 'ktw-excl-H');
+  await sleep(400);
+  if (await page.$('.sticky-foot.ham-pending')) throw new Error('excluding the 고위험약물 should drop the 이중 인증');
+  const kt = await page.$eval('#toast', (e) => e.textContent);
+  if (!kt.includes('이중 인증 없이')) throw new Error(`강태우 exclusion toast: ${kt}`);
+  await tap('[data-act="excl-undo"]', 'ktw-undo');
+  if (!(await page.$('.sticky-foot.ham-pending'))) throw new Error('되돌리기 should need the 이중 인증 again');
+  await tap('[data-act="administer"]', 'ktw-ham-again');
+  await expect('ham');
   await passChecks(5, 'ktw');
   await expect('task');
   await tap('[data-act="administer"]', 'ktw-done');
@@ -556,8 +718,9 @@ try {
   await tap('[data-act="scan"]', 'asy-wristband');
   await expect('vital');
   await expectTitle('안소율(20876654)');
-  const asySbp = await page.$eval('.vt-cell[data-k="SBP"]', (e) => e.textContent.replace(/\s+/g, ' '));
-  if (!asySbp.includes('경고')) throw new Error(`안소율 SBP should start abnormal: ${asySbp}`);
+  // the abnormal previous values are shown in colour (이상치 재확인)
+  if (!(await page.$('.vt-cell[data-k="SBP"] .vt-prev b.danger'))) throw new Error('안소율 previous SBP should be 경고');
+  await voiceDemo('asy');
   for (const [k, v] of [['SBP', '108'], ['PR', '92']]) {
     await page.click(`.vval[data-k="${k}"]`, { clickCount: 3 });
     await page.type(`.vval[data-k="${k}"]`, v);
@@ -666,10 +829,7 @@ try {
   await expect('task');
   await expectTitle('문가은(21033456)');
   if (await page.$('.scan-warn')) throw new Error('스캔: the wristband should already count');
-  if (await page.$('.status-title')) {
-    const t = await page.$eval('.status-title', (e) => e.textContent);
-    if (t !== '처방 스캔') throw new Error(`스캔 → 투약 state: ${t}`);
-  }
+  if (!(await page.$('.task-b'))) throw new Error('스캔 → 투약: the wristband should open the active list');
   await leaveToHub('qscan-leave');
   await plus('ai-scan', 'qscan-2');
   await scanWedge('D6001');
@@ -705,6 +865,53 @@ try {
   await expectTitle('김철수(21212457)');
   const again = await page.$eval('[data-act="retake"]', (e) => e.textContent);
   if (again !== '다른 사진 선택') throw new Error(`attach review button: ${again}`);
+  if (!(await page.$('.vfield[data-k="SBP"] .vt-prev'))) throw new Error('측정값 확인 should show the previous values');
+  await voiceDemo('attach');
+  const ocrBt = await page.$eval('.vfield[data-k="BT"]', (e) => e.className + '|' + e.querySelector('.vf-in').value);
+  if (!ocrBt.includes('edited') || ocrBt.endsWith('|')) throw new Error(`voice should fill the unread 체온: ${ocrBt}`);
+  await tap('[data-act="hdr-close"]', 'attach-close');
+
+  // ---------- 앱 버전 · 업데이트 (시연) ----------
+  await tap('[data-act="open-setting"]', 'ver-setting');
+  const verNow = await page.$eval('.app-row .v b', (e) => e.textContent);
+  if (verNow !== 'v0.4.0') throw new Error(`current version: ${verNow}`);
+  if (await page.$('.ver-list')) throw new Error('버전 이력 should not be on the settings screen');
+  await tap('[data-act="open-versions"]', 'ver-history');
+  await expect('versions');
+  // 현재 버전 opened, the others folded
+  const opened = await page.$$eval('.ver-card.open .ver-head b', (els) => els.map((e) => e.textContent).join(','));
+  if (opened !== 'v0.4.0') throw new Error(`버전 이력 opened cards: ${opened}`);
+  await tap('[data-act="ver-toggle"][data-v="0.2.0"]', 'ver-open-0.2.0');
+  await tap('[data-act="pick-version"][data-v="0.2.0"]', 'ver-pick-0.2.0');
+  await expectDialog('이전 버전으로 변경');
+  await tap('.dlg [data-sheet-act="ok"]', 'ver-rollback');
+  await expect('update');
+  await waitFor(() => document.querySelector('.scr-splash') && document.querySelector('.dlg-title')?.textContent === '필수 업데이트', '필수 업데이트', 10000);
+  const oldVer = await page.$eval('.logo-ver', (e) => e.textContent);
+  if (oldVer !== 'v0.2.0') throw new Error(`splash version after rollback: ${oldVer}`);
+  await page.keyboard.press('Escape'); // closing it does not unlock the app
+  await sleep(300);
+  await tap('[data-act="login-id"]', 'ver-login-blocked');
+  await expectDialog('필수 업데이트');
+  await tap('.dlg [data-sheet-act="ok"]', 'ver-force-update');
+  await waitFor(() => document.querySelector('.scr-splash .logo-ver')?.textContent === 'v0.4.0', 'updated to v0.4.0', 10000);
+  await sleep(700);
+  if (await dialog()) throw new Error(`latest version should not ask again: ${await dialog()}`);
+
+  // ---------- 개인정보 자동 가림: 10초 무조작 → 가림, 터치 → 표시 ----------
+  await tap('[data-act="login-bio"]', 'pii-login');
+  await tap('[data-act="login"]', 'pii-hub');
+  const marks = await page.$$eval('.ucard-name .pii', (els) => els.map((e) => e.dataset.m).join(' '));
+  if (!marks.includes('김*수') || !marks.includes('2121****')) throw new Error(`masked forms: ${marks}`);
+  const isMasked = () => page.$eval('html', (e) => e.classList.contains('pii-masked'));
+  if (await isMasked()) throw new Error('names should show while the PDA is used');
+  await sleep(10600);
+  if (!(await isMasked())) throw new Error('names should be masked after 10s without a touch');
+  const seen = await page.$eval('.ucard-name', (e) => getComputedStyle(e.querySelector('.pii'), '::after').content);
+  console.log('masked name:', seen);
+  await page.$eval('.hub-headline', (e) => e.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+  await sleep(100);
+  if (await isMasked()) throw new Error('a touch should show the names again');
   console.log('\nRESULT: OK', errors.length ? `(page errors: ${errors.join(' | ')})` : '(no page errors)');
 } catch (e) {
   console.log('\nRESULT: FAIL', e.message, errors.length ? `page errors: ${errors.join(' | ')}` : '');

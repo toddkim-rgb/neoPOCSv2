@@ -93,15 +93,18 @@ export function createBloodDraws() {
 
 /* ---------- 수혈하기 (neo-trf-task-01) — every blood product is 고위험수행 ----------
    volume (ml) · minutes = one unit (bag) and its planned infusion time (수혈 진행 화면의 예상 종료 시각). */
+/** 혈액형 + Rh of a 수혈 오더 ('AB' + '+' → 'AB+'). */
+export const bloodType = (o) => `${o.abo}${o.rh || ''}`;
+
 export function createTransfusions() {
   return [
     {
-      id: 't1', name: 'Leduction Filtered White Cell', units: ['0918039240'], abo: 'AB+', volume: 250, minutes: 90,
+      id: 't1', name: 'Leduction Filtered White Cell', comp: 'WBC', units: ['0918039240'], abo: 'AB', rh: '+', volume: 250, minutes: 90,
       issuer: '041', issued: '2026-09-17 17:00', now: { time: '17:24', st: 'Y', who: NURSE.label }, code: 'T1001',
     },
     {
-      id: 't2', name: 'Leduction Filtered Red Cell',
-      units: ['0918039241', '0918039242', '0918039243', '0918039244', '0918039245', '0918039246', '0918039247'], abo: 'AB+', volume: 300, minutes: 120,
+      id: 't2', name: 'Leduction Filtered Red Cell', comp: 'RBC',
+      units: ['0918039241', '0918039242', '0918039243', '0918039244', '0918039245', '0918039246', '0918039247'], abo: 'AB', rh: '+', volume: 300, minutes: 120,
       issuer: '041', issued: '2026-09-17 17:00', now: { time: '17:24', st: 'Y', who: NURSE.label }, code: 'T1002', focus: true,
     },
   ];

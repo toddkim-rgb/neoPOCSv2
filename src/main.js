@@ -17,6 +17,10 @@ import './screens/nav.js';
 import './screens/memos.js';
 import './screens/quick.js';
 import './screens/transfuse.js';
+import './screens/update.js';
+import { install } from './versions.js';
+import { startPii } from './pii.js';
+import { initSwipe } from './swipe.js';
 import { openLogout } from './screens/nav.js';
 import { takePatientScan, patientPending, cancelPatientScan } from './patientscan.js';
 
@@ -157,7 +161,9 @@ attachScanner((code) => {
 function startShot(name) {
   // ?shot=<screen>&… renders one screen in a given state for design comparison
   const p = Object.fromEntries(params.entries());
-  // ?pid=<등록번호> shows another sample patient · ?finished=med,trf marks their tasks done today
+  // ?ver=0.2.0 runs as that installed version (업데이트 시연) · ?pid=<등록번호> shows another sample patient
+  // · ?finished=med,trf marks their tasks done today
+  if (p.ver) install(p.ver);
   if (p.pid) selectPatient(p.pid);
   if (p.finished) p.finished.split(',').forEach((k) => completeTask(k, '17:24'));
   state.scan = { patient: p.patient === '1', drug: p.drug === '1' };
@@ -182,7 +188,6 @@ function startShot(name) {
   }
   if (p.done && state.work[p.kind]) state.work[p.kind].ham = { ...newHamCheck(), done: true };
   if (p.open) state.scriptOpen.detail = [true, false];
-  if (p.mode === 'live') state.work.vital.planMode = 'live';
   // common-voice-02 'Stroke Active': script open, summary and script edited
   if (p.script === '1') {
     Object.assign(state.voice, { sumActive: true, scriptEdited: true });
@@ -203,6 +208,9 @@ function startShot(name) {
 }
 
 layout();
+// 개인정보 자동 가림 (screenshots: still, ?mask=1 shows the masked state)
+startPii({ still: !!shot, masked: params.get('mask') === '1' });
+initSwipe(); // 투약 리스트 카드 스와이프 → 삭제 · 취소
 document.fonts.load('500 16px "Pretendard Variable"').finally(() => {
   if (shot) startShot(shot);
   else reset('splash', {}, 'fade');

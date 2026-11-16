@@ -10,15 +10,19 @@ export function defaultSettings() {
     quick: [...DEFAULT_QUICK],
     ham2: true, // 고위험수행 2차인증 (지원 여부 미정 — 표시만)
     autoLogout: 30,
+    piiSec: 10, // 개인정보 자동 가림: seconds without a touch (0 = 끄기) — pii.js
   };
 }
 
 /* ---------------- per-patient state (오더 · 업무 · 임상관찰기록 · 음성간호메모) ---------------- */
 function newWork(p) {
   return {
-    bld: { scan: { patient: false, drug: false }, orders: p.blood(), planMode: 'plan', tubes: [] }, // tubes: confirmed 채혈관 ids
-    trf: { scan: { patient: false, drug: false }, orders: p.trf(), planMode: 'plan', ham: null },
-    vital: { planMode: 'plan', time: '17:00', values: null },
+    bld: { scan: { patient: false, drug: false }, orders: p.blood(), tubes: [] }, // tubes: confirmed 채혈관 ids
+    // 수혈: a blood bag = 혈액번호 + 혈액제제 barcodes. bags: 혈액번호 → 'ok' (both scanned) · 'done' · 'stop';
+    // pend: the bag half-scanned ({ unit } or { code }); ham · run: the bag being double-checked / transfused; log: 수혈 기록;
+    // checked: 수혈 오더 (항목) whose 이중 인증 is done — its later bags need only their 혈액번호, no new check
+    trf: { scan: { patient: false, drug: false }, orders: p.trf(), bags: {}, pend: null, ham: null, run: null, log: [], speed: 60, result: null, checked: {} },
+    vital: { plan: '17:00', time: '17:00', values: null }, // plan: 예정 시각 (업무 선택 시트) · time: 측정 시간 (화면을 열 때 현재 시각)
   };
 }
 
@@ -67,7 +71,8 @@ for (const k of ['orders', 'work', 'vitals', 'memos']) {
 export function selectPatient(id, { force = false } = {}) {
   const p = patientById(id);
   if (!p || (state.pid === id && !force)) return false;
-  resetWork(); // leave the previous patient's scans clean
+  resetPatient(); // leave the previous patient's scans (and 투약 제외) clean
+  resetWork();
   state.pid = id;
   Object.assign(PATIENT, profileOf(p));
   resetPatient();
@@ -77,12 +82,13 @@ export function selectPatient(id, { force = false } = {}) {
 
 /** Clears the scanned patient/prescription of 채혈 · 수혈 · 활력징후 (keeps their orders). */
 export function resetWork() {
-  for (const k of ['bld', 'trf']) {
-    state.work[k].scan = { patient: false, drug: false };
-    state.work[k].planMode = 'plan';
-  }
-  state.work.trf.ham = null;
-  state.work.trf.run = null; // 수혈 진행 (transfuse.js)
+  for (const k of ['bld', 'trf']) state.work[k].scan = { patient: false, drug: false };
+  const t = state.work.trf;
+  t.ham = null;
+  t.run = null; // 수혈 진행 (transfuse.js)
+  t.pend = null;
+  // a bag confirmed by its two barcodes must be scanned again next time; 수혈 완료 · 중단 stay recorded
+  for (const [u, st] of Object.entries(t.bags)) if (st === 'ok') delete t.bags[u];
   state.work.bld.tubes = [];
   state.work.vital.values = null;
 }
@@ -100,17 +106,27 @@ export function newHamCheck(n = HAM_CHECKS.length) {
   };
 }
 
-/** Clears the selected patient/prescription (뒤로가기 · 메뉴 전환). */
+/** Clears the selected patient/prescription (뒤로가기 · 메뉴 전환) and this round's 투약 제외. */
 export function resetPatient() {
+  state.orders.forEach((o) => (o.excl = null));
   state.scan = { patient: false, drug: false };
   state.ham = null;
   state.planMode = 'plan';
 }
 
-/** Records the current-slot doses as administered after 투약 수행. */
+/**
+ * Records the current-slot doses as administered after 투약 수행.
+ * A dose taken out of this round (투약 리스트 스와이프 → 삭제) is recorded as 미투약 with its reason code (R · N · H · NO).
+ */
 export function commitAdministration() {
   let given = null;
   for (const o of state.orders) {
+    if (o.excl && o.now) {
+      o.hist.push({ time: o.now.time, st: o.excl.code, who: o.now.who });
+      o.now = null;
+      o.excl = null;
+      continue;
+    }
     if (o.prn || !o.now || o.now.st === 'done') continue;
     o.hist.push({ time: o.now.time, st: o.now.st, who: o.now.who });
     if (o.count) o.count = [Math.min(o.count[0] + 1, o.count[1]), o.count[1]];
@@ -122,8 +138,10 @@ export function commitAdministration() {
   state.ham = null;
 }
 
-export const highAlertOrders = () => state.orders.filter((o) => o.ham && o.now);
-export const pendingOrders = () => state.orders.filter((o) => o.now && !o.prn);
+// a dose taken out of this round (o.excl) is neither given nor needs the 고위험 이중 인증
+export const highAlertOrders = () => state.orders.filter((o) => o.ham && o.now && !o.excl);
+export const pendingOrders = () => state.orders.filter((o) => o.now && !o.prn && !o.excl);
+export const excludedOrders = () => state.orders.filter((o) => o.now && o.excl);
 
 /* ---------------- 업무 현황 (MY환자 업무 선택 · 긴급 처리 업무) ---------------- */
 export const TASK_LABEL = { med: '투약', bld: '채혈', trf: '수혈', vital: '활력징후' };
@@ -157,11 +175,31 @@ export function taskStatus(menu, id = state.pid) {
     const n = s.work[menu].orders.length;
     if (!n) return { ok: false, label: '오더 없음', tone: 'none' };
     if (s.done[menu]) return { ok: false, label: `완료 ${s.done[menu]}`, tone: 'done' };
+    if (menu === 'trf') {
+      // some bags already given: 진행 2/8 (단위)
+      const units = trfUnits(id);
+      const given = units.filter(({ unit }) => GIVEN.includes(s.work.trf.bags[unit])).length;
+      if (given) return { ok: true, label: `진행 ${given}/${units.length}`, tone: 'wait' };
+    }
     return { ok: true, label: menu === 'bld' ? `대기 ${n}관` : `대기 ${n}건`, tone: 'wait' };
   }
   if (s.done.vital) return { ok: true, label: `완료 ${s.done.vital}`, tone: 'done' };
-  return { ok: true, label: `${s.work.vital.time} 예정`, tone: 'wait' };
+  return { ok: true, label: `${s.work.vital.plan} 예정`, tone: 'wait' };
 }
+
+/* ---------------- 수혈: 혈액백 (혈액번호 + 혈액제제) ---------------- */
+const GIVEN = ['done', 'stop'];
+/** Every blood bag of the patient's 수혈 오더: { unit (혈액번호), o (the order, whose code = 혈액제제 barcode) }. */
+export const trfUnits = (id = state.pid) => state.pt[id].work.trf.orders.flatMap((o) => o.units.map((unit) => ({ unit, o })));
+/** 대기 · 제제 스캔 (혈액번호 only so far) · 확인 · 수혈 완료 · 중단 */
+export function unitStatus(unit, w = state.work.trf) {
+  if (w.bags[unit]) return w.bags[unit];
+  return w.pend?.unit === unit ? 'half' : 'wait';
+}
+/** The next bag confirmed by both barcodes (수행하기 → 이중 인증 → 수혈 진행). */
+export const trfNext = () => trfUnits().find(({ unit }) => state.work.trf.bags[unit] === 'ok') || null;
+/** Bags not given yet (대기 · 확인). */
+export const trfLeft = () => trfUnits().filter(({ unit }) => !GIVEN.includes(state.work.trf.bags[unit]));
 
 /** 긴급 처리 업무 = cards whose menu alarm is on (사용자설정) and whose task is not finished yet. */
 export const urgentItems = () => URGENT.filter((u) => state.settings.alarms[u.menu]?.on && !state.pt[u.pid].done[u.menu]);

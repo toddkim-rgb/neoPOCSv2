@@ -1,19 +1,26 @@
-// Splash (neo-splash-load-01), ID login (neo-auth-input-01), biometric login (neo-auth-bio-01)
+// Splash (neo-splash-load-01), ID login (neo-auth-input-01), biometric login (neo-auth-bio-01).
+// The logo shows the running app version next to V2; the splash checks for updates (필수 업데이트 blocks login).
 import { register, go, replace, reset, rerender } from '../router.js';
 import { button } from '../ui.js';
 import { icon, sparkles } from '../icons.js';
 import { state, resetDemo } from '../state.js';
+import { installed, updateState } from '../versions.js';
+import { checkOnStart, openUpdatePrompt } from './update.js';
 
 const logo = () => `
   <div class="logo">
     <span class="logo-spark">${sparkles('lg-spark', '#65BDE9', '#1878BC')}</span>
     <p class="logo-neo">neo</p>
     <p class="logo-pocs">POCS</p>
-    <p class="logo-sub">Point of care solution <b>V2</b></p>
+    <p class="logo-sub">Point of care solution <b>V2</b><span class="logo-ver">v${installed()}</span></p>
   </div>
   <p class="softbowl">SOFTBOWL</p>`;
 
+/** A version below 최소 지원 버전 cannot log in: the 필수 업데이트 popup comes back instead. */
+const blocked = () => updateState() === 'force' && (openUpdatePrompt(true), true);
+
 const enterHub = () => {
+  if (blocked()) return;
   state.loginError = false;
   state.hubTab = 'urgent';
   state.aiMore = false;
@@ -32,9 +39,13 @@ register('splash', {
       ${button('아이디로 로그인', 'login-id')}
       ${button('생체인식으로 로그인', 'login-bio')}
     </div>`,
+  // 앱 시작: 버전 확인 (필수 · 선택 업데이트)
+  mount: (el, params) => {
+    if (!params.shot) setTimeout(() => el.isConnected && checkOnStart(), 450);
+  },
   actions: {
-    'login-id': () => go('login-id'),
-    'login-bio': () => go('login-bio'),
+    'login-id': () => blocked() || go('login-id'),
+    'login-bio': () => blocked() || go('login-bio'),
   },
   // RFID badge / employee barcode logs straight in
   onScan: enterHub,

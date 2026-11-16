@@ -17,7 +17,6 @@ export const SHOTS = [
   ['m02_err-barcode', 'scan&dialog=fail', 892],
   ['m03_err-reset', 'scan&dialog=reset', 892],
   ['m04_err-mismatch', 'task&patient=1&dialog=mismatch', 888],
-  ['m05_task-patient', 'task&patient=1', 888],
   ['m06_task-drug', 'task&drug=1', 1355],
   ['m07_task-both', 'task&patient=1&drug=1', 1286],
   ['m08_prn', 'scan&dialog=prn', 892],
@@ -34,7 +33,6 @@ export const SHOTS = [
   ['b3_done', 'wdone&kind=bld', 892],
   ['t1_scan', 'wscan&kind=trf', 892],
   ['t2_task', 'wtask&kind=trf&patient=1&drug=1&done=1', 892],
-  ['t3_flag', 'wtask&kind=trf&patient=1&drug=1&done=1&sheet=status&id=t2', 892],
   ['t4_check1', 'ham&kind=trf&step=first', 933],
   ['t5_pop', 'ham&kind=trf&step=first&dialog=second', 933],
   ['t6_check2', 'ham&kind=trf&step=second', 957],
@@ -42,7 +40,6 @@ export const SHOTS = [
   ['t8_done', 'wdone&kind=trf', 892],
   ['v1_scan', 'wscan&kind=vital', 892],
   ['v2_task-plan', 'vital', 892],
-  ['v3_task-live', 'vital&mode=live', 892],
   ['v4_time', 'vital&sheet=time', 892],
   ['v5_done', 'wdone&kind=vital', 892],
   // phase 3 (compare with ../figma-ssol/design-p3)

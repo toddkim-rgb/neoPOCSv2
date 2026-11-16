@@ -7,10 +7,13 @@ import { NURSE, DEPT, MENU_GROUPS, MENU_ITEM, ROOMS } from '../data.js';
 import { PATIENTS } from '../patients.js';
 import { state, resetUser, urgentItems } from '../state.js';
 import { startMenu } from '../aibar.js';
-import { version } from '../../package.json';
+import { installed } from '../versions.js';
+import { appInfoSection, APP_INFO_ACTIONS } from './update.js';
+import { wake } from '../pii.js';
 
 const ALARM_MIN = [10, 20, 30];
 const LOGOUT_MIN = [10, 20, 30, 60];
+const PII_SEC = [0, 5, 10, 30, 60]; // 개인정보 자동 가림 (0 = 끄기)
 const urgentCount = () => urgentItems().length;
 const memoPending = () => Object.values(state.pt).reduce((n, s) => n + s.memos.filter((m) => !m.reviewed).length, 0);
 
@@ -72,6 +75,15 @@ register('setting', {
       <p class="set-label">기타 설정</p>
       <div class="set-card set-row solo"><span>고위험수행 2차인증</span>${toggle(state.settings.ham2, 'ham2', '')}</div>
       <div class="set-card set-row solo"><span>자동 로그아웃</span>${stepper(state.settings.autoLogout, 'auto-min', '')}</div>
+      <div class="set-card set-row solo"><span>개인정보 자동 가림</span>
+        <span class="stp">
+          <button class="vstep" data-act="pii-sec" data-d="-1" aria-label="줄이기">−</button>
+          <span class="stp-v">${state.settings.piiSec ? `${state.settings.piiSec}초` : '끄기'}</span>
+          <button class="vstep" data-act="pii-sec" data-d="1" aria-label="늘리기">+</button>
+        </span>
+      </div>
+      <p class="set-note">조작이 없으면 환자 이름·등록번호와 의료진 이름·사번을 가립니다 (김*수 · 2121****). 화면을 누르면 다시 보입니다.</p>
+      ${appInfoSection()}
       <button class="set-logout" data-act="logout">로그아웃 ${icon.logout}</button>
     </div>`,
   actions: {
@@ -105,8 +117,14 @@ register('setting', {
       state.settings.autoLogout = stepIn(LOGOUT_MIN, state.settings.autoLogout, Number(t.dataset.d));
       rerender();
     },
+    'pii-sec': (t) => {
+      state.settings.piiSec = stepIn(PII_SEC, state.settings.piiSec, Number(t.dataset.d));
+      rerender();
+      wake(); // the count restarts with the new time
+    },
     slot: (t) => openSlotSheet(+t.dataset.i),
     logout: () => openLogout(),
+    ...APP_INFO_ACTIONS,
     // ?shot=setting&sheet=slot1|slot2
     'sheet-slot1': () => openSlotSheet(0),
     'sheet-slot2': () => openSlotSheet(0, 'perform'),
@@ -185,7 +203,7 @@ register('navmenu', {
           .map((m) => `<button class="nav-item" data-act="menu" data-k="${m.key}"><i class="gdot" style="background:${g.color}"></i>${esc(m.label)}</button>`)
           .join('')}`,
       ).join('')}</div>
-      <p class="nav-ver">앱 버전 : ${version}</p>
+      <p class="nav-ver">앱 버전 : v${installed()}</p>
     </div>`,
   actions: {
     'hdr-close': () => pop(),

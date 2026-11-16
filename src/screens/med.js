@@ -1,5 +1,6 @@
-// Medication administration flow (SSol design): common-scan-01 → neo-med-task-01 (3 scan states)
-// → neo-med-check-01~03 (고위험약물 1차/2차 인증) → common-done-01.
+// Medication administration flow (SSol design): common-scan-01 → neo-med-task-01 → neo-med-check-01~03 (고위험약물
+// 1차/2차 인증) → common-done-01. The wristband alone activates the 투약 list (요청: no 처방 바코드 step, like 수혈).
+// A patient chosen beforehand (긴급 카드 · MY환자 · AI 커맨드바) opens their list first, locked until the wristband scan.
 // Errors and confirmations are popups over the current screen: common-error-01/02, neo-med-error-03, neo-med-prn-01.
 // Six sample patients: a wristband selects that patient; a prescription names its own patient (처방 우선 스캔), and a
 // wristband/prescription of two different patients is 환자/처방 불일치.
@@ -8,11 +9,13 @@ import {
   header, button, aiButton, statusBlock, patientCard, medList, badge, esc, toast, openSheet, closeSheet, openDialog, asset3d,
 } from '../ui.js';
 import { icon } from '../icons.js';
-import { patientTitle, PATIENT, NURSE, NURSE2, TIME_SLOTS, STATUS_OPTIONS, HAM_CHECKS, TRF_CHECKS } from '../data.js';
+import { patientTitle, PATIENT, NURSE, NURSE2, TIME_SLOTS, STATUS_OPTIONS, HAM_CHECKS, TRF_CHECKS, bloodType } from '../data.js';
 import { PATIENTS, patientByCode, fullName } from '../patients.js';
 import {
-  state, resetPatient, resetWork, newHamCheck, commitAdministration, highAlertOrders, pendingOrders, selectPatient, TASK_LABEL,
+  state, resetPatient, resetWork, newHamCheck, commitAdministration, highAlertOrders, pendingOrders, excludedOrders, selectPatient, TASK_LABEL,
+  trfUnits, trfNext,
 } from '../state.js';
+import { closeSwipes } from '../swipe.js';
 
 /* ---------------- scan simulation ---------------- */
 export const FAIL_SIM = { label: '인식 실패 (손상된 바코드)', code: '#FAIL' };
@@ -42,19 +45,50 @@ export function handleMedScan(code) {
   return state.scan.patient ? scanDrug(state.pid) : scanPatient(state.pid);
 }
 
+/** The chosen patient's list is open and locked (not scanned yet). */
+const previewing = () => !state.scan.patient && !state.scan.drug && !!document.querySelector('.scr-task');
+
 function scanPatient(id) {
   // 처방 우선 스캔: the wristband must be the prescription's patient
   if (state.scan.drug && !state.scan.patient && id !== state.pid) return openMedDialog('mismatch');
-  selectPatient(id); // 다른 환자 스캔 → (안내 없이) 덮어쓰기
+  // the chosen patient's list is open: another wristband is asked about, not taken silently
+  if (previewing() && id !== state.pid) return askOtherPatient(id);
+  selectPatient(id); // 바코드 스캔 화면: 다른 환자 스캔 → (안내 없이) 덮어쓰기
   if (!state.orders.some((o) => o.now)) return openNoOrders('med');
-  state.scan.patient = true;
+  // 팔찌 = 투약 목록 활성화 (처방 바코드 단계 없음)
+  state.scan = { patient: true, drug: true };
   showMedTask();
+}
+
+function askOtherPatient(id) {
+  const p = PATIENTS.find((x) => x.id === id);
+  openDialog(
+    {
+      title: '환자 불일치',
+      desc: `선택한 환자(${patientTitle()})와\n스캔한 팔찌(${fullName(p)})가 다릅니다.\n환자를 다시 확인해 주세요.`,
+      buttons: [{ label: '다시 스캔', act: 'cancel', line: true }, { label: `${p.name}(으)로 변경`, act: 'ok' }],
+    },
+    {
+      cancel: () => closeSheet(),
+      ok: () => {
+        closeSheet();
+        selectPatient(id);
+        if (!state.orders.some((o) => o.now)) return openNoOrders('med');
+        state.scan = { patient: true, drug: true };
+        showMedTask();
+      },
+    },
+  );
 }
 
 function scanDrug(owner) {
   if (state.scan.patient && owner !== state.pid) return openMedDialog('mismatch');
+  if (previewing()) {
+    if (owner !== state.pid) return openMedDialog('mismatch');
+    return toast('환자 팔찌를 스캔하면 투약 목록이 활성화됩니다.');
+  }
   selectPatient(owner); // the prescription names its patient
-  if (state.scan.drug && state.scan.patient) return toast('이미 처방 바코드가 확인되었습니다.');
+  if (state.scan.patient) return toast('이미 확인된 환자의 처방입니다.');
   state.scan.drug = true;
   showMedTask();
 }
@@ -206,15 +240,15 @@ register('task', {
   render: () => {
     const { patient, drug } = state.scan;
     const hdr = header({ title: patientTitle(), left: 'back', right: 'menu' });
-    if (patient && !drug) {
+    if (!patient && !drug) {
+      // a chosen patient: their 투약 list first, locked until the wristband is scanned
       return `${hdr}
-        <div class="screen-body task-p">
+        <div class="screen-body scroll task-d task-lock">
           <div class="task-top">${aiButton()}${patientCard({ prn: hasPrn() })}</div>
-          <span class="spacer" style="flex-grow: 137"></span>
-          ${statusBlock({ img: 'pill', title: '처방 스캔', desc: '환자 정보와 일치하는\n처방 바코드를 스캔해주세요.' })}
-          <span class="spacer" style="flex-grow: 128"></span>
-        </div>
-        <div class="screen-foot">${button('처방정보 스캔하기', 'scan-drug', { long: 'scan-sim-drug' })}</div>`;
+          <p class="tube-hint lock-hint">${icon.error}<span>환자 팔찌를 스캔하면 투약 목록이 활성화됩니다.</span></p>
+          ${medList()}
+          <div class="sticky-foot">${button('환자 팔찌 스캔', 'scan-patient', { long: 'scan-sim-lock' })}</div>
+        </div>`;
     }
     if (drug && !patient) {
       // the prescription already names the patient; the wristband scan is still missing
@@ -236,14 +270,13 @@ register('task', {
     'hdr-back': () => confirmReset('hub'),
     'hdr-menu': () => confirmReset('menu'),
     voice: () => {
-      if (!state.scan.patient) return toast('환자 스캔 후 음성간호메모를 진행할 수 있습니다.');
+      if (!state.scan.patient) return toast('환자 팔찌 스캔 후 음성간호메모를 진행할 수 있습니다.');
       state.voice.origin = 'task';
       go('voice', { step: 'record' });
     },
     'prn-info': () => openMedDialog('prn'),
     'patient-detail': () => go('detail'),
-    'scan-drug': () => handleMedScan(firstOrder().code),
-    'scan-sim-drug': () => openScanSim([drugSim(), otherDrugSim(), FAIL_SIM], handleMedScan),
+    'scan-sim-lock': () => openScanSim([...patientSims(), drugSim(), otherDrugSim(), FAIL_SIM], handleMedScan),
     'scan-patient': () => handleMedScan(PATIENT.barcode),
     mode: (t) => {
       state.planMode = t.dataset.mode;
@@ -251,8 +284,16 @@ register('task', {
     },
     'time-sheet': (t) => openTimeSheet(t.dataset.id),
     'status-sheet': (t) => openStatusSheet(t.dataset.id),
+    // 투약 리스트: 카드 왼쪽 스와이프 (또는 길게 누르기) → 삭제 · 취소
+    excl: (t) => openExcludeSheet(t.dataset.id),
+    'swipe-close': () => closeSwipes(),
+    'excl-undo': (t) => undoExclude(t.dataset.id),
     administer: () => {
-      if (!pendingOrders().length) return toast('투약할 처방이 없습니다.');
+      const excl = excludedOrders().length;
+      if (!pendingOrders().length) {
+        if (!excl) return toast('투약할 처방이 없습니다.');
+        return recordExclusionsOnly(excl);
+      }
       // 2차 인증 미완료 시 → 고위험약물 인증 다시 활성화
       if (hamPending()) {
         toast('고위험약물 이중 인증을 먼저 완료해 주세요.');
@@ -260,6 +301,7 @@ register('task', {
       }
       commitAdministration();
       go('done');
+      if (excl) toast(`제외한 ${excl}건은 미투약 사유로 기록되었습니다.`);
     },
   },
   onBack: () => {
@@ -318,6 +360,77 @@ function openStatusSheet(id) {
   );
 }
 
+/* ---------------- 투약 리스트 삭제 (요청): 이번 투약에서 제외 + 사유 ---------------- */
+// The order itself is the doctor's, so nothing is erased: the dose leaves this round and is recorded as 미투약 with
+// the reason's code when 투약수행 is pressed (R-거부 · N-금식 · H-보류 · NO-미투약). 되돌리기 puts it back.
+const EXCL_REASONS = [
+  { code: 'R', label: '환자 거부' },
+  { code: 'N', label: '금식' },
+  { code: 'NO', label: '환자 부재 (검사 · 수술)' },
+  { code: 'H', label: '처방 보류 (의사 지시)' },
+  { code: 'NO', label: '기타' },
+];
+
+function openExcludeSheet(id) {
+  const o = state.orders.find((x) => x.id === id);
+  if (!o?.now || o.prn) return;
+  openSheet(
+    `<div class="sheet-head"><p class="sheet-title">투약 삭제</p></div>
+     ${sheetDrug(o)}
+     <p class="sheet-hint">이번 투약에서 제외합니다. 사유를 선택해 주세요.<br>투약수행 시 EMR에 미투약 사유로 기록됩니다.</p>
+     <div class="sheet-list">${EXCL_REASONS.map(
+       (r, i) => `<button class="opt" data-sheet-act="pick" data-i="${i}"><span class="ico">${icon.tagOutline}</span><span class="lbl">${r.code}-${esc(r.label)}</span><span class="chev">${icon.chevronRight}</span></button>`,
+     ).join('')}</div>`,
+    {
+      pick: (t) => {
+        const wasHam = hamPending();
+        o.excl = { ...EXCL_REASONS[+t.dataset.i] };
+        t.classList.add('sel', 'red');
+        setTimeout(() => {
+          closeSheet();
+          rerender();
+          toast(
+            wasHam && !hamPending()
+              ? '고위험약물이 제외되어 이중 인증 없이 투약할 수 있습니다.'
+              : `이번 투약에서 제외했습니다. (${o.excl.code}-${o.excl.label})`,
+          );
+        }, 220);
+      },
+      dismiss: () => closeSwipes(),
+    },
+  );
+}
+
+function undoExclude(id) {
+  const o = state.orders.find((x) => x.id === id);
+  if (!o?.excl) return;
+  o.excl = null;
+  rerender();
+  toast(o.ham && hamPending() ? '되돌렸습니다. 고위험약물 이중 인증이 다시 필요합니다.' : '투약 목록으로 되돌렸습니다.');
+}
+
+/** Every dose of this round was taken out: record them as 미투약 without a 투약. */
+function recordExclusionsOnly(n) {
+  openDialog(
+    {
+      title: '투약할 약이 없습니다',
+      tone: 'info',
+      desc: `모든 약이 이번 투약에서 제외되었습니다.
+제외한 ${n}건을 미투약 사유로 EMR에 기록할까요?`,
+      buttons: [{ label: '취소', act: 'cancel', line: true }, { label: '기록', act: 'ok' }],
+    },
+    {
+      cancel: () => closeSheet(),
+      ok: () => {
+        closeSheet();
+        commitAdministration();
+        toScan();
+        toast(`제외한 ${n}건이 미투약 사유로 기록되었습니다.`);
+      },
+    },
+  );
+}
+
 function markSelected(btn, red = false) {
   btn.parentElement.querySelectorAll('.opt').forEach((b) => b.classList.remove('sel', 'red'));
   btn.classList.add('sel');
@@ -327,7 +440,13 @@ function markSelected(btn, red = false) {
 /* ---------------- 고위험 이중확인: neo-med-check-01~03 (약물) · neo-trf-check-01~03 (수혈) ---------------- */
 const HAM_AT = { first: '2026-09-17 18:32', second: '2026-09-17 18:38' }; // demo clock
 const nurseTag = (n) => `${n.label} ${n.no}`;
-const trfFocus = () => state.work.trf.orders.find((o) => o.focus) || state.work.trf.orders[0];
+/** 수혈 이중 확인 is once per 항목, at its first bag: the next bag confirmed by its two barcodes (screenshots: the focused order's first bag). */
+function trfBag() {
+  const next = trfNext();
+  if (next) return next;
+  const o = state.work.trf.orders.find((x) => x.focus) || state.work.trf.orders[0];
+  return { unit: o.units[0], o };
+}
 
 const CHECK = {
   med: {
@@ -350,20 +469,25 @@ const CHECK = {
     back: 'task',
   },
   trf: {
-    get: () => state.work.trf.ham,
-    set: (h) => (state.work.trf.ham = h),
+    // one double check per 항목 (수혈 오더): a check made for another 항목 does not count
+    get: () => {
+      const h = state.work.trf.ham;
+      return h && (!h.oid || h.oid === trfBag().o.id) ? h : null;
+    },
+    set: (h) => (state.work.trf.ham = Object.assign(h, { oid: trfBag().o.id, unit: trfBag().unit })),
     checks: TRF_CHECKS,
     titles: { first: '수혈하기 1차 인증', second: '수혈하기 2차 인증' },
     desc: '환자 안전을 위해 간호사 2인 이상이\n환자/처방 정보를 확인해야 수혈이 가능합니다.',
     head: '고위험수행 이중 확인',
     item: () => {
-      const o = trfFocus();
-      const units = `${o.units[0]}${o.units.length > 1 ? ` 외 ${o.units.length - 1}건` : ''}`;
+      const { unit, o } = trfBag();
+      const all = trfUnits();
+      const seq = all.filter(({ unit: u }) => ['done', 'stop'].includes(state.work.trf.bags[u])).length + 1;
       return {
         badge: '',
         html: `<p class="ham-drug">${esc(o.name)}</p>
-          <p class="ham-sub">혈액번호 : ${units}</p>
-          <p class="med-date"><b class="abo">혈액형 : ${o.abo}</b>발행처 : ${o.issuer}<i></i>발행시간 : ${o.issued}</p>`,
+          <p class="ham-sub">혈액번호 : ${unit}${all.length > 1 ? `<i></i>${seq}/${all.length} 단위` : ''}</p>
+          <p class="med-date"><b class="abo">혈액형 : ${bloodType(o)}</b>발행처 : ${o.issuer}<i></i>발행시간 : ${o.issued}</p>`,
       };
     },
     bothOnSecond: true, // neo-trf-check 2차 shows the confirmed 1차 담당자 above the 2차
@@ -394,8 +518,14 @@ function hamCard({ c, step, ham }) {
     step === 'first'
       ? nurseRow('1차 담당자', NURSE)
       : `${c.bothOnSecond ? nurseRow('1차 담당자', NURSE, true) : ''}${nurseRow('2차 담당자', NURSE2)}`;
+  const n = checks.filter(Boolean).length;
+  const all = n === checks.length;
   return `
     <div class="ham-card">${head}
+      <div class="ham-checks-head">
+        <span class="ham-count">확인 항목 <b>${n}</b> / ${checks.length}</span>
+        <button class="ham-all${all ? ' on' : ''}" data-act="check-all" aria-pressed="${all}"><span class="cb">${icon.check}</span><span>전체 확인</span></button>
+      </div>
       <div class="ham-checks">${c.checks
         .map((t, i) => `<button class="ham-check${checks[i] ? ' on' : ''}" data-act="check" data-i="${i}"><span class="cb">${icon.check}</span><span>${esc(t)}</span></button>`)
         .join('')}</div>
@@ -448,7 +578,10 @@ register('ham', {
       if (step === 'done') {
         ham.done = true;
         // 수혈: 이중 확인 완료 → 수혈 진행 화면 ('수혈 시작'), 투약: back to the list
-        if (kind === 'trf') return replace('trfrun', {}, 'fade');
+        if (kind === 'trf') {
+          state.work.trf.checked[ham.oid || trfBag().o.id] = true; // its later bags: 혈액번호 only
+          return replace('trfrun', {}, 'fade');
+        }
         return backTo(c.back);
       }
       const checks = step === 'first' ? ham.checks1 : ham.checks2;
@@ -464,6 +597,13 @@ register('ham', {
       const ham = CHECK[kind].get();
       const arr = step === 'first' ? ham.checks1 : ham.checks2;
       arr[+t.dataset.i] = !arr[+t.dataset.i];
+      rerender();
+    },
+    // 전체 확인: checks every item at once (all checked → clears them)
+    'check-all': (t, { step, kind = 'med' }) => {
+      const ham = CHECK[kind].get();
+      const arr = step === 'first' ? ham.checks1 : ham.checks2;
+      arr.fill(!arr.every(Boolean));
       rerender();
     },
   },

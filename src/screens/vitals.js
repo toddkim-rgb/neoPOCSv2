@@ -12,6 +12,8 @@ import { icon } from '../icons.js';
 import { PATIENT, NURSE, patientTitle } from '../data.js';
 import { state, completeTask, selectPatient } from '../state.js';
 import { askPatient } from '../patientscan.js';
+import { voiceButton, openVoiceInput, flashVoiced } from '../vvoice.js';
+import { prevLine, prevValues } from './work.js';
 import sceneUrl from '../assets/img/icu-bedside.jpg';
 import screenUrl from '../assets/img/monitor-screen.jpg';
 
@@ -735,6 +737,7 @@ function fieldCell(f, o) {
         <input class="vf-in ${flag || ''}" data-k="${f.k}" type="text" inputmode="decimal" value="${esc(v)}" placeholder="${read ? '' : '입력'}" aria-label="${f.name}" autocomplete="off">
         <span class="vf-u">${f.unit}</span>
       </span>
+      ${prevLine(f.k).replace('vt-prev', 'vt-prev vf-prev')}
       <span class="vf-bot">${state3}</span>
     </label>`;
 }
@@ -760,7 +763,7 @@ register('vreview', {
           }</div>
         </section>`}
         <section class="ocr-card">
-          <div class="ocr-card-head"><span class="ocr-card-title gtext">측정값</span>
+          <div class="ocr-card-head"><span class="ocr-card-l"><span class="ocr-card-title gtext">측정값</span>${voiceButton()}</span>
             <span class="ocr-meta">${MEASURED.time} · ${NURSE.label}</span></div>
           <p class="ocr-note${pending ? ' warn' : ''}">${
             pending
@@ -802,6 +805,23 @@ register('vreview', {
       state.vocr.checked[t.dataset.k] = true;
       rerender();
     },
+    // 음성 입력: a spoken value replaces the AI reading (수정됨 / 직접 입력); the same value confirms it (확인됨)
+    vvoice: () =>
+      openVoiceInput({
+        prev: prevValues(),
+        onApply: (vals) => {
+          const o = state.vocr;
+          for (const [k, v] of Object.entries(vals)) {
+            const f = OCR_FIELDS.find((x) => x.k === k);
+            if (!f) continue;
+            o.values[k] = v;
+            o.edited[k] = v !== readOf(f, o);
+            if (!o.edited[k]) o.checked[k] = true;
+          }
+          rerender();
+          flashVoiced('.vfield', Object.keys(vals));
+        },
+      }),
     'review-ok': () => {
       const o = state.vocr;
       const empty = OCR_FIELDS.filter((f) => readOf(f, o) && !String(o.values[f.k]).trim());

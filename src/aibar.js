@@ -77,11 +77,14 @@ export function mountAiBar(el, params = {}) {
 }
 
 /* ---------------- navigation helpers ---------------- */
-/** 투약하기 → 바코드 스캔; `pid` = the patient it was opened for (the scan button reads their wristband). */
-export function startMed(pid = DEFAULT_PID) {
-  selectPatient(pid);
+/**
+ * 투약하기. A chosen patient (`pid`: 긴급 카드 · MY환자 · AI 커맨드바) opens their 투약 list first, locked until the
+ * wristband scan; without one (메뉴 · 퀵메뉴) the 바코드 스캔 screen comes first.
+ */
+export function startMed(pid) {
+  selectPatient(pid || DEFAULT_PID);
   resetPatient();
-  go('scan');
+  go(pid ? 'task' : 'scan');
 }
 
 /** Opens a menu by its key (MENU_ITEM / hub tiles): implemented flows start, the rest explain. */
