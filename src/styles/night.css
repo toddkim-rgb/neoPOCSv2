@@ -233,3 +233,29 @@ html.night .infection .pill.none {
 html.night .tgl i {
   background: #fff;
 }
+
+/* 3D tile icons: the low-resolution tiles have stepped corners that show on dark. A feathered rounded mask
+   (corner ≈ 23 %) replaces the edge with a smooth one. sc-* images are 171×177: the tile is the top 171 px. */
+html.night .ucard-ico,
+html.night .myrow-ava,
+html.night .nav-tile img {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 114 114'><filter id='f' x='-5%' y='-5%' width='110%' height='110%'><feGaussianBlur stdDeviation='1.1'/></filter><rect x='2' y='2' width='110' height='110' rx='25' fill='white' filter='url(%23f)'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 114 114'><filter id='f' x='-5%' y='-5%' width='110%' height='110%'><feGaussianBlur stdDeviation='1.1'/></filter><rect x='2' y='2' width='110' height='110' rx='25' fill='white' filter='url(%23f)'/></svg>");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+html.night .shortcut img:not(.tile),
+html.night .ico3d:not(.tile) {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 171 177' preserveAspectRatio='none'><filter id='f' x='-5%' y='-5%' width='110%' height='110%'><feGaussianBlur stdDeviation='1.6'/></filter><rect x='3' y='3' width='165' height='165' rx='38' fill='white' filter='url(%23f)'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 171 177' preserveAspectRatio='none'><filter id='f' x='-5%' y='-5%' width='110%' height='110%'><feGaussianBlur stdDeviation='1.6'/></filter><rect x='3' y='3' width='165' height='165' rx='38' fill='white' filter='url(%23f)'/></svg>");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+/* the white tiles glare at night: a touch dimmer */
+html.night .ucard-ico,
+html.night .myrow-ava,
+html.night .nav-tile img,
+html.night .shortcut img,
+html.night .ico3d {
+  filter: brightness(0.93);
+}
