@@ -16,6 +16,7 @@ import {
   trfUnits, trfNext,
 } from '../state.js';
 import { closeSwipes } from '../swipe.js';
+import { feedback } from '../feedback.js';
 
 /* ---------------- scan simulation ---------------- */
 export const FAIL_SIM = { label: '인식 실패 (손상된 바코드)', code: '#FAIL' };
@@ -200,6 +201,7 @@ export function openScanSim(items, onPick) {
     {
       sim: (t) => {
         closeSheet();
+        feedback('scan'); // the simulated barcode is read like the laser's
         onPick(items[+t.dataset.i].code);
       },
     },

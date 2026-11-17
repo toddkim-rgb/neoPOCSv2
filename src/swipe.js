@@ -1,6 +1,8 @@
 // 투약 리스트 스와이프 (요청, not in the Figma file): pushing a `.mswipe` card to the left shows '삭제' · '취소'
 // behind it. A long-press on the card opens it too (장갑을 끼면 스와이프가 어려워서). Only one row is open at a time;
 // a touch anywhere else, or a tap on the open card, closes it. Rows marked `.fixed` do not move.
+import { feedback } from './feedback.js';
+
 const OPEN_W = 128; // design px: two 64px buttons
 const LONG_MS = 550;
 
@@ -36,7 +38,7 @@ function down(e) {
   g.timer = setTimeout(() => {
     if (!g || g.axis) return;
     g.long = true;
-    navigator.vibrate?.(20);
+    feedback('long');
     openSwipe(sw);
   }, LONG_MS);
 }

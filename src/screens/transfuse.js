@@ -17,6 +17,7 @@ import { confirmReset, openMedDialog, openScanSim, FAIL_SIM } from './med.js';
 import { flagOf } from './vitals.js';
 import { toWorkScan, prevLine, prevValues, prevVital, stepValue, flagTag } from './work.js';
 import { voiceButton, openVoiceInput, flashVoiced } from '../vvoice.js';
+import { feedback } from '../feedback.js';
 
 const MIN = 60000;
 const CHECK_MIN = 15; // 수혈 시작 15분 뒤 중간 체크
@@ -275,7 +276,7 @@ register('trfrun', {
       const last = w.log[w.log.length - 1];
       const start = last ? Math.max(Date.now(), last.end + (Date.now() - w.doneAt)) : Date.now();
       Object.assign(run, { phase: 'running', start, base: 0, t0: Date.now(), hold: false, chk: null });
-      navigator.vibrate?.(20);
+      feedback('ok');
       rerender();
       toast(`수혈을 시작했습니다. 예상 종료 ${hhmm(run.start + total(run))}`);
     },
@@ -351,7 +352,7 @@ function tick() {
   if (e >= total(run)) {
     freeze(run);
     run.phase = 'empty';
-    navigator.vibrate?.([40, 80, 40]);
+    feedback('alert');
     rerender();
     return toast('혈액팩이 비었습니다. 수혈 완료를 눌러 기록해 주세요.');
   }
@@ -381,12 +382,13 @@ function dueCheck(run) {
     freeze(run);
     run.base = CHECK_MIN * MIN; // a fast demo tick may overshoot: the check is at 15:00
   }
-  navigator.vibrate?.([60, 80, 60]);
+  feedback('alarm'); // 15분 체크 알람: 주간 알람음 · 야간 진동
   rerender();
   openDialog(
     {
       title: '15분 중간 체크',
       tone: 'info',
+      fb: false,
       desc: '수혈 시작 15분이 지났습니다.\n활력징후와 이상반응을 확인해 주세요.',
       buttons: [{ label: '체크하기', act: 'ok' }],
     },
@@ -532,7 +534,7 @@ function stopRun(reason) {
   w.run = null;
   w.ham = null;
   completeTask('trf', hhmm(at), '수혈중단');
-  navigator.vibrate?.(30);
+  feedback('error');
   replace('trfdone', {}, 'fade');
 }
 

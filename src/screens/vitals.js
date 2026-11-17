@@ -13,6 +13,7 @@ import { PATIENT, NURSE, patientTitle } from '../data.js';
 import { state, completeTask, selectPatient, recordVitals } from '../state.js';
 import { askPatient } from '../patientscan.js';
 import { voiceButton, openVoiceInput, flashVoiced } from '../vvoice.js';
+import { feedback } from '../feedback.js';
 import { prevLine, prevValues, prevVital } from './work.js';
 import sceneUrl from '../assets/img/icu-bedside.jpg';
 import screenUrl from '../assets/img/monitor-screen.jpg';
@@ -659,7 +660,7 @@ function failed(el, kind) {
   }
   el.querySelector('.cam-progress').hidden = true;
   el.querySelector('.cam-retry').hidden = false;
-  navigator.vibrate?.([30, 60, 30]);
+  feedback('ok'); // 환자 모니터 감지
 }
 
 function retake(el) {

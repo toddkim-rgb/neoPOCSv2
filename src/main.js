@@ -21,6 +21,8 @@ import './screens/update.js';
 import { install } from './versions.js';
 import { startPii } from './pii.js';
 import { initSwipe } from './swipe.js';
+import { startNight } from './night.js';
+import { feedback } from './feedback.js';
 import { openLogout } from './screens/nav.js';
 import { takePatientScan, patientPending, cancelPatientScan } from './patientscan.js';
 
@@ -103,6 +105,8 @@ stage.addEventListener('click', (e) => {
   const fn = cur?.screen.actions?.[t.dataset.act];
   if (fn) {
     e.preventDefault();
+    // the PDA scan buttons stand for the laser scanner: 스캔음 (주간) · 진동 (야간)
+    if (/^scan(-patient|-bag|-tube|-unit)?$/.test(t.dataset.act)) feedback('scan');
     fn(t, cur.params, e);
   }
 });
@@ -118,7 +122,7 @@ stage.addEventListener('pointerdown', (e) => {
     const fn = cur?.screen.actions?.[t.dataset.long];
     if (fn) {
       suppressClick = true;
-      navigator.vibrate?.(20);
+      feedback('long');
       fn(t, cur.params, e);
     }
   }, 550);
@@ -151,6 +155,7 @@ window.addEventListener('screenchange', () => {
 
 attachScanner((code) => {
   // a popup waiting for a wristband takes the scan first
+  feedback('scan');
   if (takePatientScan(code)) return;
   if (sheetOpen()) closeSheet(true);
   const cur = currentScreen();
@@ -212,6 +217,8 @@ layout();
 // 개인정보 자동 가림 (screenshots: still, ?mask=1 shows the masked state)
 startPii({ still: !!shot, masked: params.get('mask') === '1' });
 initSwipe(); // 투약 리스트 카드 스와이프 → 삭제 · 취소
+// 야간모드: 22:00–07:00 (사용자설정) · screenshots: day, or ?night=1
+startNight({ forced: params.has('night') ? params.get('night') === '1' : shot ? false : null });
 document.fonts.load('500 16px "Pretendard Variable"').finally(() => {
   if (shot) startShot(shot);
   else reset('splash', {}, 'fade');

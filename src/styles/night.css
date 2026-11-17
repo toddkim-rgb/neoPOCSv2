@@ -1,0 +1,235 @@
+/* =========================================================
+   야간모드 (html.night): dark screens for the ward at night — less light, same meaning of colour
+   (주의 orange · 경고 red · 고위험 · 브랜드 blue stay recognisable). The rule-by-rule part is generated
+   (night.generated.css, scripts/gen-night.py); this file holds the tokens and the hand-tuned parts.
+   ========================================================= */
+html.night {
+  color-scheme: dark;
+  /* neutral tokens (--c-white stays white: it is also the text on blue / red buttons) */
+  --c-text: #e6ebf2;
+  --c-slate: #b9c4d2;
+  --c-gray: #8592a5;
+  --c-muted: #6b7788;
+  --c-line: #3a4454;
+  --c-surface: #1a212c;
+  --c-badge: #283140;
+  --c-badge-text: #c9d1dc;
+  --c-on-surface: #e6ebf2;
+  --c-blue-deep: #4aa6e6;
+  --c-danger-bg: #3a2125;
+  --c-danger-bg-2: #2d1c20;
+  --c-warn-bg: #352819;
+  --c-warn-bg-2: #2a2219;
+  --c-warn-chip: #4a3520;
+  --c-ai-bg: #241f36;
+  --shadow1: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --dim: rgba(0, 0, 0, 0.72);
+  /* night-only */
+  --n-card: #232b38;
+  --n-card-2: #2a3342;
+  --n-line: #3a4454;
+  --n-text: #e6ebf2;
+  --n-slate-bg: #485a72;
+  --n-ink: #0d1219;
+}
+
+/* screen backgrounds: the day images become a deep, faintly tinted dark */
+html.night #root,
+html.night.desktop #root {
+  background: #0b0f16;
+}
+html.night #stage {
+  background: #0f141c;
+}
+html.night #root[data-bg='screen'] #stage::before,
+html.night #root[data-bg='gray'] #stage::before {
+  background: linear-gradient(180deg, #141b27 0%, #101620 55%, #0e1520 100%);
+}
+html.night #root[data-bg='green'] #stage::before {
+  background: linear-gradient(180deg, #132019 0%, #0f1814 60%, #0d1612 100%);
+}
+html.night #root[data-bg='splash'] #stage::before {
+  background: radial-gradient(120% 80% at 70% 20%, #1b2a4a 0%, #101827 55%, #0b111c 100%);
+}
+html.night.desktop #stage {
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+html.night.desktop .fake-status img {
+  filter: invert(1);
+}
+html.night.desktop .fake-handle {
+  background: #e6ebf2;
+}
+
+/* gradient text: lighter so it reads on dark */
+html.night .gtext {
+  background: linear-gradient(90deg, #8fdcff 0%, #4aa6e6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+html.night #root[data-bg='green'] .gtext {
+  background: linear-gradient(90deg, #9be6a6 0%, #3fbf8a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* soft shadows read as glows on dark: flatten them */
+html.night .pcard,
+html.night .medlist,
+html.night .vcard,
+html.night .dcard,
+html.night .ucard,
+html.night .myrow,
+html.night .set-card {
+  box-shadow: none;
+}
+html.night .sheet,
+html.night .dlg {
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* the 3D icons and photos keep their colours; the blood bag's plastic gets a little darker */
+html.night .bag-body,
+html.night .bag-handle,
+html.night .bag-neck,
+html.night .bag-chamber {
+  filter: brightness(0.86);
+}
+
+/* 야간모드 badge in the header area of the hub (and the night indicator) */
+.night-badge {
+  display: none;
+}
+html.night .night-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 8px 0 6px;
+  border-radius: 10px;
+  background: #2a3550;
+  font-size: 11px;
+  line-height: 13px;
+  font-weight: 600;
+  color: #c7d4ff;
+}
+html.night .night-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* 사용자설정 · 야간모드 */
+.night-card .set-row.first {
+  border-top: 0;
+  padding-left: 16px;
+}
+.night-card .set-row.now {
+  padding-left: 16px;
+}
+.stp.off {
+  opacity: 0.45;
+}
+.night-t {
+  min-width: 44px;
+  font-variant-numeric: tabular-nums;
+}
+.night-now-l {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+.night-now-l svg {
+  width: 18px;
+  height: 18px;
+  color: #6b7cff;
+}
+.night-now {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 15px;
+  background: #2c3a63;
+  font-size: 12px;
+  line-height: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+html.night .night-now {
+  background: #e6ebf2;
+  color: #1a212c;
+}
+/* the hub: a small badge next to the sparkle while it is night */
+.hub-spark + .night-badge {
+  vertical-align: top;
+  margin: 2px 0 0 6px;
+}
+html.night .hub-hello {
+  display: block;
+}
+html.night .hub-spark {
+  display: inline-block;
+}
+
+/* '진동' sign: shown where the device cannot vibrate (PC · iPhone) — demo of the night feedback */
+.vib-sign {
+  position: absolute;
+  top: calc(var(--st) + 6px);
+  left: 50%;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px 0 8px;
+  border-radius: 13px;
+  background: rgba(20, 26, 36, 0.92);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  line-height: 14px;
+  font-weight: 600;
+  color: #e6ebf2;
+  opacity: 0;
+  transform: translate(-50%, -6px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.vib-sign svg {
+  width: 16px;
+  height: 16px;
+}
+.vib-sign.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  animation: vib-shake 0.36s linear 2;
+}
+@keyframes vib-shake {
+  25% {
+    margin-left: -2px;
+  }
+  75% {
+    margin-left: 2px;
+  }
+}
+
+/* 환자 상세: allergy / infection pills keep their colour, readable on dark */
+html.night .pill {
+  border-color: #8a5a2c;
+  background: #3a2a1a;
+  color: #ffbd7a;
+}
+html.night .infection .pill {
+  border-color: #8a3a3a;
+  background: #3a1f22;
+  color: #ff8a8a;
+}
+html.night .pill.none,
+html.night .infection .pill.none {
+  border-color: var(--c-line);
+  background: var(--c-surface);
+  color: var(--c-gray);
+}
+
+/* switches: the knob stays white */
+html.night .tgl i {
+  background: #fff;
+}

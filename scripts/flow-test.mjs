@@ -938,6 +938,47 @@ try {
   await page.$eval('.hub-headline', (e) => e.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
   await sleep(100);
   if (await isMasked()) throw new Error('a touch should show the names again');
+
+  // ---------- 야간모드: 22:00–07:00 · 사용자설정 · 주간 소리 / 야간 진동 ----------
+  const win = await page.evaluate(async () => {
+    const { inNightWindow } = await import('/src/night.js');
+    const at = (h, m) => inNightWindow(new Date(2026, 10, 17, h, m), { start: '22:00', end: '07:00' });
+    return [at(21, 59), at(22, 0), at(23, 30), at(6, 59), at(7, 0), at(12, 0)].join(',');
+  });
+  if (win !== 'false,true,true,true,false,false') throw new Error(`night window 22:00–07:00: ${win}`);
+  const isNightNow = () => page.$eval('html', (e) => e.classList.contains('night'));
+  const fbNow = () => page.$eval('html', (e) => e.dataset.fb || '');
+  await tap('[data-act="open-setting"]', 'night-setting');
+  const nightTimes = await page.$$eval('.night-card .night-t', (els) => els.map((e) => e.textContent).join('-'));
+  if (nightTimes !== '22:00-07:00') throw new Error(`야간모드 default times: ${nightTimes}`);
+  if ((await page.$eval('.night-card [data-act="night-auto"]', (e) => e.getAttribute('aria-checked'))) !== 'true') throw new Error('자동 전환 should start on');
+  await tap('[data-act="night-start"][data-d="1"]', 'night-start-2230');
+  if ((await page.$eval('.night-card .night-t', (e) => e.textContent)) !== '22:30') throw new Error('시작 should step by 30분');
+  await tap('[data-act="night-start"][data-d="-1"]', 'night-start-2200');
+  await tap('[data-act="night-auto"]', 'night-auto-off'); // whatever the real time is, now 주간
+  if (await isNightNow()) throw new Error('자동 전환 off → 주간모드');
+  if (!(await page.$eval('[data-act="night-start"]', (e) => e.disabled))) throw new Error('시작 · 종료 are off while 자동 전환 is off');
+  await tap('[data-act="night-now"]', 'night-now-on');
+  if (!(await isNightNow())) throw new Error('지금 야간모드 켜기 should turn the screens dark');
+  if ((await fbNow()) !== 'vibrate:alert') throw new Error(`the switch should vibrate at night: ${await fbNow()}`);
+  const bg = await page.$eval('.set-card', (e) => getComputedStyle(e).backgroundColor);
+  if (bg === 'rgb(255, 255, 255)') throw new Error('야간모드 cards should be dark');
+  await tap('[data-act="hdr-close"]', 'night-hub');
+  // this test runs as a phone (touch): the PDA really vibrates (PCs show a '진동' sign instead)
+  await page.evaluate(() => {
+    window.__vib = [];
+    const v = navigator.vibrate.bind(navigator);
+    navigator.vibrate = (pat) => (window.__vib.push(pat), v(pat));
+  });
+  await scanWedge('P21212457');
+  if ((await fbNow()) !== 'vibrate:scan') throw new Error(`a scan at night should vibrate: ${await fbNow()}`);
+  const vib = await page.evaluate(() => JSON.stringify(window.__vib));
+  if (!vib.includes('[35]')) throw new Error(`the scan vibration pattern: ${vib}`);
+  await tap('[data-act="open-setting"]', 'night-setting-2');
+  await tap('[data-act="night-now"]', 'night-now-off');
+  if (await isNightNow()) throw new Error('주간모드로 바꾸기');
+  if ((await fbNow()) !== 'sound:alert') throw new Error(`by day the feedback is a sound: ${await fbNow()}`);
+  await tap('[data-act="night-auto"]', 'night-auto-on');
   console.log('\nRESULT: OK', errors.length ? `(page errors: ${errors.join(' | ')})` : '(no page errors)');
 } catch (e) {
   console.log('\nRESULT: FAIL', e.message, errors.length ? `page errors: ${errors.join(' | ')}` : '');

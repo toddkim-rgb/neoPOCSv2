@@ -19,6 +19,7 @@ import { state, resetWork, selectPatient, completeTask, taskStatus, trfUnits, un
 import { openMedDialog, confirmReset, startCheck, openNoOrders, openScanSim, patientSims, FAIL_SIM } from './med.js';
 import { flagOf } from './vitals.js';
 import { voiceButton, openVoiceInput, flashVoiced } from '../vvoice.js';
+import { feedback } from '../feedback.js';
 
 export const KINDS = {
   bld: { title: '채혈하기', list: '채혈하기', action: '채혈수행' },
@@ -117,7 +118,7 @@ function confirmBag(unit) {
   w.pend = null;
   w.scan.drug = true;
   showWork('trf');
-  navigator.vibrate?.(20);
+  feedback('ok');
   toast(`혈액백(${unit})이 확인되었습니다.`);
 }
 

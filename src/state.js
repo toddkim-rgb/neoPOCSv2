@@ -11,6 +11,8 @@ export function defaultSettings() {
     ham2: true, // 고위험수행 2차인증 (지원 여부 미정 — 표시만)
     autoLogout: 30,
     piiSec: 10, // 개인정보 자동 가림: seconds without a touch (0 = 끄기) — pii.js
+    // 야간모드 (night.js): 자동 전환 · 시작 · 종료; manual = '지금' 바꾼 모드 (true/false) until the next scheduled change
+    night: { auto: true, start: '22:00', end: '07:00', manual: null },
   };
 }
 

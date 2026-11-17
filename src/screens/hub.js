@@ -24,7 +24,7 @@ function urgentTab() {
   const quick = state.settings.quick.map((k) => MENU_ITEM[k]).filter(Boolean);
   return `
     <div class="hub-hello">
-      <span class="hub-spark">${sparkles('hub-spark-u')}</span>
+      <span class="hub-spark">${sparkles('hub-spark-u')}</span><span class="night-badge">${icon.moon}야간모드</span>
       <p class="hub-headline"><span class="gtext">긴급 처리 업무</span>가<br><span class="gtext">${items.length}건</span> 기다리고 있습니다.</p>
     </div>
     <div class="ucards">

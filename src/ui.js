@@ -1,6 +1,7 @@
 import { icon, aiBadge } from './icons.js';
 import { PATIENT } from './data.js';
 import { state } from './state.js';
+import { feedback } from './feedback.js';
 
 const img3d = import.meta.glob('./assets/img/3d/*.{png,svg}', { eager: true, query: '?url', import: 'default' });
 export const asset3d = (name) => img3d[`./assets/img/3d/${name}.png`] || img3d[`./assets/img/3d/${name}.svg`];
@@ -221,8 +222,12 @@ export const sheetOpen = () => !!sheetCtx;
 
 /* ---------- centered popup (pop-error / pop-default-2way) ---------- */
 // buttons: [{ label, act, line }] — `act` is a key of `handlers`; tone 'warn' = orange title, 'info' = blue.
-export function openDialog({ title, desc = '', body = '', tone = 'warn', cls = '', buttons = [{ label: '확인', act: 'ok' }] }, handlers = {}) {
+// fb: the 알림 feedback (주간 소리 · 야간 진동) — 'error' for 불일치 · 인식 불가 …, 'alert' otherwise, false = none
+const ERROR_TITLE = /불일치|인식 불가|스캔 필요|오더 없음|진행 중|없습니다/;
+export function openDialog({ title, desc = '', body = '', tone = 'warn', cls = '', buttons = [{ label: '확인', act: 'ok' }], fb }, handlers = {}) {
   closeSheet(true);
+  const kind = fb ?? (ERROR_TITLE.test(title) ? 'error' : 'alert');
+  if (kind) feedback(kind);
   const layer = document.getElementById('sheet-layer');
   const wrap = document.createElement('div');
   wrap.className = 'sheet-wrap dlg-wrap';

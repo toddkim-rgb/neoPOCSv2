@@ -3,6 +3,7 @@
 // The PDA scanner (main.js) and the popup's 스캔하기 button both answer it; a long press on 스캔하기
 // picks one of the six sample wristbands (demo).
 import { openDialog, openSheet, closeSheet, asset3d, toast, esc, badge } from './ui.js';
+import { feedback } from './feedback.js';
 import { icon } from './icons.js';
 import { PATIENTS, DEFAULT_PID, patientByCode, patientById, fullName } from './patients.js';
 
@@ -38,7 +39,7 @@ function showPrompt() {
   btn?.addEventListener('pointerdown', () => {
     clearTimeout(timer);
     timer = setTimeout(() => {
-      navigator.vibrate?.(20);
+      feedback('long');
       swallowNextClick();
       openPatientSim();
     }, 550);
