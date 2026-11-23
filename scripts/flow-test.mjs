@@ -167,6 +167,7 @@ try {
   // "김철수 환자 투약하기" names the patient → their 투약 list first, locked until the wristband
   await expect('task');
   if (!(await page.$('.task-lock'))) throw new Error('a named patient should open the locked 투약 list');
+  if (!(await page.$('.pcard.locked .pcard-lock'))) throw new Error('before the wristband the patient box should be 비활성 (환자 미확인)');
   await tap('[data-act="hdr-back"]', 'voice-command-leave');
   await tap('.dlg [data-sheet-act="ok"]', 'voice-command-leave-ok');
   await expect('hub');
@@ -596,11 +597,18 @@ try {
 
   // 긴급 처리 업무 → 정민호 수혈: the scan button reads 정민호's wristband
   await tap('.ucard[data-pid="20812233"]', 'urgent-trf-jmh');
-  await expect('wscan');
-  await expectTitle('수혈하기');
-  await tap('[data-act="scan"]', 'jmh-wristband');
   await expect('wtask');
   await expectTitle('정민호(20812233)');
+  // 환자허브에서 고른 환자: 환자정보 비활성 + 수혈 오더 흐리게 → 환자 팔찌 스캔 → 활성
+  const jmhLocked = await page.evaluate(() => ({
+    card: !!document.querySelector('.pcard.locked .pcard-lock'),
+    list: !!document.querySelector('.task-lock .wcards .wcard'),
+    button: document.querySelector('.sticky-foot .btn')?.textContent,
+  }));
+  if (!jmhLocked.card || !jmhLocked.list || jmhLocked.button !== '환자 팔찌 스캔') throw new Error(`정민호 수혈 before the wristband: ${JSON.stringify(jmhLocked)}`);
+  await tap('[data-act="scan-patient"]', 'jmh-wristband');
+  await expect('wtask');
+  if (!(await page.$('.pcard.ok .pcard-ok')) || (await page.$('.task-lock'))) throw new Error('정민호: the wristband should activate the patient box and the list');
   // 수혈 오더 straight away — no 처방 스캔 step; nothing to give until a bag's two barcodes are scanned
   const jmhList = await page.evaluate(() => ({
     status: document.querySelector('.status-title')?.textContent || '',
@@ -694,6 +702,7 @@ try {
   if (!locked) throw new Error('the locked list should show the 투약 orders');
   if (await page.$('.task-lock [data-act="status-sheet"], .task-lock [data-act="time-sheet"], .task-lock .mswipe')) throw new Error('a locked list must not be editable');
   if ((await footBtns()) !== '환자 팔찌 스캔') throw new Error(`locked list button: ${await footBtns()}`);
+  if (!(await page.$('.pcard.locked')) || (await page.$('.pcard-ok'))) throw new Error('강태우: patient box should be 비활성 before the wristband');
   const ktwCard = await page.$eval('.pcard', (e) => e.textContent.replace(/\s+/g, ' '));
   if (!ktwCard.includes('케톤산증') || !ktwCard.includes('033-05-01')) throw new Error(`강태우 card: ${ktwCard}`);
   if (await page.$('.pcard .mini-badge.infection')) throw new Error('강태우 has no infection — no icon');
@@ -743,18 +752,21 @@ try {
 
   // a patient without that order: 강태우 has no 수혈
   await command('강태우 수혈');
-  await expect('wscan');
-  await tap('[data-act="scan"]', 'ktw-trf-scan');
   await expectDialog('수행할 오더 없음');
   await tap('.dlg [data-sheet-act="ok"]', 'ktw-no-trf-ok');
-  await expect('wscan');
-  await leaveToHub('ktw-trf-leave');
+  await expect('hub');
 
   // 긴급 처리 업무 → 안소율 활력징후 (이상치 재확인): same flow as 활력징후, saving clears the card
   await tap('.ucard[data-pid="20876654"]', 'urgent-vital-asy');
-  await tap('[data-act="scan"]', 'asy-wristband');
   await expect('vital');
   await expectTitle('안소율(20876654)');
+  if (!(await page.$('.pcard.locked')) || !(await page.$('.task-lock .vcard'))) throw new Error('안소율 활력징후 should open locked');
+  if (!(await page.$eval('.vval[data-k="SBP"]', (e) => e.disabled))) throw new Error('VS inputs must be disabled before the wristband');
+  await tap('[data-act="scan-patient"]', 'asy-wristband');
+  await expect('vital');
+  if (!(await page.$('.pcard.ok')) || (await page.$('.task-lock'))) throw new Error('안소율: the wristband should activate 활력징후');
+  await scanWedge('P20876654');
+  await expect('vital'); // the same wristband again: '이미 확인된 환자입니다.', values kept
   // the abnormal previous values are shown in colour (이상치 재확인)
   if (!(await page.$('.vt-cell[data-k="SBP"] .vt-prev b.danger'))) throw new Error('안소율 previous SBP should be 경고');
   await voiceDemo('asy');
@@ -772,9 +784,12 @@ try {
   await goMy();
   await tap('.myrow[data-pid="21033456"]', 'my-mge');
   await tap('.sheet .task-opt[data-k="bld"]', 'mge-bld');
-  await tap('[data-act="scan"]', 'mge-wristband');
   await expect('wtask');
   await expectTitle('문가은(21033456)');
+  if (!(await page.$('.pcard.locked')) || !(await page.$('.task-lock .wcard.tube'))) throw new Error('문가은 채혈 should open locked');
+  await scanWedge('P21033456'); // the PDA scan button reads the wristband
+  await expect('wtask');
+  if (!(await page.$('.pcard.ok')) || (await page.$('.task-lock'))) throw new Error('문가은: the wristband should activate 채혈');
   await scanWedge('B1001'); // 김철수's 채혈관
   await expectDialog('환자/채혈관 불일치');
   await tap('.dlg [data-sheet-act="ok"]', 'mge-mismatch-ok');
@@ -907,6 +922,91 @@ try {
   const ocrBt = await page.$eval('.vfield[data-k="BT"]', (e) => e.className + '|' + e.querySelector('.vf-in').value);
   if (!ocrBt.includes('edited') || ocrBt.endsWith('|')) throw new Error(`voice should fill the unread 체온: ${ocrBt}`);
   await tap('[data-act="hdr-close"]', 'attach-close');
+
+  // ---------- 사진 촬영 용도 (2026-11-23) ----------
+  // 주입 펌프: 시연 대상 → 감지 → 촬영 → 팔찌(강태우) → 펌프 표시값 · 처방 비교(처방 120 vs 펌프 100 → 확인 체크 필수) → 기록
+  await plus('ai-monitor', 'pump');
+  await expect('vcam');
+  const modes = await page.$$eval('.cam-mode', (els) => els.map((e) => e.textContent).join(','));
+  if (modes !== '자동,장비,환부,기타') throw new Error(`촬영 모드: ${modes}`);
+  await tap('[data-act="cam-target"]', 'pump-target');
+  await tap('[data-sheet-act="target"][data-k="pump"]', 'pump-target-pick');
+  await waitFor(() => document.querySelector('.scr-vcam')?.dataset.phase === 'detected', '펌프 감지', 6000);
+  const pumpTag = await page.$eval('.focus-tag span', (e) => e.textContent);
+  if (pumpTag !== '주입 펌프 감지') throw new Error(`pump detection badge: ${pumpTag}`);
+  await tap('[data-act="shoot"]', 'pump-shoot');
+  await expectDialog('환자 팔찌 스캔');
+  await scanWedge('P20733345');
+  await waitFor(() => document.querySelector('.scr-vpump'), 'pump record', 6000);
+  await expectTitle('강태우(20733345)');
+  const pumpRate = await page.$eval('.pf-in[data-k="rate"]', (e) => e.value);
+  if (pumpRate !== '100') throw new Error(`pump rate read: ${pumpRate}`);
+  if (!(await page.$('.pf-order.warn'))) throw new Error('order 120 mL/h vs pump 100 mL/h should be a mismatch');
+  await tap('[data-act="pump-save"]', 'pump-save-blocked');
+  await expect('vpump');
+  await tap('[data-act="pump-ack"]', 'pump-ack');
+  await tap('[data-act="pump-save"]', 'pump-save');
+  await expect('vsaved');
+  await tap('[data-act="to-detail"]', 'pump-detail');
+  await expect('detail');
+  const pumpRow = await page.$eval('.photo-records .ph-row', (e) => e.textContent);
+  if (!pumpRow.includes('100 mL/h') || !pumpRow.includes('불일치')) throw new Error(`사진 기록 pump row: ${pumpRow}`);
+
+  // 환자 상세 → 사진 촬영: 환자가 정해져 있어 팔찌 스캔 없음 · 알아볼 대상 없음 → '무엇을 촬영하셨나요?' → 기타 첨부
+  await tap('[data-act="photo-shoot"]', 'detail-camera');
+  await expect('vcam');
+  const chip2 = await page.$eval('.cam-patient', (e) => e.textContent);
+  if (!chip2.includes('강태우')) throw new Error(`camera from 환자 상세 should know the patient: ${chip2}`);
+  await longPress('[data-act="shoot"]');
+  await tap('[data-sheet-act="target"][data-k="none"]', 'none-shoot');
+  await waitFor(() => document.querySelector('.sheet .purpose'), 'purpose sheet', 6000);
+  if (await dialog()) throw new Error('no wristband scan when the patient was chosen first');
+  await tap('.purpose[data-k="other"]', 'purpose-other');
+  await waitFor(() => document.querySelector('.scr-vother'), 'other record', 4000);
+  await tap('[data-act="other-save"]', 'other-save-blocked');
+  await expect('vother');
+  await tap('.sort-chip[data-act="o-tag"][data-v="장비·환경"]', 'other-tag');
+  // the same photo can go elsewhere: 다른 용도로 → 환자 모니터 (nothing readable → 직접 입력) → back to 기타
+  await tap('[data-act="other-use"]', 'other-use');
+  await tap('.purpose[data-k="monitor"]', 'other-to-monitor');
+  await expect('vreview');
+  if (!(await page.$eval('.vr-title', (e) => e.textContent.includes('직접 입력')))) throw new Error('a photo without a monitor → 활력징후 직접 입력');
+  await tap('[data-act="other-use"]', 'monitor-use');
+  await tap('.purpose[data-k="other"]', 'monitor-to-other');
+  await expect('vother');
+  if (!(await page.$('.sort-chip.on[data-v="장비·환경"]'))) throw new Error('기타 첨부 should keep its tags');
+  await tap('[data-act="other-save"]', 'other-save');
+  await expect('vsaved');
+  await tap('[data-act="finish"]', 'other-finish');
+  await expect('detail');
+  const nPhotos = await page.$$eval('.photo-records .ph-row', (els) => els.length);
+  if (nPhotos !== 2) throw new Error(`강태우 사진 기록: ${nPhotos}`);
+  await tap('[data-act="hdr-back"]', 'photo-detail-back');
+  await expect('hub');
+
+  // 사진첨부 · 환부: 팔찌(김철수) → 자 눈금으로 크기 추정 → 부위를 고르면 이전 사진(09/15)과 비교 → 욕창은 단계 필수 → 저장
+  await plus('ai-attach', 'wound-attach');
+  await waitFor(() => document.querySelector('.sheet .album-item'), 'album', 3000);
+  await tap('.album-item[data-k="wound"]', 'wound-pick');
+  await tap('[data-sheet-act="attach"]', 'wound-attach-go');
+  await expectDialog('환자 팔찌 스캔');
+  await tap('.dlg [data-sheet-act="scan"]', 'wound-wristband');
+  await waitFor(() => document.querySelector('.scr-vwound'), 'wound record', 6000);
+  await expectTitle('김철수(21212457)');
+  const woundSize = await page.$$eval('.ph-size .stp-v', (els) => els.map((e) => e.textContent).join('x'));
+  if (woundSize !== '3.2x2.2') throw new Error(`wound size estimate: ${woundSize}`);
+  if (await page.$('.ph-prev')) throw new Error('the comparison waits for the site');
+  await tap('.sort-chip[data-act="w-site"][data-v="천골·엉덩이"]', 'wound-site');
+  const trend = await page.$eval('.ph-prev', (e) => e.textContent);
+  if (!trend.includes('크기 감소') || !trend.includes('09/15')) throw new Error(`previous photo comparison: ${trend}`);
+  await tap('.sort-chip[data-act="w-type"][data-v="욕창"]', 'wound-type');
+  await tap('[data-act="wound-save"]', 'wound-save-blocked');
+  await expect('vwound');
+  await tap('.sort-chip[data-act="w-stage"][data-v="2단계"]', 'wound-stage');
+  await tap('[data-act="wound-save"]', 'wound-save');
+  await expect('vsaved');
+  await tap('[data-act="finish"]', 'wound-finish');
+  await expect('hub');
 
   // ---------- 앱 버전 · 업데이트 (시연) ----------
   await tap('[data-act="open-setting"]', 'ver-setting');

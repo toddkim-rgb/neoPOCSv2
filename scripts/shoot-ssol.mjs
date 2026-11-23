@@ -39,8 +39,8 @@ export const SHOTS = [
   ['t7_checkdone', 'ham&kind=trf&step=done', 891],
   ['t8_done', 'wdone&kind=trf', 892],
   ['v1_scan', 'wscan&kind=vital', 892],
-  ['v2_task-plan', 'vital', 892],
-  ['v4_time', 'vital&sheet=time', 892],
+  ['v2_task-plan', 'vital&kind=vital&patient=1', 892],
+  ['v4_time', 'vital&kind=vital&patient=1&sheet=time', 892],
   ['v5_done', 'wdone&kind=vital', 892],
   // phase 3 (compare with ../figma-ssol/design-p3)
   ['p3-d1_detail', 'detail&open=1', 2471],

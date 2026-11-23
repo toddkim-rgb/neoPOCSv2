@@ -1,12 +1,15 @@
 // 환자 상세 (neo-med-detail-01): demographics, care info, allergy/infection, vitals, AI records, today's plan.
 // Shows the selected patient (PATIENT); AI 음성간호메모 = memos saved in this session first, then the patient's EMR history.
+// 사진 기록 (2026-11-23): 주입 펌프 · 환부 · 기타 첨부 photos of this patient; '사진 촬영' opens the camera for this
+// patient, so no wristband scan is needed after the photo.
 import { register, go, pop, rerender } from '../router.js';
 import { confirmReset } from './med.js';
 import { header, aiButton, badge, esc, medGroups, patientLine } from '../ui.js';
 import { icon, sparkles } from '../icons.js';
 import { patientTitle, PATIENT, NURSE } from '../data.js';
 import { state, vitalRow } from '../state.js';
-import { flagOf } from './vitals.js';
+import { flagOf, startCamera } from './vitals.js';
+import { photoRows } from './photo.js';
 import { scriptBubbles } from './voice.js';
 
 const infoCard = (title, rows) => `
@@ -135,6 +138,11 @@ register('detail', {
         <div class="dcard-head"><h3 class="ai-label"><span class="ai-spark">${sparkles('dt-spark', '#B07CFF', '#5B2BC7')}</span>AI 음성간호메모</h3><span class="ai-count">총 ${ai.count}건</span></div>
         ${ai.list.map(aiEntry).join('')}
       </section>
+      <section class="dcard photo-records">
+        <div class="dcard-head"><h3 class="dcard-title">사진 기록</h3><span class="ai-count">총 ${state.pt[state.pid].photos.length}건</span></div>
+        <div class="ph-list">${photoRows(state.pt[state.pid].photos)}</div>
+        <button class="ph-shoot" data-act="photo-shoot">${icon.camera}<span>사진 촬영</span></button>
+      </section>
       ${planCard()}
     </div>`;
   },
@@ -150,6 +158,8 @@ register('detail', {
       state.vhistOpen = !state.vhistOpen;
       rerender();
     },
+    // 사진 기록 → 사진 촬영: this patient is already chosen
+    'photo-shoot': () => startCamera({ pid: state.pid }),
     toggle: (t) => {
       const i = +t.dataset.i;
       state.scriptOpen.detail[i] = !state.scriptOpen.detail[i];

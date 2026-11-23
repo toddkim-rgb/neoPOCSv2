@@ -46,6 +46,14 @@ export const PATIENTS = [
     orders: createOrders, blood: createBloodDraws, trf: createTransfusions,
     vitals: { time: '15:30', who: N1, items: VITALS },
     memos: createMemos,
+    // 사진 기록: the wound photographed two days ago (the 환부 record screen compares a new photo with it)
+    photos: () => [
+      {
+        id: 'ph0', kind: 'wound', at: '09/15 10:20', who: N1, art: 'wound-prev',
+        title: '천골·엉덩이 · 욕창 2단계', detail: '3.8 × 2.6 cm · 장액성 삼출물 소량',
+        site: '천골·엉덩이', type: '욕창', stage: '2단계', w: '3.8', h: '2.6',
+      },
+    ],
     // 환자상세 AI 음성간호메모 (design: two entries, 총 4건) — also what a new recording plays back
     ai: { at: '26/09/14 17:00', count: 4, repeat: 2, summary: AI_SUMMARY, transcript: TRANSCRIPT },
   },

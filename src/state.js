@@ -22,7 +22,8 @@ function newWork(p) {
     // pend: the bag half-scanned ({ unit } or { code }); ham · run: the bag being double-checked / transfused; log: 수혈 기록;
     // checked: 수혈 오더 (항목) whose 이중 인증 is done — its later bags need only their 혈액번호, no new check
     trf: { scan: { patient: false, drug: false }, orders: p.trf(), bags: {}, pend: null, ham: null, run: null, log: [], speed: 60, result: null, checked: {} },
-    vital: { plan: '17:00', time: '17:00', values: null }, // plan: 예정 시각 (업무 선택 시트) · time: 측정 시간 (화면을 열 때 현재 시각)
+    // plan: 예정 시각 (업무 선택 시트) · time: 측정 시간 (팔찌 스캔 때 현재 시각) · scan.patient: 팔찌 스캔 (입력 활성)
+    vital: { plan: '17:00', time: '17:00', values: null, scan: { patient: false } },
   };
 }
 
@@ -64,6 +65,7 @@ function newPatientState(p) {
     vitals: { time: p.vitals.time, who: p.vitals.who, items: p.vitals.items.map((v) => ({ ...v })) },
     vhist: vitalHistory(p.vitals), // 이전 측정 (newest first)
     memos: p.memos(),
+    photos: p.photos ? p.photos() : [], // 사진 기록 (주입 펌프 · 환부 · 기타 첨부), newest first
     last: { ...p.my }, // MY환자 칩: 마지막 처리 업무
     done: {}, // menu → 완료 시각: that task is finished today (긴급 처리 업무 해소 · 업무 선택 시트 '완료')
   };
@@ -83,6 +85,7 @@ export const state = {
   voice: { notes: [], draft: '', origin: 'task' },
   scriptOpen: { review: false, detail: [true, false] },
   vocr: null, // current 활력징후 OCR session
+  vphoto: null, // the photo being recorded: { kind, attach, shows, media, art, photo } + its record form
   settings: defaultSettings(), // 사용자설정 — kept across logins, cleared by 로그아웃
   room: null, // 주사실 설정
   memoTab: 'perform', // 수행별 | 병상 라운딩
@@ -124,6 +127,7 @@ export function resetWork() {
   for (const [u, st] of Object.entries(t.bags)) if (st === 'ok') delete t.bags[u];
   state.work.bld.tubes = [];
   state.work.vital.values = null;
+  state.work.vital.scan = { patient: false };
 }
 
 /** 고위험 이중확인 (약물 · 수혈): 1차 = logged-in nurse, 2차 = whoever tags their RFID badge. */
@@ -243,6 +247,7 @@ export function resetDemo() {
   state.voice = { notes: [], draft: '', origin: 'task' };
   state.scriptOpen = { review: false, detail: [true, false] };
   state.vocr = null;
+  state.vphoto = null;
   state.memoTab = 'perform';
   state.vhistOpen = false;
   selectPatient(DEFAULT_PID, { force: true });

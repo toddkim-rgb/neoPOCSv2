@@ -403,6 +403,35 @@ html.shot .screen {
 .pcard.ok {
   border-color: var(--c-blue);
 }
+/* 팔찌 스캔 전: 환자정보 비활성 — 흐리게, '환자 미확인' (스캔하면 ✓ 환자 확인) */
+.pcard.locked {
+  border-style: dashed;
+}
+.pcard.locked .pn,
+.pcard.locked .pid,
+.pcard.locked .pcard-row {
+  opacity: 0.42;
+}
+.pcard.locked .mini {
+  filter: grayscale(1);
+}
+.pcard-lock {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  height: 20px;
+  margin-left: auto;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: var(--c-line);
+  font-size: 11px;
+  line-height: 13px;
+  font-weight: 600;
+  color: var(--c-slate);
+}
+.pcard-lock + .pcard-go {
+  margin-left: 4px;
+}
 .pcard-go {
   align-self: center;
   width: 18px;

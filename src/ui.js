@@ -51,10 +51,11 @@ const patientName = () => `<span class="pn">${esc(PATIENT.name)}</span><span cla
 export const patientLine = () => `
   <div class="pline">${patientName()}<i></i><span>${PATIENT.bed}</span><i></i><span>${PATIENT.detail}</span></div>`;
 
-// confirmed: the wristband was scanned (✓ 환자 확인)
-export const patientCard = ({ prn = false, scanWarn = false, act = 'patient-detail', confirmed = false } = {}) => `
-  <div class="pcard${scanWarn ? ' warn' : ''}${confirmed ? ' ok' : ''}"${act ? ` data-act="${act}" role="button" aria-label="환자 상세 보기"` : ''}>
-    <div class="pcard-name">${patientName()}${confirmed ? `<span class="pcard-ok">${icon.check}환자 확인</span>` : ''}${act ? `<span class="pcard-go">${icon.chevronRight}</span>` : ''}</div>
+// 환자허브에서 고른 환자의 업무 (투약 · 채혈 · 수혈 · 활력징후, 2026-11-23): locked = 팔찌 스캔 전, 환자정보 비활성
+// (흐리게 · '환자 미확인') → confirmed = 팔찌 스캔 후, 환자정보 활성 (✓ 환자 확인)
+export const patientCard = ({ prn = false, scanWarn = false, act = 'patient-detail', confirmed = false, locked = false } = {}) => `
+  <div class="pcard${scanWarn ? ' warn' : ''}${confirmed ? ' ok' : ''}${locked ? ' locked' : ''}"${act ? ` data-act="${act}" role="button" aria-label="환자 상세 보기"` : ''}>
+    <div class="pcard-name">${patientName()}${confirmed ? `<span class="pcard-ok">${icon.check}환자 확인</span>` : ''}${locked ? '<span class="pcard-lock">환자 미확인</span>' : ''}${act ? `<span class="pcard-go">${icon.chevronRight}</span>` : ''}</div>
     <div class="pcard-row"><span class="k">상세정보</span><span>${PATIENT.detail}</span></div>
     <div class="pcard-row"><span class="k">병상정보</span><span>${PATIENT.bed}</span></div>
     <div class="pcard-row"><span class="k">주진단명</span><span>${esc(PATIENT.dx)}</span></div>

@@ -8,6 +8,9 @@
 // bags need only their 혈액번호 (on the 수혈 진행 화면, or here) and no new 이중 인증; another 항목 starts over with two
 // barcodes and its own check. A bag scanned before the wristband still shows the list with the '환자 스캔' warning. 활력징후 needs only the patient scan; its task edits SBP·DBP·PR·RR·BT·SpO2 and saves them
 // to the 임상관찰기록.
+// 환자허브 (긴급 카드 · MY환자 업무 선택 · AI 커맨드바에 환자 이름) opens the chosen patient's work at once, like 투약
+// (2026-11-23): 환자정보 비활성 + 업무 내용 흐리게 → 환자 팔찌 스캔 → 환자정보 활성 (✓ 환자 확인) → 업무 수행.
+// Without a chosen patient (메뉴 · 퀵메뉴 · AI 커맨드바 '채혈') the 바코드 스캔 screen comes first, as before.
 // Every flow works for the six sample patients: a wristband selects that patient, 채혈관/혈액 barcodes belong to one
 // patient (another patient's label is 불일치), and a patient without that order gets '수행할 오더 없음'.
 import { register, go, replace, backTo, rerender } from '../router.js';
@@ -42,7 +45,10 @@ export function handleWorkScan(kind, code) {
   if (/9999$/.test(c)) return openMedDialog('mismatch');
   if (KINDS[kind].patientOnly) {
     // any badge on the wristband identifies the patient (an unknown label stands for the selected one)
-    selectPatient(p?.id || state.pid);
+    const id = p?.id || state.pid;
+    if (state.work.vital.scan.patient && id === state.pid && document.querySelector('.scr-vital')) return toast('이미 확인된 환자입니다.');
+    selectPatient(id);
+    state.work.vital.scan.patient = true;
     state.work.vital.values = null;
     // 측정 시간 = 지금 (분 단위까지 바꿀 수 있음); screenshots keep the design's 17:00
     if (!document.documentElement.classList.contains('shot')) state.work.vital.time = nowHHMM();
@@ -202,9 +208,23 @@ function bloodTask() {
       : done < n
         ? button('다른 채혈관 바코드 스캔', 'scan-tube', { long: 'scan-sim-tube' })
         : button('채혈 확인', 'blood-confirm', { cta: true });
+  const prn = state.orders.some((o) => o.prn);
+  if (!w.scan.patient) {
+    // a chosen patient: 환자정보 비활성 and the 채혈관 dim until the wristband is scanned
+    return `${header({ title: KINDS.bld.title, left: 'back', right: 'menu' })}
+      <div class="screen-body scroll task-w task-lock">
+        <div class="task-top">${aiButton()}${patientCard({ prn, locked: true })}</div>
+        ${lockHint('이어서 채혈관 바코드를 스캔합니다.')}
+        <div class="medlist wlist">
+          <div class="medlist-head"><span class="l"><span class="medlist-title gtext">채혈하기</span></span>${badge(`채혈관 0/${n}`, 'count-grad')}</div>
+          <div class="wcards">${w.orders.map(bloodCard).join('')}</div>
+        </div>
+        ${scanPatientButton()}
+      </div>`;
+  }
   return `${header({ title: KINDS.bld.title, left: 'back', right: 'menu' })}
     <div class="screen-body scroll task-w">
-      <div class="task-top">${aiButton()}${patientCard({ prn: state.orders.some((o) => o.prn) })}</div>
+      <div class="task-top">${aiButton()}${patientCard({ prn, confirmed: true })}</div>
       <div class="medlist wlist">
         <div class="medlist-head">
           <span class="l"><span class="medlist-title gtext">채혈하기</span></span>
@@ -293,12 +313,22 @@ register('wscan', {
   onScan: (code, { kind }) => handleWorkScan(kind, code),
 });
 
-/** Opens a work flow from the hub / menu / AI 커맨드바; `pid` = the patient it was opened for (scan button reads them). */
-export function startWork(kind, pid = DEFAULT_PID) {
-  selectPatient(pid);
+/**
+ * Opens a work flow. `pid` = a patient chosen on the 환자허브 (or named in the AI 커맨드바): their 업무 화면 at once with
+ * 환자정보 비활성, activated by the wristband scan. Without one (메뉴 · 퀵메뉴) the 바코드 스캔 screen comes first.
+ */
+export function startWork(kind, pid) {
+  selectPatient(pid || DEFAULT_PID);
   resetWork();
-  go('wscan', { kind });
+  if (!pid) return go('wscan', { kind });
+  if (!taskStatus(kind).ok) return openNoOrders(kind);
+  go(kind === 'vital' ? 'vital' : 'wtask', { kind });
 }
+
+/** 팔찌 스캔 전 안내 (투약과 같은 문구) and the button that scans the chosen patient's wristband. */
+const lockHint = (next) =>
+  `<p class="tube-hint lock-hint">${icon.error}<span>환자 팔찌를 스캔하면 환자정보가 활성화됩니다. ${next}</span></p>`;
+const scanPatientButton = () => `<div class="sticky-foot">${button('환자 팔찌 스캔', 'scan-patient', { long: 'scan-sim-patient' })}</div>`;
 
 /* ---------------- 채혈하기 · 수혈하기 task (no 플랜 / 실시간: removed on request) ---------------- */
 
@@ -378,6 +408,16 @@ register('wtask', {
     const { patient, drug } = w.scan;
     const hdr = header({ title: KINDS[kind].title, left: 'back', right: 'menu' });
     const prn = state.orders.some((o) => o.prn);
+    // a chosen patient: 환자정보 비활성 and the 수혈 오더 dim until the wristband is scanned
+    if (!patient && !drug) {
+      return `${hdr}
+        <div class="screen-body scroll task-w task-lock">
+          <div class="task-top">${aiButton()}${patientCard({ prn, locked: true })}</div>
+          ${lockHint('이어서 혈액백의 혈액번호와 혈액제제 바코드를 스캔합니다.')}
+          ${trfList(false)}
+          ${scanPatientButton()}
+        </div>`;
+    }
     // blood bag first: the wristband is still missing
     if (drug && !patient) {
       return `${hdr}
@@ -390,7 +430,7 @@ register('wtask', {
     // wristband scanned: the patient's 수혈 오더 straight away; each bag is confirmed by its two barcodes
     return `${hdr}
       <div class="screen-body scroll task-w">
-        <div class="task-top">${aiButton()}${patientCard({ prn })}</div>
+        <div class="task-top">${aiButton()}${patientCard({ prn, confirmed: true })}</div>
         ${trfList(true)}
         ${trfFoot()}
       </div>`;
@@ -406,6 +446,7 @@ register('wtask', {
     'patient-detail': () => go('detail'),
     'prn-info': () => openMedDialog('prn'),
     'scan-patient': (t, { kind }) => handleWorkScan(kind, PATIENT.barcode),
+    'scan-sim-patient': (t, { kind }) => openSim(kind),
     // 수혈: the PDA scan button reads the barcode the bag needs next; long-press picks a specific label
     'scan-bag': () => {
       const c = nextBagCode();
@@ -591,10 +632,13 @@ register('vital', {
   render: () => {
     const v = state.work.vital;
     const values = vitalValues();
+    // a chosen patient: 환자정보 비활성 and the 입력 칸 dim until the wristband is scanned
+    const locked = !v.scan.patient;
     return `
       ${header({ title: KINDS.vital.title, left: 'back', right: 'menu' })}
-      <div class="screen-body scroll task-w vital-body">
-        <div class="task-top">${aiButton()}${patientCard({ prn: state.orders.some((o) => o.prn) })}</div>
+      <div class="screen-body scroll task-w vital-body${locked ? ' task-lock' : ''}">
+        <div class="task-top">${aiButton()}${patientCard({ prn: state.orders.some((o) => o.prn), locked, confirmed: !locked })}</div>
+        ${locked ? lockHint('이어서 활력징후를 입력합니다.') : ''}
         <section class="vcard">
           <div class="vcard-head">
             <span class="l"><span class="vcard-title">활력징후</span>${voiceButton()}</span>
@@ -603,10 +647,14 @@ register('vital', {
           <div class="vgrid2">${state.vitals.items.map((i) => vitalCell(i, values[i.k])).join('')}</div>
           <div class="vcard-foot"><button class="vtime-btn" data-act="time-sheet" aria-label="측정 시간 변경">${icon.alarmOutline}<span>${DEMO_DATE} <b>${v.time}</b></span>${icon.chevronRight}</button><span>${NURSE.label} (${NURSE.no})</span></div>
         </section>
-        ${stickyButton('저장하기', 'save')}
+        ${locked ? scanPatientButton() : stickyButton('저장하기', 'save')}
       </div>`;
   },
   mount(el) {
+    if (!state.work.vital.scan.patient) {
+      el.querySelectorAll('.vcard input, .vcard button').forEach((b) => (b.disabled = true));
+      return;
+    }
     el.querySelectorAll('.vval').forEach((input) => {
       // 입력 칸을 누르면 직전 값이 채워지고 선택됨 (바로 치면 바뀜)
       input.addEventListener('focus', () => {
@@ -638,11 +686,14 @@ register('vital', {
     'hdr-back': () => confirmReset('hub'),
     'hdr-menu': () => confirmReset('menu'),
     voice: () => {
+      if (!state.work.vital.scan.patient) return toast('환자 팔찌 스캔 후 음성간호메모를 진행할 수 있습니다.');
       state.voice.origin = 'vital';
       go('voice', { step: 'record' });
     },
     'patient-detail': () => go('detail'),
     'prn-info': () => openMedDialog('prn'),
+    'scan-patient': () => handleWorkScan('vital', PATIENT.barcode),
+    'scan-sim-patient': () => openSim('vital'),
     'time-sheet': () => openVitalTime(),
     vstep: (t) => {
       const k = t.dataset.k;
@@ -689,6 +740,7 @@ register('vital', {
     confirmReset('hub');
     return true;
   },
+  onScan: (code) => handleWorkScan('vital', code),
 });
 
 /* ---------------- common-done-01 ---------------- */

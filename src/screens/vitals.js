@@ -5,6 +5,11 @@
 // (and a PDA that refuses the camera) use the demo bedside scene and demo album instead. The analysis itself is a
 // demo: whatever was photographed, the demo monitor values are "read"; long presses pick the failure cases.
 // Not in the Figma file: built from the existing components (header, cards, badges, vitals cells, sheets).
+// 사진 촬영 용도 (2026-11-23): the app does not know what will be photographed. The camera has 촬영 모드 chips
+// (자동 · 장비 · 환부 · 기타) and says what it detects (환자 모니터 · 주입 펌프 · 환부 · 서류); after the photo
+// (and the wristband, unless the patient was chosen first) it goes to the matching record screen — vitals here,
+// 주입 펌프 · 환부 · 기타 첨부 in photo.js — and an unrecognised subject asks '무엇을 촬영하셨나요?'.
+// Browsers cannot see real objects: '시연' picks what the demo camera is pointed at.
 import { Capacitor } from '@capacitor/core';
 import { register, go, replace, pop, rerender } from '../router.js';
 import { header, button, statusBlock, badge, esc, toast, openSheet, closeSheet, patientLine } from '../ui.js';
@@ -15,6 +20,7 @@ import { askPatient } from '../patientscan.js';
 import { voiceButton, openVoiceInput, flashVoiced } from '../vvoice.js';
 import { feedback } from '../feedback.js';
 import { prevLine, prevValues, prevVital } from './work.js';
+import { artSvg, openPurposeSheet } from './photo.js';
 import sceneUrl from '../assets/img/icu-bedside.jpg';
 import screenUrl from '../assets/img/monitor-screen.jpg';
 
@@ -42,17 +48,57 @@ const MEASURED = { date: '2026-09-17', time: '17:05' };
 
 /* ---------------- session: camera or gallery, the patient (after the wristband), the photo ---------------- */
 const isNative = Capacitor.isNativePlatform();
-const cap = { mode: 'camera', pid: null, photo: null, gal: null }; // photo: data/blob URL of a real photo · gal: demo gallery photo
+// photo: data/blob URL of a real photo · gal: demo gallery photo · shoot: 촬영 모드 · target: what the (demo) camera is
+// pointed at · shows: what the taken photo shows
+const cap = { mode: 'camera', pid: null, photo: null, gal: null, shoot: 'auto', target: 'monitor', shows: null };
 
-/** AI 커맨드바 + → 사진 촬영: the camera opens at once; the patient is scanned after the photo. */
-export function startCamera() {
-  Object.assign(cap, { mode: 'camera', pid: null, photo: null, gal: null });
+/* 촬영 모드: 자동 recognises every known subject; 장비 only devices; 환부 · 기타 record whatever is photographed */
+const MODES = [
+  { k: 'auto', label: '자동' },
+  { k: 'device', label: '장비' },
+  { k: 'wound', label: '환부' },
+  { k: 'other', label: '기타' },
+];
+const DETECTS = {
+  auto: ['monitor', 'blur', 'pump', 'wound', 'doc'],
+  device: ['monitor', 'blur', 'pump'],
+  wound: ['wound'],
+  other: [],
+};
+const detectable = (shoot, target) => DETECTS[shoot].includes(target);
+// what a detected subject is recorded as
+const KIND_OF = { monitor: 'monitor', blur: 'monitor', pump: 'pump', wound: 'wound', doc: 'other' };
+// 시연: what the demo camera is pointed at
+const TARGETS = {
+  monitor: ['환자 모니터', '환자 모니터'],
+  blur: ['흐린 모니터', '흐린 모니터 (빛 반사 · 흔들림)'],
+  pump: ['주입 펌프', '주입 펌프 (수액 100 mL/h)'],
+  wound: ['환부', '환부 (자와 함께)'],
+  doc: ['서류', '서류 (동의서)'],
+  none: ['다른 곳', '다른 곳 (알아볼 대상 없음)'],
+};
+const ART = ['pump', 'wound', 'doc']; // subjects drawn as pictures (photo.js artSvg) instead of the bedside scene
+// where the subject sits in its 360×480 picture (the focus frame locks onto it)
+const ART_BOX = { pump: [56, 92, 248, 308], wound: [50, 128, 260, 244], doc: [58, 48, 244, 336] };
+
+/**
+ * AI 커맨드바 + → 사진 촬영: the camera opens at once; the patient is scanned after the photo.
+ * From 환자 상세 '사진 촬영' the patient is already chosen (`pid`), so the wristband scan is skipped.
+ */
+export function startCamera({ pid = null, shoot = 'auto' } = {}) {
+  Object.assign(cap, { mode: 'camera', pid: null, photo: null, gal: null, shoot, target: 'monitor', shows: null });
+  if (pid) {
+    selectPatient(pid);
+    cap.pid = pid;
+  }
+  state.vphoto = null;
   go('vcam', {});
 }
 
 /** AI 커맨드바 + → 사진첨부: the PDA gallery opens at once (browsers: the demo album). */
 export function startAttach() {
-  Object.assign(cap, { mode: 'attach', pid: null, photo: null, gal: null });
+  Object.assign(cap, { mode: 'attach', pid: null, photo: null, gal: null, shoot: 'auto', target: 'monitor', shows: null });
+  state.vphoto = null;
   go('vcam', { mode: 'attach' });
   if (isNative) pickFromGallery(); // still inside the tap, so Android lets the picker open
 }
@@ -106,15 +152,15 @@ async function startLive(el) {
     if (!el.isConnected) return;
     el.classList.remove('live', 'starting');
     toast('카메라를 사용할 수 없어 시연 화면으로 표시합니다.');
-    aimAtMonitor(el);
+    aim(el);
   }
 }
 
-/** The prototype has no detector: after the PDA has been held on the scene for a moment it reports a monitor. */
+/** The prototype has no detector: after the PDA has been held still for a moment it reports the 시연 subject. */
 function aimLive(el) {
   const run = ++cam.run;
   setPhase(el, 'search');
-  later(el, run, 1800, () => setPhase(el, 'detected'));
+  later(el, run, 1800, () => detectable(cap.shoot, cap.target) && setPhase(el, 'detected'));
 }
 
 /** Freezes the live view into the photo that is analysed. */
@@ -231,25 +277,44 @@ function thumbMarkup(width = 334) {
 // search (no monitor in the guide) → detected (a monitor is in the guide) → analysing the photo →
 // values found (review) or no monitor / unreadable (retake or enter by hand).
 const CAM_MSG = {
-  search: ['환자 모니터를 사각 영역 안에 맞춰 주세요', '모니터 화면 전체가 보이도록 비춰 주세요'],
-  detected: ['환자 모니터가 감지되었습니다', 'PDA를 움직이지 말고 촬영 버튼을 눌러 주세요'],
+  ready: ['카메라를 준비하고 있습니다', ''],
   nomonitor: ['환자 모니터를 찾지 못했습니다', '모니터 화면 전체가 사각 영역에 들어오게 촬영해 주세요'],
   unreadable: ['측정값을 읽을 수 없습니다', '빛 반사·흔들림 없이 PDA를 고정하고 촬영해 주세요'],
+  unknown: ['무엇을 촬영했는지 알아보지 못했습니다', '기록할 용도를 골라 주세요'],
 };
-const CAM_TAG = { detected: '환자 모니터 감지', nomonitor: '환자 모니터 미감지', unreadable: '측정값 인식 실패' };
+// searching: per 촬영 모드 · detected: per subject
+const SEARCH_MSG = {
+  auto: ['촬영할 대상을 사각 영역 안에 맞춰 주세요', '환자 모니터 · 주입 펌프 · 환부 · 서류를 알아봅니다'],
+  device: ['장비 화면을 사각 영역 안에 맞춰 주세요', '환자 모니터 · 주입 펌프 화면 전체가 보이도록 비춰 주세요'],
+  wound: ['환부를 사각 영역 안에 맞춰 주세요', '자(눈금)를 함께 비추면 크기를 추정합니다'],
+  other: ['기록할 대상을 촬영해 주세요', '촬영 후 태그와 메모를 붙여 간호기록에 첨부합니다'],
+};
+const FOUND_MSG = {
+  monitor: ['환자 모니터가 감지되었습니다', 'PDA를 움직이지 말고 촬영 버튼을 눌러 주세요'],
+  pump: ['주입 펌프가 감지되었습니다', '펌프 화면이 잘 보이게 촬영해 주세요'],
+  wound: ['환부가 감지되었습니다', '자(눈금)가 함께 보여 크기를 추정할 수 있습니다'],
+  doc: ['서류가 감지되었습니다', '서류 전체가 보이도록 촬영해 주세요'],
+};
+FOUND_MSG.blur = FOUND_MSG.monitor;
+const DETECT_TAG = { monitor: '환자 모니터 감지', blur: '환자 모니터 감지', pump: '주입 펌프 감지', wound: '환부 감지', doc: '서류 감지' };
+const CAM_TAG = { nomonitor: '환자 모니터 미감지', unreadable: '측정값 인식 실패', unknown: '용도 확인 필요' };
 /* ---------- 사진 선택 (gallery) ----------
    Browsers (and a long press on the PDA) get this stand-in for the device gallery: photos "taken on the ward", cut from
    the bedside scene at different spots, zooms, angles and light, plus a few memo / screenshot pictures.
-   c = centre and z = side of the square crop (scene px) · t = light · r = tilt · blur · doc = not a photo of the ward.
-   k = what the AI analysis finds in it: ok (a readable monitor) · unreadable (blurred) · nomonitor. */
+   c = centre and z = side of the square crop (scene px) · t = light · r = tilt · blur · doc = a memo / screenshot ·
+   art = a picture from photo.js (주입 펌프 · 환부).
+   k = what the AI analysis finds in it: ok (a readable monitor) · unreadable (blurred) · nomonitor (nothing it knows) ·
+   pump · wound · doc. */
 const GALLERY = [
   ['오늘', [
     { k: 'ok', c: [697, 347], z: 330 }, // 환자 모니터
     { k: 'unreadable', c: [697, 350], z: 360, blur: 1 }, // 흔들린 모니터
     { k: 'nomonitor', c: [350, 520], z: 360 }, // 수액 거치대
+    { k: 'pump', art: 'pump' }, // 주입 펌프
+    { k: 'wound', art: 'wound' }, // 환부 (자와 함께)
     { k: 'ok', c: [650, 450], z: 560 }, // 모니터 + 모듈
     { k: 'nomonitor', c: [480, 930], z: 420 }, // 인공호흡기
-    { k: 'nomonitor', doc: 'note' }, // 인수인계 메모
+    { k: 'doc', doc: 'note' }, // 인수인계 메모
     { k: 'nomonitor', c: [740, 1130], z: 260 }, // 컵
     { k: 'ok', c: [705, 340], z: 300, r: -5 }, // 기울어진 모니터
     { k: 'ok', c: [467, 640], z: 900 }, // 병상 전체
@@ -259,7 +324,8 @@ const GALLERY = [
   ]],
   ['어제', [
     { k: 'ok', c: [700, 345], z: 380, t: 'warm' },
-    { k: 'nomonitor', doc: 'list' }, // 검사 결과 화면 캡처
+    { k: 'doc', art: 'doc' }, // 동의서
+    { k: 'doc', doc: 'list' }, // 검사 결과 화면 캡처
     { k: 'nomonitor', c: [450, 880], z: 640 },
     { k: 'nomonitor', c: [130, 130], z: 260 }, // 천장 조명
     { k: 'unreadable', c: [690, 360], z: 300, blur: 1, t: 'bright' }, // 빛 반사
@@ -270,7 +336,8 @@ const GALLERY = [
   ['9월 15일', [
     { k: 'ok', c: [467, 600], z: 860, t: 'cool' },
     { k: 'ok', c: [700, 350], z: 340, t: 'cool' },
-    { k: 'nomonitor', doc: 'note2' },
+    { k: 'wound', art: 'wound-prev' }, // 같은 환부, 이틀 전
+    { k: 'doc', doc: 'note2' },
     { k: 'nomonitor', c: [300, 610], z: 260, t: 'cool' },
     { k: 'nomonitor', c: [740, 1100], z: 320, t: 'dim' },
     { k: 'nomonitor', c: [500, 950], z: 360, r: -3 },
@@ -289,9 +356,12 @@ const LOOK = {
   bright: 'brightness(1.15) contrast(0.92)',
 };
 const TILE = 101; // 4 per row on the 412px canvas
+// what a gallery photo shows, in camera terms
+const TARGET_OF = { ok: 'monitor', unreadable: 'blur', nomonitor: 'none', pump: 'pump', wound: 'wound', doc: 'doc' };
 const ATTACH_MSG = {
-  pick: ['첨부할 사진을 선택해 주세요', '환자 모니터 화면이 보이는 사진이어야 측정값을 인식할 수 있습니다'],
+  pick: ['첨부할 사진을 선택해 주세요', '환자 모니터 · 주입 펌프 · 환부 · 서류 사진을 알아봅니다'],
   ready: ['카메라를 준비하고 있습니다', ''],
+  unknown: ['사진의 대상을 알아보지 못했습니다', '기록할 용도를 골라 주세요'],
   nomonitor: ['환자 모니터를 찾지 못했습니다', '환자 모니터 화면이 보이는 사진을 선택해 주세요'],
   unreadable: ['측정값을 읽을 수 없습니다', '흐리거나 빛이 반사된 사진입니다. 다른 사진을 선택해 주세요'],
 };
@@ -305,6 +375,7 @@ const docBg = (ph) => (ph.doc === 'list' ? '#eef2f7' : '#cbb894');
 
 /** A square gallery thumbnail cut from the bedside scene. `boxes`: show the OCR boxes (review screen). */
 function photoThumb(ph, size = TILE, boxes = 'none') {
+  if (ph.art) return `<span class="album-thumb art" style="width:${size}px;height:${size}px">${artSvg(ph.art)}</span>`;
   if (ph.doc) return `<span class="album-thumb doc" style="width:${size}px;height:${size}px;background:${docBg(ph)}">${docMarkup(ph.doc)}</span>`;
   const k0 = size / ph.z;
   const style = `transform:translate(${size / 2 - ph.c[0] * k0}px,${size / 2 - ph.c[1] * k0}px) scale(${k0})`;
@@ -321,7 +392,7 @@ export function openAlbum() {
        <p class="gal-title">사진 선택</p>
        ${badge('데모', 'count-grad')}
      </div>
-     <p class="gal-hint">${icon.error}<span>환자 모니터 화면이 보이는 사진을 선택해 주세요.</span></p>
+     <p class="gal-hint">${icon.error}<span>환자 모니터 · 주입 펌프 · 환부 · 서류를 알아보고, 나머지는 용도를 물어봅니다.</span></p>
      <div class="gal-scroll scroll">${GALLERY.map(
        ([day, photos]) => `
        <div class="gal-day"><b>${day}</b><span>${photos.length}장</span></div>
@@ -371,15 +442,45 @@ function setPhotoPose(el, ph) {
   sway.style.transform = ph.r ? `rotate(${ph.r}deg) scale(1.1)` : '';
 }
 
-const SHOT_SIM = {
-  ok: '환자 모니터 촬영 (정상 인식)',
-  nomonitor: '모니터가 없는 사진 (다른 곳을 촬영)',
-  unreadable: '흐린 사진 (빛 반사·흔들림)',
-};
+/**
+ * Shows a picture subject (pump · wound · doc) in the camera view. Aiming: the subject sits in the guide, a little
+ * off-centre like a hand-held shot · `cover`: a gallery photo, shown whole screen.
+ */
+function placeArt(el, kind, cover = false) {
+  const box = el.querySelector('.cam-alt');
+  const base = String(kind).split('-')[0]; // wound-prev: the same wound, an older photo
+  if (!ART.includes(base)) {
+    el.classList.remove('altscene');
+    box.innerHTML = '';
+    cam.art = null;
+    return;
+  }
+  el.classList.add('altscene');
+  if (box.dataset.kind !== kind) {
+    box.innerHTML = artSvg(kind);
+    box.dataset.kind = kind;
+  }
+  let k, tx, ty;
+  if (cover) {
+    const r = document.getElementById('stage').getBoundingClientRect().width / 412;
+    const pv = el.querySelector('.cam-preview').getBoundingClientRect();
+    k = Math.max(pv.width / r / 360, pv.height / r / 480);
+    tx = (pv.width / r - 360 * k) / 2;
+    ty = (pv.height / r - 480 * k) / 2;
+  } else {
+    const g = cam.geo.guide;
+    const [x, y, w, h] = ART_BOX[base];
+    k = Math.min(g.w / w, g.h / h) * 0.92;
+    tx = g.x + g.w / 2 - (x + w / 2) * k - 5;
+    ty = g.y + g.h / 2 - (y + h / 2) * k + 7;
+  }
+  box.querySelector('svg').style.transform = `translate(${tx}px,${ty}px) scale(${k})`;
+  cam.art = { kind: base, k, tx, ty };
+}
 
 let flashOn = false;
-// pose: where the (simulated) camera points · hug: the focus frame follows the detected monitor
-const cam = { run: 0, pose: 'search', hug: false, geo: null };
+// pose: where the (simulated) camera points · hug: the focus frame follows the detected subject · art: picture subject
+const cam = { run: 0, pose: 'search', hug: false, geo: null, art: null };
 
 /** Guide rectangle and camera poses for the current preview size (design px). */
 function camGeo(el) {
@@ -419,25 +520,33 @@ function setPose(el, name, glide = false) {
 function placeFocus(el) {
   const { k, poses, guide } = cam.geo;
   let r = guide;
-  // only the demo scene knows where its monitor is; a real camera keeps the guide
+  // only the demo scene knows where its subject is; a real camera keeps the guide
   if (cam.hug && !el.classList.contains('live')) {
-    const [tx, ty] = poses[cam.pose];
     const m = 8;
-    r = { x: tx + (HOUSING.x - m) * k, y: ty + (HOUSING.y - m) * k, w: (HOUSING.w + m * 2) * k, h: (HOUSING.h + m * 2) * k };
+    if (cam.art) {
+      const { kind, k: ka, tx, ty } = cam.art;
+      const [x, y, w, h] = ART_BOX[kind];
+      r = { x: tx + (x - m) * ka, y: ty + (y - m) * ka, w: (w + m * 2) * ka, h: (h + m * 2) * ka };
+    } else {
+      const [tx, ty] = poses[cam.pose];
+      r = { x: tx + (HOUSING.x - m) * k, y: ty + (HOUSING.y - m) * k, w: (HOUSING.w + m * 2) * k, h: (HOUSING.h + m * 2) * k };
+    }
   }
   Object.assign(el.querySelector('.focus').style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px` });
 }
 
 function setPhase(el, phase) {
   el.dataset.phase = phase;
-  if (CAM_MSG[phase]) {
-    el.querySelector('.cam-hint').textContent = CAM_MSG[phase][0];
-    el.querySelector('.cam-sub').textContent = CAM_MSG[phase][1];
+  const msg = phase === 'search' ? SEARCH_MSG[cap.shoot] : phase === 'detected' ? FOUND_MSG[cap.target] : CAM_MSG[phase];
+  if (msg) {
+    el.querySelector('.cam-hint').textContent = msg[0];
+    el.querySelector('.cam-sub').textContent = msg[1];
   }
   // while analysing, the badge keeps saying what was in the guide when the photo was taken
   if (phase !== 'analyzing') {
     el.dataset.tag = phase === 'search' ? '' : phase === 'detected' ? 'ok' : 'fail';
-    if (CAM_TAG[phase]) el.querySelector('.focus-tag span').textContent = CAM_TAG[phase];
+    const tag = phase === 'detected' ? DETECT_TAG[cap.target] : CAM_TAG[phase];
+    if (tag) el.querySelector('.focus-tag span').textContent = tag;
     cam.hug = phase === 'detected' || phase === 'unreadable';
   }
   placeFocus(el);
@@ -450,14 +559,67 @@ function later(el, run, ms, fn) {
   }, ms);
 }
 
-/** Simulated aiming: the view settles on the monitor, then the detector reports it. */
-function aimAtMonitor(el) {
+/**
+ * Simulated aiming at the 시연 subject: the view settles on it, then the detector reports it if the 촬영 모드
+ * looks for it (기타 looks for nothing; 다른 곳 has nothing to find).
+ */
+function aim(el) {
+  if (el.classList.contains('live')) return aimLive(el);
   const run = ++cam.run;
+  const t = cap.target;
+  placeArt(el, t);
+  setPose(el, 'search');
   setPhase(el, 'search');
   later(el, run, 450, () => {
-    setPose(el, 'aligned', true);
-    later(el, run, 1150, () => setPhase(el, 'detected'));
+    if (t === 'none') return setPose(el, 'away', true);
+    if (!ART.includes(t)) setPose(el, 'aligned', true);
+    later(el, run, 1150, () => detectable(cap.shoot, t) && setPhase(el, 'detected'));
   });
+}
+
+/** Writes the 촬영 모드 chips and the 시연 subject without re-rendering the camera. */
+function syncControls(el) {
+  el.querySelectorAll('.cam-mode').forEach((b) => b.classList.toggle('on', b.dataset.k === cap.shoot));
+  const demo = el.querySelector('.cam-demo b');
+  if (demo) demo.textContent = TARGETS[cap.target][0];
+}
+
+/** 시연: what the demo camera is pointed at (long press on the shutter: point and shoot at once). */
+function openTargetSheet(shoot = false) {
+  openSheet(
+    `<div class="sheet-head"><p class="sheet-title">${shoot ? '촬영 시뮬레이션' : '카메라가 비추는 대상'}</p>${badge('시연', 'count-grad')}</div>
+     <p class="sheet-hint">브라우저 시연에서는 카메라가 실제 사물을 볼 수 없어, 비추는 대상을 골라 인식 결과를 확인합니다.</p>
+     <div class="sheet-list">${Object.entries(TARGETS)
+       .map(
+         ([k, [, label]]) =>
+           `<button class="opt${k === cap.target ? ' sel' : ''}" data-sheet-act="target" data-k="${k}"><span class="lbl">${esc(label)}</span><span class="chev">${icon.chevronRight}</span></button>`,
+       )
+       .join('')}</div>`,
+    {
+      target: (t) => {
+        closeSheet();
+        const el = document.querySelector('.scr-vcam');
+        if (!el || el.classList.contains('captured')) return;
+        cap.target = t.dataset.k;
+        syncControls(el);
+        if (shoot) return shootAt(el);
+        aim(el);
+      },
+    },
+  );
+}
+
+/** 촬영 시뮬레이션: points the camera at the 시연 subject at once, then takes the photo. */
+function shootAt(el) {
+  const t = cap.target;
+  const run = ++cam.run;
+  if (!el.classList.contains('live')) {
+    placeArt(el, t);
+    setPose(el, t === 'none' ? 'away' : ART.includes(t) ? 'search' : 'aligned', t === 'none');
+  }
+  setPhase(el, detectable(cap.shoot, t) ? 'detected' : 'search');
+  if (t === 'none' && !el.classList.contains('live')) return later(el, run, 1250, () => capture());
+  capture();
 }
 
 window.addEventListener('resize', () => {
@@ -465,6 +627,7 @@ window.addEventListener('resize', () => {
   if (!el || !cam.geo) return;
   cam.geo = camGeo(el);
   setPose(el, cam.pose);
+  if (cam.art) placeArt(el, cam.art.kind, el.classList.contains('attach'));
   placeFocus(el);
 });
 
@@ -472,7 +635,7 @@ register('vcam', {
   bg: 'dark',
   render: ({ mode, photo }) => {
     const attach = mode === 'attach';
-    const msg = attach && !photo ? ATTACH_MSG.pick : CAM_MSG.search;
+    const msg = attach && !photo ? ATTACH_MSG.pick : SEARCH_MSG[cap.shoot];
     return `
     <div class="cam-preview">
       <video class="cam-video" playsinline muted></video>
@@ -480,6 +643,7 @@ register('vcam', {
       ${attach && photoById(photo)?.doc ? `<div class="cam-doc" style="background:${docBg(photoById(photo))}"><span class="cam-doc-in">${docMarkup(photoById(photo).doc)}</span></div>` : ''}
       <div class="cam-sway">
         ${sceneMarkup()}
+        <div class="cam-alt"></div>
         <div class="focus">
           <i class="gc tl"></i><i class="gc tr"></i><i class="gc bl"></i><i class="gc br"></i>
           <span class="focus-tag"><b></b><span></span></span>
@@ -490,7 +654,7 @@ register('vcam', {
     </div>
     <header class="hdr cam-hdr">
       <button class="icon-btn dark" data-act="cam-close" aria-label="닫기">${icon.close}</button>
-      <h1 class="hdr-title">${attach ? '사진첨부' : 'AI 카메라 촬영'}</h1>
+      <h1 class="hdr-title">${attach ? '사진첨부' : '사진 촬영'}</h1>
       ${
         attach
           ? '<span class="icon-btn ghost"></span>'
@@ -506,12 +670,20 @@ register('vcam', {
       <div class="cam-progress" hidden><span class="bar"><i></i></span><span class="txt"></span></div>
       <div class="cam-retry" hidden>
         <button class="btn ghost" data-act="manual">직접 입력</button>
+        <button class="btn ghost" data-act="purpose" hidden>용도 선택</button>
         ${attach ? '<button class="btn cta" data-act="album">다른 사진 선택</button>' : '<button class="btn cta" data-act="retake">다시 촬영</button>'}
       </div>
       ${
         attach
           ? `<button class="btn cta album-btn" data-act="album" data-long="album-demo"${photo ? ' hidden' : ''}>갤러리에서 선택</button>`
-          : `<button class="shutter" data-act="shoot" data-long="shoot-sim" aria-label="촬영"><span></span></button>
+          : `<div class="cam-modes" role="radiogroup" aria-label="촬영 모드">${MODES.map(
+              (m) => `<button class="cam-mode${cap.shoot === m.k ? ' on' : ''}" data-act="cam-mode" data-k="${m.k}" role="radio">${m.label}</button>`,
+            ).join('')}</div>
+             <div class="cam-shoot-row">
+               <button class="cam-demo" data-act="cam-target" aria-label="시연: 카메라가 비추는 대상"><small>시연</small><b>${TARGETS[cap.target][0]}</b>${icon.arrowDown}</button>
+               <button class="shutter" data-act="shoot" data-long="shoot-sim" aria-label="촬영"><span></span></button>
+               <span></span>
+             </div>
              <p class="cam-tip">PDA 스캔 버튼으로도 촬영할 수 있습니다</p>`
       }
     </div>
@@ -521,10 +693,11 @@ register('vcam', {
     cam.geo = camGeo(el);
     cam.hug = false;
     setPose(el, 'search');
+    cam.art = null;
     if (params.mode === 'attach') return mountAttach(el, params);
     // ?shot=vcam renders a still state; reaching the camera by navigation always runs live
-    if (params.shot === 'vcam') return shotState(el, params.phase);
-    if (!isNative) return aimAtMonitor(el);
+    if (params.shot === 'vcam') return shotState(el, params);
+    if (!isNative) return aim(el);
     // PDA: the real rear camera (the demo scene only if the camera cannot be used)
     el.classList.add('live', 'starting');
     el.querySelector('.cam-hint').textContent = CAM_MSG.ready[0];
@@ -539,7 +712,21 @@ register('vcam', {
       t.innerHTML = flashOn ? icon.flashOn : icon.flashOff;
     },
     shoot: () => capture(),
-    'shoot-sim': () => openShotSim(),
+    'shoot-sim': () => openTargetSheet(true),
+    'cam-target': () => openTargetSheet(),
+    'cam-mode': (t) => {
+      const el = document.querySelector('.scr-vcam');
+      if (!el || el.classList.contains('captured') || cap.shoot === t.dataset.k) return;
+      cap.shoot = t.dataset.k;
+      syncControls(el);
+      if (el.classList.contains('live')) return aimLive(el);
+      // the view stays on the subject: only the detector changes
+      ++cam.run;
+      setPhase(el, 'search');
+      const run = cam.run;
+      later(el, run, 500, () => detectable(cap.shoot, cap.target) && cap.target !== 'none' && setPhase(el, 'detected'));
+    },
+    purpose: () => choosePurpose(document.querySelector('.scr-vcam')),
     // PDA: the device gallery · browser: the demo album (long press = demo album on the PDA, for the failure cases)
     album: () => (isNative ? pickFromGallery() : openAlbum()),
     'album-demo': () => openAlbum(),
@@ -554,50 +741,36 @@ register('vcam', {
   onBack: () => document.querySelector('.scr-vcam')?.dataset.phase === 'analyzing',
 });
 
-function openShotSim() {
-  openSheet(
-    `<div class="sheet-head"><p class="sheet-title">촬영 시뮬레이션</p>${badge('데모', 'count-grad')}</div>
-     <p class="sheet-hint">어떤 사진이 찍히는지에 따라 달라지는 인식 결과를 미리 봅니다.</p>
-     <div class="sheet-list">${Object.entries(SHOT_SIM)
-       .map(([k, label]) => `<button class="opt" data-sheet-act="sim" data-kind="${k}"><span class="lbl">${esc(label)}</span><span class="chev">${icon.chevronRight}</span></button>`)
-       .join('')}</div>`,
-    {
-      sim: (t) => {
-        closeSheet();
-        capture(t.dataset.kind);
-      },
-    },
-  );
-}
-
 /**
- * Takes the photo and analyses it. The result depends on what was in the guide, not on the button:
- * no detected monitor → "not found"; a blurred frame → "unreadable"; otherwise the values are read.
- * `sim` (demo sheet) first points the camera so that the requested photo is what gets taken.
+ * Takes the photo. Where it goes depends on the 촬영 모드 and on what was detected in the guide, not on the button:
+ * 환부 · 기타 모드 → that record · a detected subject → its record (monitor → vitals analysis) · nothing detected →
+ * '무엇을 촬영하셨나요?'. An attached photo (`attachedShows`) is judged only by what it shows.
+ * The patient comes first: the wristband is scanned after the photo unless the patient was chosen beforehand.
  */
-function capture(sim, attached = false) {
+function capture(attachedShows = null) {
   const el = document.querySelector('.scr-vcam');
   if (!el || el.classList.contains('captured') || el.classList.contains('starting')) return;
+  const attached = !!attachedShows;
   const live = el.classList.contains('live');
-  if (!attached && live && sim === 'nomonitor') setPhase(el, 'search');
-  if (!attached && !live && sim === 'nomonitor' && cam.pose !== 'away') {
-    const run = ++cam.run;
-    setPhase(el, 'search');
-    setPose(el, 'away', true);
-    return later(el, run, 1250, () => capture('nomonitor'));
-  }
-  if (!attached && sim && sim !== 'nomonitor' && el.dataset.phase !== 'detected') {
-    if (!live) setPose(el, 'aligned');
-    setPhase(el, 'detected');
-  }
-  // an attached photo is analysed as it is: the result depends only on what the photo shows
-  const outcome = attached ? sim : el.dataset.phase !== 'detected' ? 'nomonitor' : sim === 'unreadable' ? 'unreadable' : 'ok';
+  const shows = attached ? attachedShows : cap.target;
+  const found = attached ? (detectable('auto', shows) ? shows : null) : el.dataset.phase === 'detected' ? cap.target : null;
+  const kind = !attached && (cap.shoot === 'wound' || cap.shoot === 'other') ? cap.shoot : found ? KIND_OF[found] : null;
+  cap.shows = shows;
   ++cam.run; // the view no longer changes
   el.classList.add('captured');
-  el.classList.toggle('blurry', outcome === 'unreadable');
+  el.classList.toggle('blurry', shows === 'blur');
   if (live) freezeFrame(el);
-  if (cap.pid) return analyse(el, outcome, attached);
-  // the photo is taken: whose vitals are these? → 환자 팔찌 스캔
+  state.vphoto = {
+    kind,
+    attach: attached,
+    shows,
+    media: photoMedia(),
+    art: cap.gal?.art || (ART.includes(shows) ? shows : null),
+    photo: cap.photo,
+  };
+  const next = () => (kind ? route(el, kind) : choosePurpose(el));
+  if (cap.pid) return next();
+  // the photo is taken: whose record is it? → 환자 팔찌 스캔
   el.classList.add('asking');
   askPatient({
     desc: `${attached ? '첨부한' : '촬영한'} 사진을 저장할 환자의\n팔찌 바코드를 스캔하세요.`,
@@ -607,10 +780,89 @@ function capture(sim, attached = false) {
       const chip = el.querySelector('.cam-patient');
       chip.textContent = patientChip(attached);
       chip.classList.remove('unknown');
-      analyse(el, outcome, attached);
+      next();
     },
     onCancel: () => (attached ? replace('vcam', { mode: 'attach' }, 'fade') : retake(el)),
   });
+}
+
+/** The photo as the record screens show it. */
+function photoMedia() {
+  if (cap.photo) return `<img class="ocr-photo" src="${cap.photo}" alt="">`;
+  if (cap.mode === 'attach' && cap.gal) return `<div class="ocr-gal">${photoThumb(cap.gal, 334)}</div>`;
+  if (ART.includes(cap.shows)) return `<div class="art-box">${artSvg(cap.shows)}</div>`;
+  if (cap.shows === 'none') return `<div class="ocr-gal">${photoThumb({ c: [350, 560], z: 470 }, 334)}</div>`;
+  return `<div class="${cap.shows === 'blur' ? 'thumb-blur' : ''}">${thumbMarkup()}</div>`;
+}
+
+/** Nothing recognisable (or the 장비 모드 found no device): the nurse says what the photo is for. */
+function choosePurpose(el) {
+  if (!el?.isConnected) return;
+  el.classList.remove('asking');
+  el.classList.add('failed', 'unknown');
+  setPhase(el, 'unknown');
+  if (cap.mode === 'attach') {
+    el.querySelector('.cam-hint').textContent = ATTACH_MSG.unknown[0];
+    el.querySelector('.cam-sub').textContent = ATTACH_MSG.unknown[1];
+  }
+  el.querySelector('.cam-progress').hidden = true;
+  // if the sheet is closed without a choice, these stay: 용도 선택 · 다시 촬영
+  el.querySelector('.cam-retry').hidden = false;
+  el.querySelector('.cam-retry [data-act="manual"]').hidden = true;
+  el.querySelector('.cam-retry [data-act="purpose"]').hidden = false;
+  const attach = cap.mode === 'attach';
+  openPurposeSheet({
+    hint: `${attach ? '첨부한 사진' : '촬영한 사진'}에서 알아볼 대상을 찾지 못했습니다. 어디에 기록할지 골라 주세요.`,
+    retake: attach ? '다른 사진 선택' : '다시 촬영',
+    onPick: (k) => {
+      if (k === 'retake') return attach ? (isNative ? pickFromGallery() : openAlbum()) : retake(el);
+      el.classList.remove('failed', 'unknown');
+      el.querySelector('.cam-retry').hidden = true;
+      state.vphoto.kind = k;
+      route(el, k);
+    },
+  });
+}
+
+/** monitor → the vitals analysis · pump · wound · other → a short look at the photo, then the record screen. */
+function route(el, kind) {
+  if (!el.isConnected) return;
+  el.classList.remove('asking');
+  const attached = cap.mode === 'attach';
+  if (kind === 'monitor') return analyse(el, cap.shows === 'monitor' ? 'ok' : cap.shows === 'blur' ? 'unreadable' : 'nomonitor', attached);
+  const run = ++cam.run;
+  setPhase(el, 'analyzing');
+  const txt = startProgress(el, '1.3s');
+  txt.textContent = attached ? '첨부한 이미지를 확인하고 있습니다' : '촬영한 이미지를 확인하고 있습니다';
+  const reading = { pump: ['pump', '펌프 표시값을 읽고 있습니다'], wound: ['wound', '자 눈금으로 크기를 재고 있습니다'] }[kind];
+  if (reading && reading[0] === cap.shows) later(el, run, 550, () => (txt.textContent = reading[1]));
+  later(el, run, 1400, () => openRecord(kind));
+}
+
+const RECORD_SCREEN = { pump: 'vpump', wound: 'vwound', other: 'vother' };
+function openRecord(kind) {
+  state.vphoto.kind = kind;
+  replace(RECORD_SCREEN[kind], {}, 'fade');
+}
+
+/** '다른 용도로 기록' on a record screen: the same photo (and patient) goes to another record. */
+export function switchPurpose(kind) {
+  state.vphoto.kind = kind;
+  if (kind !== 'monitor') return replace(RECORD_SCREEN[kind], {}, 'fade');
+  // only a readable monitor gives values; anything else is typed in
+  state.vocr = newOcr(cap.shows !== 'monitor');
+  replace('vreview', {}, 'fade');
+}
+
+function startProgress(el, dur) {
+  const prog = el.querySelector('.cam-progress');
+  prog.hidden = false;
+  const bar = prog.querySelector('.bar i');
+  bar.style.animation = 'none';
+  void bar.offsetWidth;
+  bar.style.animation = '';
+  bar.style.animationDuration = dur;
+  return prog.querySelector('.txt');
 }
 
 /** AI analysis of the photo (demo): progress, then review — or the failure for a photo without a readable monitor. */
@@ -660,16 +912,20 @@ function failed(el, kind) {
   }
   el.querySelector('.cam-progress').hidden = true;
   el.querySelector('.cam-retry').hidden = false;
+  el.querySelector('.cam-retry [data-act="manual"]').hidden = false;
+  el.querySelector('.cam-retry [data-act="purpose"]').hidden = true;
   feedback('ok'); // 환자 모니터 감지
 }
 
 function retake(el) {
   if (!el) return;
-  el.classList.remove('captured', 'failed', 'blurry', 'asking');
+  closeSheet();
+  el.classList.remove('captured', 'failed', 'blurry', 'asking', 'unknown');
   el.querySelector('.mscreen .ocr-layer')?.remove();
   el.querySelector('.cam-retry').hidden = true;
   el.querySelector('.cam-progress').hidden = true;
-  if (!el.classList.contains('live')) return aimAtMonitor(el);
+  state.vphoto = null;
+  if (!el.classList.contains('live')) return aim(el);
   el.querySelector('.cam-shot')?.remove();
   cap.photo = null;
   el.querySelector('.cam-video').play().catch(() => {});
@@ -691,7 +947,7 @@ function mountAttach(el, { photo, shot }) {
     setPhase(el, 'search');
     el.querySelector('.cam-hint').textContent = '';
     el.querySelector('.cam-sub').textContent = '';
-    setTimeout(() => el.isConnected && capture('ok', true), shot ? 0 : 300);
+    setTimeout(() => el.isConnected && capture('monitor'), shot ? 0 : 300);
     return;
   }
   // a photo from the 사진 선택 gallery: shown full screen, framed like its thumbnail
@@ -699,18 +955,31 @@ function mountAttach(el, { photo, shot }) {
   cap.photo = null;
   cap.gal = ph;
   if (ph.doc) el.classList.add('docphoto');
+  else if (ph.art) placeArt(el, ph.art, true);
   else setPhotoPose(el, ph);
   setPhase(el, 'search');
   el.querySelector('.cam-hint').textContent = '';
   el.querySelector('.cam-sub').textContent = '';
-  setTimeout(() => el.isConnected && capture(ph.k, true), shot ? 0 : 300);
+  setTimeout(() => el.isConnected && capture(TARGET_OF[ph.k]), shot ? 0 : 300);
 }
 
-/** ?shot=vcam&phase=search|detected|nomonitor|unreadable — a still state for screenshots. */
-function shotState(el, phase = 'detected') {
+/**
+ * ?shot=vcam&phase=search|detected|nomonitor|unreadable|unknown[&target=monitor|blur|pump|wound|doc|none]
+ * [&shoot=auto|device|wound|other] — a still state for screenshots.
+ */
+function shotState(el, { phase = 'detected', target, shoot }) {
+  if (shoot && DETECTS[shoot]) cap.shoot = shoot;
+  if (target && TARGETS[target]) cap.target = target;
+  syncControls(el);
+  placeArt(el, cap.target);
   if (phase === 'search') return setPhase(el, 'search');
+  if (phase === 'unknown') {
+    setPose(el, cap.target === 'none' ? 'away' : 'aligned');
+    setPhase(el, 'search');
+    return capture();
+  }
   setPose(el, phase === 'nomonitor' ? 'away' : 'aligned');
-  setPhase(el, phase === 'nomonitor' ? 'search' : 'detected');
+  setPhase(el, phase === 'nomonitor' || !detectable(cap.shoot, cap.target) ? 'search' : 'detected');
   if (phase === 'nomonitor' || phase === 'unreadable') {
     el.classList.add('captured');
     el.classList.toggle('blurry', phase === 'unreadable');
@@ -719,6 +988,9 @@ function shotState(el, phase = 'detected') {
 }
 
 /* ---------------- 2. review & edit ---------------- */
+// the photo can still go to another record (주입 펌프 · 환부 · 기타)
+const otherUse = () => (state.vphoto ? `<button class="ph-other" data-act="other-use">다른 용도로 기록 ${icon.chevronRight}</button>` : '');
+
 function fieldCell(f, o) {
   const v = o.values[f.k];
   const flag = flagOf(f.k, v);
@@ -755,7 +1027,8 @@ register('vreview', {
         ${patientLine()}
         ${o.manual ? `
         <h2 class="vr-title gtext">활력징후 직접 입력</h2>
-        <p class="vr-desc">${attach ? '첨부한' : '촬영한'} 이미지에서 측정값을 인식하지 못했습니다.<br>환자 모니터를 보고 측정값을 직접 입력해 주세요.</p>` : `
+        <p class="vr-desc">${attach ? '첨부한' : '촬영한'} 이미지에서 측정값을 인식하지 못했습니다.<br>환자 모니터를 보고 측정값을 직접 입력해 주세요.</p>
+        ${otherUse()}` : `
         <h2 class="vr-title ask gtext">${attach ? '모니터 사진을 첨부하신 것 같습니다.' : '환자 모니터를 촬영하신 것 같습니다.'}<br>활력징후 데이터로 입력할까요?</h2>
         <section class="ocr-card">
           <div class="ocr-card-head"><span class="ocr-card-title gtext">${attach ? '첨부 이미지' : '촬영 이미지'}</span>
@@ -763,7 +1036,8 @@ register('vreview', {
           <div class="ocr-thumb">${
             cap.photo ? `<img class="ocr-photo" src="${cap.photo}" alt="">` : attach && cap.gal ? `<div class="ocr-gal">${photoThumb(cap.gal, 334, 'static')}</div>` : thumbMarkup()
           }</div>
-        </section>`}
+        </section>
+        ${otherUse()}`}
         <section class="ocr-card">
           <div class="ocr-card-head"><span class="ocr-card-l"><span class="ocr-card-title gtext">측정값</span>${voiceButton()}</span>
             <span class="ocr-meta">${MEASURED.time} · ${NURSE.label}</span></div>
@@ -822,6 +1096,8 @@ register('vreview', {
     'hdr-back': () => backToCamera(),
     'hdr-close': () => pop(),
     retake: () => backToCamera(true),
+    'other-use': () =>
+      openPurposeSheet({ current: 'monitor', hint: '같은 사진을 다른 용도로 기록합니다.', onPick: (k) => k !== 'monitor' && switchPurpose(k) }),
     ack: (t) => {
       state.vocr.checked[t.dataset.k] = true;
       rerender();
@@ -868,7 +1144,8 @@ register('vreview', {
 });
 
 /** 다시 촬영 → camera · 다른 사진 선택 → gallery (the patient stays: no second wristband scan). */
-function backToCamera(pick = false) {
+export function backToCamera(pick = false) {
+  state.vphoto = null;
   if (cap.mode !== 'attach') return replace('vcam', {}, 'fade');
   replace('vcam', { mode: 'attach' }, 'fade');
   if (pick && isNative) pickFromGallery();

@@ -2601,7 +2601,9 @@ html.shot .cam-sway {
   opacity: 0.6;
   pointer-events: none;
 }
-.task-lock .meds {
+.task-lock .meds,
+.task-lock .wcards,
+.task-lock .vcard {
   opacity: 0.55;
   filter: saturate(0.4);
   pointer-events: none;
@@ -4809,4 +4811,486 @@ html.pii-masked .pii::after {
   font-size: 12px;
   line-height: 17px;
   color: var(--c-gray);
+}
+
+/* =========================================================
+   사진 촬영 용도 (2026-11-23): 촬영 모드 · 시연 대상 · 용도별 기록 (vitals.js · photo.js)
+   ========================================================= */
+/* subjects drawn as pictures (주입 펌프 · 환부 · 서류) in place of the bedside scene */
+.cam-alt {
+  position: absolute;
+  inset: 0;
+  display: none;
+}
+.scr-vcam.altscene .cam-alt {
+  display: block;
+}
+.scr-vcam.altscene .scene {
+  visibility: hidden;
+}
+.scr-vcam.live .cam-alt {
+  display: none;
+}
+.cam-alt svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 360px;
+  height: 480px;
+  transform-origin: 0 0;
+  overflow: visible;
+}
+.scr-vcam.blurry .cam-alt svg {
+  filter: blur(2.6px) brightness(1.06);
+}
+/* 촬영 모드 chips and the 시연 subject, above and beside the shutter */
+.cam-modes {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.cam-mode {
+  height: 30px;
+  padding: 0 15px;
+  border-radius: 15px;
+  font-size: 14px;
+  line-height: 17px;
+  color: rgba(255, 255, 255, 0.78);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.cam-mode.on {
+  background: #ffffff;
+  color: #0b0f17;
+  font-weight: 700;
+}
+.cam-shoot-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  width: 100%;
+}
+.cam-demo {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 128px;
+  height: 32px;
+  padding: 0 6px 0 8px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 13px;
+  line-height: 16px;
+  color: #fff;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.cam-demo small {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 10px;
+  line-height: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.cam-demo b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cam-demo svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+.scr-vcam.captured .cam-modes,
+.scr-vcam.captured .cam-demo {
+  visibility: hidden;
+}
+.cam-retry .btn[hidden] {
+  display: none;
+}
+.thumb-blur .thumb-win {
+  filter: blur(2px);
+}
+
+/* 무엇을 촬영하셨나요? */
+.opt.purpose {
+  height: auto;
+  min-height: 56px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.opt.purpose small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 15px;
+  color: var(--c-gray);
+}
+.opt.purpose.sel small {
+  color: rgba(255, 255, 255, 0.75);
+}
+.opt.purpose.retake {
+  color: var(--c-slate);
+}
+
+/* record screens: 주입 펌프 · 환부 · 기타 첨부 */
+.ph-other {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 8px;
+  padding: 4px 0 4px 8px;
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--c-blue-deep);
+}
+.ph-other svg {
+  width: 16px;
+  height: 16px;
+}
+.art-box {
+  height: 250px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.art-box svg,
+.album-thumb.art svg,
+.ph-thumb svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.pf-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pf-row {
+  display: grid;
+  grid-template-columns: 92px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--c-line);
+  border-radius: 8px;
+}
+.pf-row.nudge {
+  animation: nudge 0.36s ease;
+  border-color: var(--c-danger);
+}
+.pf-k {
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--c-slate);
+}
+.pf-in {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 18px;
+  line-height: 22px;
+  font-weight: 700;
+  color: var(--c-text);
+}
+.pf-in.text {
+  font-size: 15px;
+}
+.pf-u {
+  font-size: 12px;
+  line-height: 14px;
+  color: var(--c-gray);
+}
+.pf-order.ok {
+  border-color: var(--c-blue);
+}
+.pf-order.warn {
+  border-color: var(--c-danger);
+}
+.pf-cmp {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 4px;
+}
+.pf-cmp > div {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 14px;
+  line-height: 20px;
+}
+.pf-cmp .k {
+  font-size: 12px;
+  color: var(--c-gray);
+}
+.pf-cmp b {
+  font-weight: 400;
+  color: var(--c-text);
+  overflow-wrap: anywhere;
+}
+.pf-cmp b.r {
+  font-weight: 700;
+}
+.pf-cmp b.bad {
+  color: var(--c-danger-text);
+}
+.pf-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--c-surface);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--c-slate);
+}
+.pf-msg svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+.pf-msg.ok {
+  background: #eef4fb;
+  color: var(--c-blue-deep);
+}
+.pf-msg.warn {
+  background: var(--c-danger-bg);
+  color: var(--c-danger-text);
+}
+.pf-order .ham-check {
+  height: auto;
+  min-height: 40px;
+  margin-top: 8px;
+  padding: 8px 12px;
+}
+.ph-form {
+  display: flex;
+  flex-direction: column;
+}
+.ph-k {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 4px 6px;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 700;
+  color: var(--c-text);
+}
+.ph-k:first-child {
+  margin-top: 0;
+}
+.ph-k em {
+  font-style: normal;
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--c-warn);
+}
+.ph-k.nudge {
+  animation: nudge 0.36s ease;
+  color: var(--c-danger-text);
+}
+.ph-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ph-chips .sort-chip {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--c-line);
+  font-size: 14px;
+}
+.ph-chips .sort-chip.on {
+  border-color: var(--c-slate);
+}
+.ph-size {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px;
+}
+.ph-size .stp-v {
+  min-width: 34px;
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 700;
+}
+.ph-x {
+  color: var(--c-gray);
+}
+.ph-memo {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--c-line);
+  border-radius: 8px;
+  background: var(--c-white);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--c-text);
+  resize: none;
+}
+.ph-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.ph-pair figure {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+.ph-mini {
+  position: relative;
+  height: 132px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0b0d12;
+}
+.ph-mini > svg,
+.ph-mini > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ph-mini > div {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.5);
+}
+.ph-pair figcaption {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--c-slate);
+  text-align: center;
+}
+
+/* 환자 상세 '사진 기록' */
+.photo-records .dcard-head {
+  height: 22px;
+  margin-left: 4px;
+}
+.photo-records .ai-count {
+  border-color: var(--c-gray);
+  color: var(--c-slate);
+}
+.ph-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ph-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid var(--c-line);
+  border-radius: 8px;
+  background: var(--c-white);
+}
+.ph-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #0b0d12;
+  color: #fff;
+}
+.ph-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ph-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.ph-t {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--c-text);
+}
+.ph-t b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ph-d {
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--c-slate);
+}
+.ph-flag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 15px;
+  color: var(--c-danger-text);
+}
+.ph-flag svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+.ph-body small {
+  font-size: 12px;
+  line-height: 15px;
+  color: var(--c-gray);
+}
+.ph-empty {
+  padding: 8px 4px 0;
+  font-size: 13px;
+  color: var(--c-gray);
+}
+.ph-shoot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 44px;
+  margin-top: 10px;
+  border: 1px solid var(--c-blue);
+  border-radius: 8px;
+  background: var(--c-white);
+  font-size: 15px;
+  line-height: 18px;
+  font-weight: 700;
+  color: var(--c-blue-deep);
+}
+.ph-shoot svg {
+  width: 20px;
+  height: 20px;
 }

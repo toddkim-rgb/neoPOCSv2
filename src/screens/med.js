@@ -244,8 +244,8 @@ register('task', {
       // a chosen patient: their 투약 list first, locked until the wristband is scanned
       return `${hdr}
         <div class="screen-body scroll task-d task-lock">
-          <div class="task-top">${aiButton()}${patientCard({ prn: hasPrn() })}</div>
-          <p class="tube-hint lock-hint">${icon.error}<span>환자 팔찌를 스캔해 주세요. 이어서 투약 바코드를 스캔하면 투약 목록이 활성화됩니다.</span></p>
+          <div class="task-top">${aiButton()}${patientCard({ prn: hasPrn(), locked: true })}</div>
+          <p class="tube-hint lock-hint">${icon.error}<span>환자 팔찌를 스캔하면 환자정보가 활성화됩니다. 이어서 투약 바코드를 스캔하면 투약 목록이 활성화됩니다.</span></p>
           ${medList()}
           <div class="sticky-foot">${button('환자 팔찌 스캔', 'scan-patient', { long: 'scan-sim-lock' })}</div>
         </div>`;
