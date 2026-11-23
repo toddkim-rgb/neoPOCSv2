@@ -4503,30 +4503,7 @@ html.pii-masked .pii::after {
 .scr-vcam.blurry .cam-alt svg {
   filter: blur(2.6px) brightness(1.06);
 }
-/* 촬영 모드 chips and the 시연 subject, above and beside the shutter */
-.cam-modes {
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.12);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-}
-.cam-mode {
-  height: 30px;
-  padding: 0 15px;
-  border-radius: 15px;
-  font-size: 14px;
-  line-height: 17px;
-  color: rgba(255, 255, 255, 0.78);
-  transition: background 0.2s ease, color 0.2s ease;
-}
-.cam-mode.on {
-  background: #ffffff;
-  color: #0b0f17;
-  font-weight: 700;
-}
+/* the 시연 subject, beside the shutter (the 촬영 모드 is picked on the '사진' sheet: no chips here) */
 .cam-shoot-row {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -4569,7 +4546,6 @@ html.pii-masked .pii::after {
   height: 16px;
   flex: 0 0 auto;
 }
-.scr-vcam.captured .cam-modes,
 .scr-vcam.captured .cam-demo {
   visibility: hidden;
 }

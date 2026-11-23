@@ -6,13 +6,13 @@
 // demo: whatever was photographed, the demo monitor values are "read"; long presses pick the failure cases.
 // Not in the Figma file: built from the existing components (header, cards, badges, vitals cells, sheets).
 // 사진 촬영 용도 (2026-11-23): the app does not know what will be photographed. AI 커맨드바 + → '사진' sheet: 사진 촬영
-// (환자 · 장비 · 기타) or 갤러리. The camera opens in that 촬영 모드, its chips (환자 · 장비 · 기타) switch it, and it
-// says what it detects (환자 모니터 · 주입 펌프 · 환부 · 서류); after the photo
+// (환자 · 장비 · 기타) or 갤러리. The camera opens in that 촬영 모드 (no chips on the camera: the mode was chosen on
+// the sheet, 2026-11-23), and it says what it detects (환자 모니터 · 주입 펌프 · 환부 · 서류); after the photo
 // (and the wristband, unless the patient was chosen first) it goes to the matching record screen — vitals here,
 // 주입 펌프 · 환부 · 기타 첨부 in photo.js — and an unrecognised subject asks '무엇을 촬영하셨나요?'.
 // Browsers cannot see real objects: '시연' picks what the demo camera is pointed at.
 // 활력징후 '사진 입력' (2026-11-23): the same camera in 'fill' mode — 환자 모니터만 찾고, 인식한 값을 활력징후 입력 칸에
-// 채운 뒤 그 화면으로 돌아갑니다 (모드 칩 · 용도 선택 · 팔찌 스캔 없음).
+// 채운 뒤 그 화면으로 돌아갑니다 (용도 선택 · 팔찌 스캔 없음).
 import { Capacitor } from '@capacitor/core';
 import { register, go, replace, pop, rerender } from '../router.js';
 import { header, button, statusBlock, badge, esc, toast, openSheet, closeSheet, patientLine } from '../ui.js';
@@ -55,14 +55,9 @@ const isNative = Capacitor.isNativePlatform();
 // pointed at · shows: what the taken photo shows
 const cap = { mode: 'camera', pid: null, photo: null, gal: null, shoot: 'auto', target: 'monitor', shows: null };
 
-/* 촬영 모드: 환자 (환부 · 환자 상태) and 기타 record whatever is photographed; 장비 detects 환자 모니터 · 주입 펌프.
-   'auto' (every known subject) is only used for attached gallery photos. */
-const MODES = [
-  { k: 'wound', label: '환자' },
-  { k: 'device', label: '장비' },
-  { k: 'other', label: '기타' },
-];
-// 시연: what the demo camera is pointed at when a 촬영 모드 is picked
+/* 촬영 모드 (picked on the '사진' sheet): 환자 (환부 · 환자 상태) and 기타 record whatever is photographed; 장비 detects
+   환자 모니터 · 주입 펌프. 'auto' (every known subject) is only used for attached gallery photos. */
+// 시연: what the demo camera is pointed at when the camera opens in a 촬영 모드
 const MODE_TARGET = { wound: 'wound', device: 'monitor', other: 'doc' };
 const DETECTS = {
   auto: ['monitor', 'blur', 'pump', 'wound', 'doc'],
@@ -622,9 +617,8 @@ function aim(el) {
   });
 }
 
-/** Writes the 촬영 모드 chips and the 시연 subject without re-rendering the camera. */
+/** Writes the 시연 subject without re-rendering the camera. */
 function syncControls(el) {
-  el.querySelectorAll('.cam-mode').forEach((b) => b.classList.toggle('on', b.dataset.k === cap.shoot));
   const demo = el.querySelector('.cam-demo b');
   if (demo) demo.textContent = TARGETS[cap.target][0];
 }
@@ -721,10 +715,7 @@ register('vcam', {
       ${
         attach
           ? `<button class="btn cta album-btn" data-act="album" data-long="album-demo"${photo ? ' hidden' : ''}>갤러리에서 선택</button>`
-          : `${isFill() ? '' : `<div class="cam-modes" role="radiogroup" aria-label="촬영 모드">${MODES.map(
-              (m) => `<button class="cam-mode${cap.shoot === m.k ? ' on' : ''}" data-act="cam-mode" data-k="${m.k}" role="radio">${m.label}</button>`,
-            ).join('')}</div>`}
-             <div class="cam-shoot-row">
+          : `<div class="cam-shoot-row">
                <button class="cam-demo" data-act="cam-target" aria-label="시연: 카메라가 비추는 대상"><small>시연</small><b>${TARGETS[cap.target][0]}</b>${icon.arrowDown}</button>
                <button class="shutter" data-act="shoot" data-long="shoot-sim" aria-label="촬영"><span></span></button>
                <span></span>
@@ -759,22 +750,6 @@ register('vcam', {
     shoot: () => capture(),
     'shoot-sim': () => openTargetSheet(true),
     'cam-target': () => openTargetSheet(),
-    'cam-mode': (t) => {
-      const el = document.querySelector('.scr-vcam');
-      if (!el || el.classList.contains('captured') || cap.shoot === t.dataset.k) return;
-      cap.shoot = t.dataset.k;
-      // 시연: picking another mode points the demo camera at that kind of subject (unless it already sees one)
-      const retarget = !detectable(cap.shoot, cap.target) && !el.classList.contains('live');
-      if (retarget) cap.target = MODE_TARGET[cap.shoot];
-      syncControls(el);
-      if (el.classList.contains('live')) return aimLive(el);
-      if (retarget) return aim(el);
-      // the view stays on the subject: only the detector changes
-      ++cam.run;
-      setPhase(el, 'search');
-      const run = cam.run;
-      later(el, run, 500, () => detectable(cap.shoot, cap.target) && cap.target !== 'none' && setPhase(el, 'detected'));
-    },
     purpose: () => choosePurpose(document.querySelector('.scr-vcam')),
     // PDA: the device gallery · browser: the demo album (long press = demo album on the PDA, for the failure cases)
     album: () => (isNative ? pickFromGallery() : openAlbum()),

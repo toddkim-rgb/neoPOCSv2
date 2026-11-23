@@ -158,8 +158,10 @@ try {
   if (photoOpts !== '환자 / 장비 / 기타 / 갤러리에서 선택') throw new Error(`사진 sheet: ${photoOpts}`);
   await tap('.photo-opt[data-k="device"]', 'photo-device');
   await expect('vcam');
-  const camModes = await page.$$eval('.cam-mode', (els) => els.map((e) => `${e.textContent}${e.classList.contains('on') ? '*' : ''}`).join(','));
-  if (camModes !== '환자,장비*,기타') throw new Error(`촬영 모드 chips: ${camModes}`);
+  // the 촬영 모드 was picked on the sheet: no 환자 · 장비 · 기타 chips on the camera
+  if (await page.$('.cam-modes, .cam-mode')) throw new Error('the camera should have no 촬영 모드 chips');
+  const camHint = await page.$eval('.cam-hint', (e) => e.textContent);
+  if (!camHint.startsWith('장비')) throw new Error(`장비 camera hint: ${camHint}`);
   const camChip = await page.$eval('.cam-patient', (e) => e.textContent);
   if (!camChip.startsWith('환자 미확인')) throw new Error(`camera should start without a patient: ${camChip}`);
   await page.keyboard.press('Escape');
@@ -970,12 +972,6 @@ try {
   // 주입 펌프: 시연 대상 → 감지 → 촬영 → 팔찌(강태우) → 펌프 표시값 · 처방 비교(처방 120 vs 펌프 100 → 확인 체크 필수) → 기록
   await photoPick('device', 'pump');
   await expect('vcam');
-  // the chips switch the 촬영 모드: 환자 points the demo camera at a wound, 장비 back at the monitor
-  await tap('.cam-mode[data-k="wound"]', 'cam-mode-wound');
-  await waitFor(() => document.querySelector('.scr-vcam')?.dataset.phase === 'detected', '환부 감지', 6000);
-  if ((await page.$eval('.focus-tag span', (e) => e.textContent)) !== '환부 감지') throw new Error('환자 mode should find the wound');
-  if ((await page.$eval('.cam-sub', (e) => e.textContent)).includes('자')) throw new Error('no ruler any more');
-  await tap('.cam-mode[data-k="device"]', 'cam-mode-device');
   await tap('[data-act="cam-target"]', 'pump-target');
   await tap('[data-sheet-act="target"][data-k="pump"]', 'pump-target-pick');
   await waitFor(() => document.querySelector('.scr-vcam')?.dataset.phase === 'detected', '펌프 감지', 6000);
@@ -999,9 +995,19 @@ try {
   const pumpRow = await page.$eval('.photo-records .ph-row', (e) => e.textContent);
   if (!pumpRow.includes('100 mL/h') || !pumpRow.includes('불일치')) throw new Error(`사진 기록 pump row: ${pumpRow}`);
 
-  // 장비 모드 · 알아볼 대상 없음 → 팔찌(강태우) → '무엇을 촬영하셨나요?' → 기타 첨부
+  // 사진 → 환자: the camera opens in 환자 mode (no chips) pointed at the wound, and finds it (no ruler)
   await tap('[data-act="hdr-back"]', 'pump-detail-back');
   await expect('hub');
+  await photoPick('wound', 'wound-camera');
+  await expect('vcam');
+  if (await page.$('.cam-mode')) throw new Error('환자 camera: no 촬영 모드 chips');
+  await waitFor(() => document.querySelector('.scr-vcam')?.dataset.phase === 'detected', '환부 감지', 6000);
+  if ((await page.$eval('.focus-tag span', (e) => e.textContent)) !== '환부 감지') throw new Error('환자 mode should find the wound');
+  if ((await page.$eval('.cam-sub', (e) => e.textContent)).includes('자')) throw new Error('no ruler any more');
+  await tap('[data-act="cam-close"]', 'wound-camera-close');
+  await expect('hub');
+
+  // 장비 모드 · 알아볼 대상 없음 → 팔찌(강태우) → '무엇을 촬영하셨나요?' → 기타 첨부
   await photoPick('device', 'none-camera');
   await expect('vcam');
   await longPress('[data-act="shoot"]');

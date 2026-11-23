@@ -451,15 +451,6 @@ html.night .ver-btn.back {
   background: var(--n-card);
 }
 /* screens.css */
-html.night .cam-modes {
-  background: rgba(35, 43, 56, 0.12);
-}
-/* screens.css */
-html.night .cam-mode.on {
-  background: var(--n-card-2);
-  color: var(--n-text);
-}
-/* screens.css */
 html.night .cam-demo {
   background: rgba(35, 43, 56, 0.14);
 }
