@@ -8,6 +8,7 @@ Figma 디자인을 그대로 옮긴 클릭형 프로토타입입니다. 웹(HTML
 | 항목 | 내용 |
 |---|---|
 | 공유 주소 | **https://neo-poc-sv2.vercel.app** (GitHub `toddkim-rgb/neoPOCSv2`의 `main`에 올리면 자동 반영) |
+| 휴대폰으로 열기 | 휴대폰 브라우저에서는 **화면을 꽉 채워** 보입니다(APK와 같은 배치, PC · 태블릿은 412×892 액자 그대로). **안드로이드**는 처음 화면을 누를 때 주소창까지 숨기는 **전체화면**으로 바뀝니다(뒤로가기 제스처로 해제). **아이폰 Safari**는 전체화면을 지원하지 않아 공유 → **홈 화면에 추가**로 열면 주소창 없이 앱처럼 뜹니다(안드로이드도 홈 화면에 추가 가능). `?pc` 를 붙이면 휴대폰에서도 액자 화면입니다. |
 | 설치 파일 | `release/neoPOCS-prototype-v0.5.0.apk` (버전 **0.5.0**, PDA · Android 폰 설치용, 릴리스 서명) |
 | 패키지명 | `com.softbowl.neopocs.prototype` · 앱 이름 `neo POCS` |
 | 지원 OS | Android 7.0 이상 (대상 기기: Point Mobile MF52e, Android 15) |
@@ -192,7 +193,7 @@ npm install
 npm run dev
 ```
 
-- 브라우저에서 `http://localhost:5173` → Figma 프레임과 같은 412×892 크기로 보입니다. `http://localhost:5173/?device` 는 PDA처럼 화면 폭에 맞춘 배치입니다.
+- 브라우저에서 `http://localhost:5173` → Figma 프레임과 같은 412×892 크기로 보입니다(휴대폰 브라우저는 자동으로 꽉 채운 배치). `http://localhost:5173/?device` 는 PDA처럼 화면 폭에 맞춘 배치, `?pc` 는 휴대폰에서도 액자입니다.
 - APK 다시 만들기: `powershell -ExecutionPolicy Bypass -File scripts\build-apk.ps1` (JDK 21: `%USERPROFILE%\.jdks`, Android SDK: `%LOCALAPPDATA%\Android\Sdk`)
 - 디자인 비교: `node scripts/shoot-ssol.mjs <폴더> [h,m | b,t,v | p3-]` 로 SSol 화면 50개(1단계 h·m, 2단계 b·t·v, 3단계 p3-)를 캡처하고(3단계 파일은 앞의 `p3-`를 떼고 `design-p3`와 비교) `python scripts/compare.py ../figma-ssol/design-p1(또는 design-p2) <캡처폴더> <결과폴더>` 로 나란히 비교합니다. 디자인 렌더는 `C:\Users\toddk\xCLMA\figma-ssol\`에 저장돼 있어 Figma를 다시 호출하지 않아도 됩니다.
 - 흐름 점검: `node scripts/flow-test.mjs` (로그인 → AI 커맨드바 → 투약·고위험 인증 → 음성간호메모 검토·다시 요약 → 채혈 → 수혈·고위험수행 인증 → 수혈 시작 · 15분 알람 · 체크 · 중단 → 활력징후 저장(빈 칸 · 사진 입력) → 환자상세 → 사용자설정·퀵 슬롯 → 주사실 → 음성간호메모 검토 → 로그아웃까지 자동 클릭)

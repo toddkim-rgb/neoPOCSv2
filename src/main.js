@@ -34,6 +34,18 @@ const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
 const isNative = Capacitor.isNativePlatform();
 
+/*
+ * 휴대폰 브라우저 (웹 프리뷰, 2026-11-23 요청): the 412×892 frame becomes the whole screen (the APK layout), and on
+ * Android the first touch also switches the browser to full screen (iPhone Safari cannot: '홈 화면에 추가' opens it
+ * without the address bar instead). PC · 태블릿 keep the frame. ?pc = the frame on a phone · ?device = full on a PC.
+ */
+function isPhone() {
+  if (/iPhone|iPod|Android.+Mobile|Windows Phone|Mobile.+Firefox/i.test(navigator.userAgent)) return true;
+  return matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) <= 600;
+}
+const phoneWeb = !isNative && !shot && !params.has('pc') && isPhone();
+const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;
+
 /* ---------------- scaling ---------------- */
 function readInset(name) {
   const v = getComputedStyle(html).getPropertyValue(`--safe-area-inset-${name}`).trim();
@@ -54,9 +66,10 @@ function setVar(name, value) {
 function layout() {
   const w = window.innerWidth;
   const h = window.innerHeight;
-  // Browsers show the exact 412×892 Figma frame; `?device` previews the scaled on-device layout.
-  const desktop = !params.has('device') && (!!shot || !isNative);
+  // Browsers show the exact 412×892 Figma frame; phones and `?device` get the scaled on-device layout.
+  const desktop = !params.has('device') && !phoneWeb && (!!shot || !isNative);
   html.classList.toggle('desktop', desktop);
+  html.classList.toggle('phone-web', phoneWeb);
   html.classList.toggle('shot', !!shot);
   if (desktop) {
     const frameH = shot ? Number(params.get('h') || DESIGN_H) : DESIGN_H;
@@ -79,6 +92,23 @@ function layout() {
 let tallest = 0;
 
 window.addEventListener('resize', layout);
+
+// 휴대폰 브라우저 · 안드로이드: the first touch asks for full screen (a browser only allows it from a tap); leaving it
+// (뒤로가기 제스처) is the user's choice, so it is asked once per visit
+if (phoneWeb && !standalone && !params.has('device')) {
+  const el = document.documentElement;
+  const enter = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (enter) {
+    const once = () => {
+      ['pointerup', 'click'].forEach((ev) => window.removeEventListener(ev, once, true));
+      if (document.fullscreenElement || document.webkitFullscreenElement) return;
+      Promise.resolve(enter.call(el, { navigationUI: 'hide' }))
+        .then(() => screen.orientation?.lock?.('portrait'))
+        .catch(() => {});
+    };
+    ['pointerup', 'click'].forEach((ev) => window.addEventListener(ev, once, true));
+  }
+}
 // Capacitor injects --safe-area-inset-* on <html> once the native insets are known.
 let lastInsets = '';
 new MutationObserver(() => {
