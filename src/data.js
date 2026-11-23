@@ -246,10 +246,10 @@ export const AI_SUMMARY = [
 ];
 
 export const VITALS = [
-  { k: 'SBP', v: '118', unit: 'mmHg', at: '09/04 15:30' },
-  { k: 'DBP', v: '76', unit: 'mmHg', at: '09/04 15:30' },
-  { k: 'PR', v: '188', unit: '회/min', at: '09/04 15:30', flag: 'danger' },
-  { k: 'RR', v: '20', unit: '회/min', at: '09/04 15:30' },
-  { k: 'BT', v: '38.6', unit: '°C', at: '09/04 15:30', flag: 'warn' },
-  { k: 'SpO2', v: '97', unit: '%', at: '09/04 15:30' },
+  { k: 'SBP', v: '118', unit: 'mmHg', at: '09/17 15:30' },
+  { k: 'DBP', v: '76', unit: 'mmHg', at: '09/17 15:30' },
+  { k: 'PR', v: '188', unit: '회/min', at: '09/17 15:30', flag: 'danger' },
+  { k: 'RR', v: '20', unit: '회/min', at: '09/17 15:30' },
+  { k: 'BT', v: '38.6', unit: '°C', at: '09/17 15:30', flag: 'warn' },
+  { k: 'SpO2', v: '97', unit: '%', at: '09/17 15:30' },
 ];

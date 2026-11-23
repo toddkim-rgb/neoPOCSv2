@@ -169,20 +169,8 @@ html.night .vhist-toggle {
   background: var(--n-card);
 }
 /* screens.css */
-html.night .vhist {
-  background: var(--n-card);
-}
-/* screens.css */
-html.night .vh-row + .vh-row {
-  border-top: 1px solid var(--n-line);
-}
-/* screens.css */
-html.night .vh-head {
-  background: #1d283a;
-}
-/* screens.css */
-html.night .vh-row.latest {
-  background: #163041;
+html.night .vgrid.prev .vcell {
+  background: #1f2938;
 }
 /* screens.css */
 html.night .infection .pill {
@@ -484,6 +472,10 @@ html.night .pf-msg.ok {
   background: #162a41;
 }
 /* screens.css */
+html.night .ph-num {
+  background: var(--n-card);
+}
+/* screens.css */
 html.night .ph-memo {
   background: var(--n-card);
 }
@@ -494,4 +486,41 @@ html.night .ph-row {
 /* screens.css */
 html.night .ph-shoot {
   background: var(--n-card);
+}
+/* screens.css */
+html.night .photo-opt .po-ico {
+  background: #162a41;
+}
+/* screens.css */
+html.night .badge.media {
+  background: #241641;
+}
+/* screens.css */
+html.night .md-add {
+  background: var(--n-card);
+}
+/* screens.css */
+html.night .md-hint {
+  background: #162a41;
+}
+/* screens.css */
+html.night .md-card {
+  background: var(--n-card);
+}
+/* screens.css */
+html.night .md-no {
+  background: var(--n-slate-bg);
+}
+/* screens.css */
+html.night .md-prev.audio,
+html.night .mv-media.audio {
+  background: #241641;
+}
+/* screens.css */
+html.night .md-memo {
+  background: var(--n-card);
+}
+/* screens.css */
+html.night .mv-rec {
+  color: var(--n-text);
 }

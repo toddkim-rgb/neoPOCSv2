@@ -30,7 +30,7 @@ import { state, selectPatient } from '../state.js';
 import { patientById, DEFAULT_PID } from '../patients.js';
 import { askPatient } from '../patientscan.js';
 import { aiChips, setAiMore, aiBack } from '../aibar.js';
-import { startCamera, startAttach } from './vitals.js';
+import { openPhotoSheet } from './vitals.js';
 
 let revealTimer = null;
 
@@ -263,9 +263,8 @@ register('voice', {
     // + menu (same as the AI 커맨드바): the recording is not kept, so ask first
     'ai-more': () => setAiMore(!state.aiMore),
     'ai-voice-memo': () => leaveRecording(startFreeMemo),
-    'ai-monitor': () => leaveRecording(startCamera),
+    'ai-photo': () => leaveRecording(openPhotoSheet),
     'ai-scan': () => leaveRecording(() => go('qscan')),
-    'ai-attach': () => leaveRecording(startAttach),
     // 음성메모 (AI 커맨드바) → 음성간호메모 메인 목록
     'to-memos': () => replace('vmain', {}, 'fade'),
   },

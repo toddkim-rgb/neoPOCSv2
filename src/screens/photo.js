@@ -1,8 +1,9 @@
-// 사진 촬영 · 사진첨부 → 용도별 기록 (요청 2026-11-23). The app cannot know what will be photographed, so the camera
-// shows what it detects (자동) or the mode the nurse picked (장비 · 환부 · 기타), and every review screen can switch
-// to another use ('다른 용도로 기록'):
+// 사진 촬영 · 사진첨부 → 용도별 기록 (요청 2026-11-23). The app cannot know what will be photographed: the nurse picks
+// 환자 · 장비 · 기타 on the '사진' sheet (camera chips switch it), the camera says what it detects, and every review
+// screen can switch to another use ('다른 용도로 기록'):
 //   환자 모니터 → 활력징후 (vitals.js vreview) · 주입 펌프 → 주입 정보 + 처방 속도 비교 (vpump)
-//   환부 · 환자 상태 → 부위 · 유형 · 크기 · 이전 사진 비교 (vwound) · 기타 → 태그 · 메모로 간호기록 첨부 (vother)
+//   환부 · 환자 상태 → 부위 · 유형 · 크기(직접 측정) · 이전 사진 비교 (vwound) · 기타 → 태그 · 메모로 간호기록 첨부 (vother)
+// 자(눈금)로 크기를 추정하던 기능은 촬영 거리·각도에 따라 부정확해 뺐습니다 (2026-11-23 요청).
 // Records are kept per patient (state.pt[pid].photos) and listed on 환자 상세 '사진 기록'.
 // Not in the Figma file: built from the existing cards, chips, check rows and status blocks.
 import { register, replace, pop, rerender } from '../router.js';
@@ -11,6 +12,9 @@ import { icon } from '../icons.js';
 import { NURSE, DEMO_DATE } from '../data.js';
 import { state } from '../state.js';
 import { backToCamera, switchPurpose } from './vitals.js';
+import pumpUrl from '../assets/img/pump-photo.jpg';
+import woundUrl from '../assets/img/wound-photo.jpg';
+import woundPrevUrl from '../assets/img/wound-prev.jpg';
 
 /* ---------------- demo pictures (what the browser's camera "sees") ----------------
    360×480 pictures. Their backgrounds run far past the frame: the camera view (overflow visible) shows the subject
@@ -18,56 +22,16 @@ import { backToCamera, switchPurpose } from './vitals.js';
 const svgOpen = (label) =>
   `<svg class="art" viewBox="0 0 360 480" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${label}">`;
 
-// an infusion pump on its pole, running 100 mL/h
-const PUMP = `${svgOpen('주입 펌프')}
-  <rect x="-1500" y="-1500" width="3360" height="1800" fill="#2b313b"/>
-  <rect x="-1500" y="300" width="3360" height="1800" fill="#252a33"/>
-  <rect x="34" y="-1500" width="12" height="3600" fill="#9aa3ad"/>
-  <rect x="46" y="226" width="22" height="34" fill="#7d868f"/>
-  <path d="M180 -1500V96M180 396V2000" stroke="#dfe6ee" stroke-width="5" fill="none"/>
-  <rect x="166" y="26" width="28" height="44" rx="6" fill="#e9eef3" opacity=".75"/>
-  <rect x="60" y="96" width="240" height="300" rx="20" fill="#eceff2" stroke="#c4cad1" stroke-width="2"/>
-  <path d="M80 96h200a20 20 0 0 1 20 20v14H60v-14a20 20 0 0 1 20-20z" fill="#1d6fb8"/>
-  <text x="180" y="119" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" letter-spacing="1">INFUSION PUMP</text>
-  <rect x="80" y="142" width="200" height="128" rx="8" fill="#0d2536" stroke="#08131c" stroke-width="2"/>
-  <text x="92" y="165" font-size="13" fill="#9fe7ff">N/S 0.9% 1000mL</text>
-  <rect x="234" y="152" width="36" height="16" rx="4" fill="#2fbf71"/>
-  <text x="252" y="164" font-size="10" font-weight="700" text-anchor="middle" fill="#05230f">RUN</text>
-  <text x="92" y="222" font-size="48" font-weight="700" fill="#e6fbff">100</text>
-  <text x="188" y="222" font-size="15" fill="#9fe7ff">mL/h</text>
-  <text x="92" y="254" font-size="12" fill="#9fe7ff">VTBI 650 mL</text>
-  <text x="190" y="254" font-size="12" fill="#9fe7ff">VOL 350 mL</text>
-  ${[['▲', 80, 288], ['▼', 150, 288], ['MENU', 220, 288], ['START', 80, 330], ['STOP', 150, 330], ['MUTE', 220, 330]]
-    .map(
-      ([t, x, y]) =>
-        `<rect x="${x}" y="${y}" width="60" height="30" rx="7" fill="#d5dae0" stroke="#bfc6ce"/><text x="${x + 30}" y="${y + 20}" text-anchor="middle" font-size="11" font-weight="700" fill="#4a5563">${t}</text>`,
-    )
-    .join('')}
+// Sample photos from the user (2026-11-23), each sharp in the middle of a 1350×2000 px frame whose surroundings are
+// its own edges stretched and blurred (2.5 px per unit; the viewBox is the central 900×1200 px), so the camera view
+// around the subject is filled too:
+//   주입 펌프 (MCM 500, 100 mL/h) · 욕창 (천골, 자를 대고 찍은 사진) · 같은 욕창의 이전 사진 (09/15: 다른 각도, 더 붉음)
+const photoArt = (url, label) => `${svgOpen(label)}
+  <image href="${url}" x="-90" y="-160" width="540" height="800" preserveAspectRatio="none"/>
 </svg>`;
-
-// a pressure injury with a paper ruler (40 px = 1 cm); `s` scales the wound (an older, larger photo)
-const RULER = Array.from({ length: 61 }, (_, i) => {
-  const x = 60 + i * 4;
-  const h = i % 10 === 0 ? 14 : i % 5 === 0 ? 9 : 5;
-  return `<line x1="${x}" x2="${x}" y1="330" y2="${330 + h}" stroke="#5d5848" stroke-width="${i % 10 ? 0.8 : 1.4}"/>${
-    i % 10 === 0 ? `<text x="${x}" y="358" text-anchor="middle" font-size="10" fill="#4b473a">${i / 10}</text>` : ''
-  }`;
-}).join('');
-const woundSvg = (s = 1) => `${svgOpen('환부')}
-  <rect x="-1500" y="-1500" width="3360" height="3480" fill="#d9a88b"/>
-  <ellipse cx="110" cy="110" rx="170" ry="120" fill="#e4b89d" opacity=".6"/>
-  <ellipse cx="270" cy="400" rx="180" ry="120" fill="#c99476" opacity=".35"/>
-  <g transform="translate(180 205) scale(${s})">
-    <ellipse rx="100" ry="72" fill="#d98877" opacity=".7"/>
-    <path d="M-64 -6C-62 -38-24 -46 8 -42C42 -40 66 -22 64 4C62 34 32 44 -2 44C-36 42-66 26-64 -6Z" fill="#b5423d" stroke="#8a2c29" stroke-width="2"/>
-    <ellipse cx="-14" cy="-6" rx="18" ry="10" fill="#e2c77d" opacity=".85"/>
-    <ellipse cx="24" cy="12" rx="10" ry="7" fill="#e2c77d" opacity=".7"/>
-    <circle cx="-34" cy="16" r="5" fill="#cf5a52"/><circle cx="38" cy="-14" r="4" fill="#cf5a52"/><circle cx="4" cy="22" r="4" fill="#cf5a52"/>
-  </g>
-  <rect x="52" y="326" width="256" height="40" fill="#f5f1e3" stroke="#c9c1a5"/>
-  ${RULER}
-  <text x="300" y="358" text-anchor="end" font-size="9" fill="#4b473a">cm</text>
-</svg>`;
+const PUMP = photoArt(pumpUrl, '주입 펌프');
+const WOUND = photoArt(woundUrl, '환부');
+const WOUND_PREV = photoArt(woundPrevUrl, '환부 (이전 사진)');
 
 // a consent form on a desk
 const DOC = `${svgOpen('서류')}
@@ -85,8 +49,8 @@ const DOC = `${svgOpen('서류')}
 /** Demo picture of `kind`: pump · wound · wound-prev · doc. */
 export function artSvg(kind) {
   if (kind === 'pump') return PUMP;
-  if (kind === 'wound') return woundSvg(1);
-  if (kind === 'wound-prev') return woundSvg(1.18);
+  if (kind === 'wound') return WOUND;
+  if (kind === 'wound-prev') return WOUND_PREV;
   if (kind === 'doc') return DOC;
   return '';
 }
@@ -95,7 +59,7 @@ export function artSvg(kind) {
 export const PURPOSES = [
   { k: 'monitor', label: '환자 모니터', desc: '활력징후로 기록' },
   { k: 'pump', label: '주입 펌프', desc: '주입 정보 · 처방 속도 비교' },
-  { k: 'wound', label: '환부 · 환자 상태', desc: '부위 · 유형 · 크기 · 이전 사진 비교' },
+  { k: 'wound', label: '환부 · 환자 상태', desc: '부위 · 유형 · 이전 사진 비교' },
   { k: 'other', label: '기타', desc: '서류 · 라벨 · 식사량 등 간호기록 첨부' },
 ];
 export const PURPOSE_LABEL = Object.fromEntries(PURPOSES.map((p) => [p.k, p.label]));
@@ -179,19 +143,23 @@ const IV = {
   20876654: { name: '0.9% 생리식염수 1,000 mL', rate: 100 },
   20812233: { name: '0.9% 생리식염수 1,000 mL', rate: 100 },
 };
+// what the pump photo shows: Infusion 100 mL/h · Volume 47 mL · Time Left 00:28. A pump screen does not name the
+// drug, so 약물 · 수액 comes from the patient's 수액 처방.
 const PUMP_FIELDS = [
-  { k: 'drug', name: '약물 · 수액', unit: '', read: 'N/S 0.9% 1000mL', conf: 92, text: true },
+  { k: 'drug', name: '약물 · 수액', unit: '', order: true, text: true },
   { k: 'rate', name: '주입 속도', unit: 'mL/h', read: '100', conf: 99 },
-  { k: 'vol', name: '주입량 (VOL)', unit: 'mL', read: '350', conf: 95 },
-  { k: 'vtbi', name: '남은 양 (VTBI)', unit: 'mL', read: '650', conf: 96 },
+  { k: 'vtbi', name: '남은 양', unit: 'mL', read: '47', conf: 97 },
+  { k: 'left', name: '남은 시간', unit: '', read: '00:28', conf: 95, text: true },
 ];
+const AI_FIELDS = PUMP_FIELDS.filter((x) => !x.order);
 
 function pumpForm() {
   const v = state.vphoto;
   if (!v.pump) {
     // a photo that is not of a pump (chosen via '다른 용도로'): nothing is read
     const read = v.shows === 'pump';
-    v.pump = { read, ack: false, values: Object.fromEntries(PUMP_FIELDS.map((f) => [f.k, read ? f.read : ''])) };
+    const order = IV[state.pid] || IV[21212457];
+    v.pump = { read, ack: false, values: Object.fromEntries(PUMP_FIELDS.map((f) => [f.k, f.order ? order.name : read ? f.read : ''])) };
   }
   return v.pump;
 }
@@ -213,7 +181,7 @@ register('vpump', {
         <h2 class="vr-title ask gtext">${
           f.read ? `${v.attach ? '주입 펌프 사진을 첨부하신 것 같습니다.' : '주입 펌프를 촬영하신 것 같습니다.'}<br>주입 정보를 기록할까요?` : '주입 펌프 정보를<br>직접 입력해 주세요.'
         }</h2>
-        ${mediaCard(v, f.read ? badge(`인식 ${PUMP_FIELDS.length}/${PUMP_FIELDS.length}`, 'count-grad') : '')}
+        ${mediaCard(v, f.read ? badge(`인식 ${AI_FIELDS.length}/${AI_FIELDS.length}`, 'count-grad') : '')}
         <section class="ocr-card">
           <div class="ocr-card-head"><span class="ocr-card-title gtext">펌프 표시값</span><span class="ocr-meta">${nowAt().slice(6)} · ${NURSE.label}</span></div>
           <div class="pf-list">${PUMP_FIELDS.map(
@@ -222,7 +190,7 @@ register('vpump', {
               <span class="pf-k">${x.name}</span>
               <input class="pf-in${x.text ? ' text' : ''}" data-k="${x.k}" type="text" ${x.text ? '' : 'inputmode="decimal"'} value="${esc(f.values[x.k])}" placeholder="입력" autocomplete="off">
               <span class="pf-u">${x.unit}</span>
-              <span class="vf-tag ${f.read ? 'ai' : 'low'}">${f.read ? `AI ${x.conf}%` : '직접 입력'}</span>
+              ${x.order ? '<span class="vf-tag ok">처방</span>' : `<span class="vf-tag ${f.read ? 'ai' : 'low'}">${f.read ? `AI ${x.conf}%` : '직접 입력'}</span>`}
             </label>`,
           ).join('')}</div>
         </section>
@@ -280,7 +248,7 @@ register('vpump', {
       save({
         kind: 'pump',
         title: f.values.drug,
-        detail: `${f.values.rate} mL/h · 주입 ${f.values.vol} mL · 남은 ${f.values.vtbi} mL`,
+        detail: `${f.values.rate} mL/h · 남은 ${f.values.vtbi} mL · ${f.values.left} 남음`,
         flag: match ? null : `처방 ${order.rate} mL/h와 불일치 · 펌프 설정 확인`,
       });
     },
@@ -295,11 +263,8 @@ const STAGES = ['1단계', '2단계', '3단계', '4단계', '미분류', '심부
 
 function woundForm() {
   const v = state.vphoto;
-  if (!v.wound) {
-    // with a ruler in the picture the size is estimated (the demo wound: 3.2 × 2.2 cm)
-    const est = v.shows === 'wound';
-    v.wound = { site: null, type: null, stage: null, w: est ? '3.2' : '', h: est ? '2.2' : '', est, memo: '' };
-  }
+  // 크기는 간호사가 직접 잰 값만 (선택): no estimate from the photo
+  if (!v.wound) v.wound = { site: null, type: null, stage: null, w: '', h: '', memo: '' };
   return v.wound;
 }
 const area = (r) => (parseFloat(r.w) || 0) * (parseFloat(r.h) || 0);
@@ -320,17 +285,17 @@ register('vwound', {
         }</h2>
         ${mediaCard(v)}
         <section class="ocr-card ph-form">
-          <p class="ph-k" data-f="site">부위 <em>필수</em></p>
+          <p class="ph-k" data-f="site">부위</p>
           ${chips(SITES, f.site, 'w-site')}
-          <p class="ph-k" data-f="type">유형 <em>필수</em></p>
+          <p class="ph-k" data-f="type">유형</p>
           ${chips(TYPES, f.type, 'w-type')}
-          ${f.type === '욕창' ? `<p class="ph-k" data-f="stage">욕창 단계 <em>필수</em></p>${chips(STAGES, f.stage, 'w-stage')}` : ''}
-          <p class="ph-k">크기${f.est ? ' <span class="vf-tag ai">AI 추정 · 자 기준</span>' : ''}</p>
+          ${f.type === '욕창' ? `<p class="ph-k" data-f="stage">욕창 단계</p>${chips(STAGES, f.stage, 'w-stage')}` : ''}
+          <p class="ph-k">크기 <small>직접 측정</small></p>
           <div class="ph-size">
-            <span class="stp"><button class="vstep" data-act="w-size" data-f="w" data-d="-1">−</button><span class="stp-v">${f.w || '-'}</span><button class="vstep" data-act="w-size" data-f="w" data-d="1">+</button></span>
+            <input class="ph-num" data-f="w" type="text" inputmode="decimal" value="${esc(f.w)}" placeholder="가로" aria-label="가로 cm" autocomplete="off">
             <span class="ph-x">×</span>
-            <span class="stp"><button class="vstep" data-act="w-size" data-f="h" data-d="-1">−</button><span class="stp-v">${f.h || '-'}</span><button class="vstep" data-act="w-size" data-f="h" data-d="1">+</button></span>
-            <span class="pf-u">cm (가로 × 세로)</span>
+            <input class="ph-num" data-f="h" type="text" inputmode="decimal" value="${esc(f.h)}" placeholder="세로" aria-label="세로 cm" autocomplete="off">
+            <span class="pf-u">cm</span>
           </div>
           <p class="ph-k">메모</p>
           <textarea class="ph-memo" data-f="memo" rows="2" placeholder="삼출물 · 냄새 · 드레싱 등">${esc(f.memo)}</textarea>
@@ -354,6 +319,15 @@ register('vwound', {
   },
   mount(el) {
     el.querySelector('.ph-memo')?.addEventListener('input', (e) => (woundForm().memo = e.target.value));
+    el.querySelectorAll('.ph-num').forEach((input) => {
+      input.addEventListener('input', () => {
+        input.value = input.value.replace(/[^0-9.]/g, '');
+        woundForm()[input.dataset.f] = input.value;
+      });
+      // the size comparison with the previous photo follows the typed size
+      input.addEventListener('change', () => rerender());
+      input.addEventListener('keydown', (e) => e.key === 'Enter' && input.blur());
+    });
   },
   actions: {
     ...reviewActions('wound'),
@@ -365,24 +339,13 @@ register('vwound', {
       rerender();
     },
     'w-stage': (t) => ((woundForm().stage = t.dataset.v), rerender()),
-    'w-size': (t) => {
-      const f = woundForm();
-      const k = t.dataset.f;
-      const cur = parseFloat(f[k]) || 0;
-      f[k] = Math.max(0, cur + Number(t.dataset.d) * 0.1).toFixed(1);
-      f.est = false; // the nurse corrected the estimate
-      rerender();
-    },
     'wound-save': () => {
       const f = woundForm();
-      const miss = !f.site ? 'site' : !f.type ? 'type' : f.type === '욕창' && !f.stage ? 'stage' : null;
-      if (miss) {
-        toast(`${{ site: '부위', type: '유형', stage: '욕창 단계' }[miss]}를 선택해 주세요.`);
-        return nudge(`.ph-k[data-f="${miss}"]`);
-      }
+      // 환자 사진은 필수 항목 없음 (2026-11-23 요청): 고르지 않은 항목은 비워 둔 채 저장
+      const kindTitle = f.type ? `${f.type}${f.stage ? ` ${f.stage}` : ''}` : '';
       save({
         kind: 'wound',
-        title: `${f.site} · ${f.type}${f.stage ? ` ${f.stage}` : ''}`,
+        title: [f.site, kindTitle].filter(Boolean).join(' · ') || '환자 상태 사진',
         detail: [f.w && f.h ? `${f.w} × ${f.h} cm` : '', f.memo].filter(Boolean).join(' · '),
         site: f.site,
         type: f.type,
@@ -480,9 +443,12 @@ register('vsaved', {
 const KIND_LABEL = { pump: '주입 펌프', wound: '환부', other: '첨부' };
 export function photoRows(list) {
   if (!list.length) return '<p class="ph-empty">사진 기록이 없습니다.</p>';
-  return list
-    .map(
-      (p) => `
+  return list.map(photoRow).join('');
+}
+
+/** One 사진 기록 (주입 펌프 · 환부 · 기타) row. */
+export function photoRow(p) {
+  return `
       <div class="ph-row">
         <span class="ph-thumb">${p.photo ? `<img src="${p.photo}" alt="">` : p.art ? artSvg(p.art) : icon.edit}</span>
         <span class="ph-body">
@@ -491,7 +457,5 @@ export function photoRows(list) {
           ${p.flag ? `<span class="ph-flag">${icon.error}${esc(p.flag)}</span>` : ''}
           <small>${esc(p.at)} · ${esc(p.who)}</small>
         </span>
-      </div>`,
-    )
-    .join('');
+      </div>`;
 }

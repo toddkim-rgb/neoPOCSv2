@@ -1,15 +1,18 @@
 // 환자 상세 (neo-med-detail-01): demographics, care info, allergy/infection, vitals, AI records, today's plan.
 // Shows the selected patient (PATIENT); AI 음성간호메모 = memos saved in this session first, then the patient's EMR history.
-// 사진 기록 (2026-11-23): 주입 펌프 · 환부 · 기타 첨부 photos of this patient; '사진 촬영' opens the camera for this
-// patient, so no wristband scan is needed after the photo.
+// 멀티미디어 (2026-11-23): the AI camera's 사진 기록 (주입 펌프 · 환부 · 기타) and the 사진 · 동영상 · 음성기록 added
+// with '+ 추가' (media.js, this patient: no wristband scan), newest first; a tapped item opens with its memo.
+// 임상관찰기록 (2026-11-23): 최종 측정 6칸; '직전 기록 보기' shows the same 6 cells with each item's previous
+// measurement within 24 hours (the small history table was removed: too small to read on the PDA).
 import { register, go, pop, rerender } from '../router.js';
 import { confirmReset } from './med.js';
 import { header, aiButton, badge, esc, medGroups, patientLine } from '../ui.js';
 import { icon, sparkles } from '../icons.js';
 import { patientTitle, PATIENT, NURSE } from '../data.js';
-import { state, vitalRow } from '../state.js';
-import { flagOf, startCamera } from './vitals.js';
-import { photoRows } from './photo.js';
+import { state } from '../state.js';
+import { flagOf } from './vitals.js';
+import { photoRow } from './photo.js';
+import { mediaRow, openMediaAdd, openMediaViewer } from './media.js';
 import { scriptBubbles } from './voice.js';
 
 const infoCard = (title, rows) => `
@@ -20,39 +23,43 @@ const infoCard = (title, rows) => `
 
 // one measurement = one time: it is shown once in the card head, so the cells are shorter (same fonts).
 // A cell keeps its own time only if it differs from the rest.
-const vitalCell = (v, head) => `
+const vitalCell = (v, head, empty = '미측정') => `
   <div class="vcell">
     <div class="vcell-top"><span class="vk">${v.k}</span>${v.flag ? `<span class="vflag ${v.flag}">${v.flag === 'danger' ? '경고' : '주의'}</span>` : ''}</div>
     <div class="vcell-mid">${
-      String(v.v ?? '').trim() ? `<span class="vv ${v.flag || ''}">${v.v}</span><span class="vu">${v.unit}</span>` : '<span class="vv none">미측정</span>'
+      String(v.v ?? '').trim() ? `<span class="vv ${v.flag || ''}">${v.v}</span><span class="vu">${v.unit}</span>` : `<span class="vv none">${empty}</span>`
     }</div>
     ${v.at && v.at !== head ? `<p class="vat">${v.at}</p>` : ''}
   </div>`;
 /** 측정 일시 (MM/DD HH:MM) of the latest record. */
 const measuredAt = () => state.vitals.items[0]?.at || state.vitals.time;
 
-/* 임상관찰기록 상세보기: every measurement, newest first — MM/DD HH:MM + the six values (주의 · 경고 coloured) */
-const VH_KEYS = [
-  ['SBP', 'mmHg'],
-  ['DBP', 'mmHg'],
-  ['PR', '회/min'],
-  ['RR', '회/min'],
-  ['BT', '°C'],
-  ['SpO2', '%'],
-];
-function vitalHistoryTable() {
-  const rows = [vitalRow(state.vitals), ...state.pt[state.pid].vhist];
-  // an item not measured that time (활력징후는 빈 칸이 있어도 저장): '-'
-  const cell = (k, v) => `<span class="vh-v ${flagOf(k, v) || ''}">${esc(String(v ?? '').trim() ? v : '-')}</span>`;
+/* 직전 기록: for each item, its previous measurement within 24 hours before the latest record */
+const DAY = 24 * 3600e3;
+function atMs(at) {
+  const m = /^(\d\d)\/(\d\d) (\d\d):(\d\d)$/.exec(at || '');
+  return m ? new Date(2026, m[1] - 1, +m[2], +m[3], +m[4]).getTime() : NaN;
+}
+function prevItems() {
+  const t0 = atMs(measuredAt());
+  const hist = state.pt[state.pid].vhist;
+  return state.vitals.items.map((i) => {
+    const row = hist.find((r) => {
+      const t = atMs(r.at);
+      return String(r.values[i.k] ?? '').trim() && (Number.isNaN(t0) || (t < t0 && t0 - t <= DAY));
+    });
+    return row ? { k: i.k, unit: i.unit, v: row.values[i.k], flag: flagOf(i.k, row.values[i.k]), at: row.at } : { k: i.k, unit: i.unit, v: '', at: '' };
+  });
+}
+function prevRecord() {
+  const items = prevItems();
+  const times = items.map((i) => i.at).filter(Boolean);
+  // the time most items share goes in the head; a cell measured at another time shows its own
+  const head = times.sort((a, b) => times.filter((x) => x === b).length - times.filter((x) => x === a).length)[0] || '';
   return `
-    <div class="vhist" role="table" aria-label="임상관찰기록 이전 측정">
-      <div class="vh-row vh-head" role="row"><span class="vh-at">측정 일시</span>${VH_KEYS.map(([k, u]) => `<span>${k}<small>${u}</small></span>`).join('')}</div>
-      ${rows
-        .map(
-          (r, i) =>
-            `<div class="vh-row${i === 0 ? ' latest' : ''}" role="row"><span class="vh-at">${r.at}${i === 0 ? '<em>최종</em>' : ''}</span>${VH_KEYS.map(([k]) => cell(k, r.values[k])).join('')}</div>`,
-        )
-        .join('')}
+    <div class="vprev">
+      <div class="vprev-head"><span class="vprev-title">직전 기록</span><small>24시간 이내</small>${head ? `<b>${head}</b>` : ''}</div>
+      <div class="vgrid prev">${items.map((v) => vitalCell(v, head, '기록 없음')).join('')}</div>
     </div>`;
 }
 
@@ -111,6 +118,18 @@ function planCard() {
     </div>`;
 }
 
+/** 멀티미디어: 사진 기록 (AI 카메라) + 사진 · 동영상 · 음성기록, newest first ('MM/DD HH:MM' sorts as text). */
+function mediaCard() {
+  const s = state.pt[state.pid];
+  const rows = [...s.media.map((m) => [m.at, mediaRow(m)]), ...s.photos.map((p) => [p.at, photoRow(p)])].sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0));
+  return `
+      <section class="dcard photo-records">
+        <div class="dcard-head"><h3 class="dcard-title">멀티미디어</h3><span class="ai-count">총 ${rows.length}건</span></div>
+        <div class="ph-list">${rows.length ? rows.map((r) => r[1]).join('') : '<p class="ph-empty">사진 · 동영상 · 음성기록이 없습니다.</p>'}</div>
+        <button class="ph-shoot" data-act="media-add">${icon.add}<span>추가</span><small>사진 · 동영상 · 음성기록</small></button>
+      </section>`;
+}
+
 register('detail', {
   bg: 'screen',
   render: () => {
@@ -132,20 +151,17 @@ register('detail', {
       </section>
       <section class="dcard vitals">
         <div class="dcard-head"><h3 class="dcard-title">임상관찰기록</h3><span class="dcard-meta vmeta">${icon.alarmOutline}<b>${measuredAt()}</b><i></i>${state.vitals.who}</span></div>
-        ${state.vhistOpen ? vitalHistoryTable() : `<div class="vgrid">${state.vitals.items.map((v) => vitalCell(v, measuredAt())).join('')}</div>`}
+        <div class="vgrid">${state.vitals.items.map((v) => vitalCell(v, measuredAt())).join('')}</div>
+        ${state.vhistOpen ? prevRecord() : ''}
         <button class="vhist-toggle" data-act="vitals-more" aria-expanded="${state.vhistOpen}">${
-          state.vhistOpen ? '최종 측정만 보기' : `상세보기 · 이전 측정 ${state.pt[state.pid].vhist.length}건`
+          state.vhistOpen ? '직전 기록 접기' : '직전 기록 보기'
         }<span class="chev">${state.vhistOpen ? icon.arrowUp : icon.arrowDown}</span></button>
       </section>
       <section class="dcard ai-records">
         <div class="dcard-head"><h3 class="ai-label"><span class="ai-spark">${sparkles('dt-spark', '#B07CFF', '#5B2BC7')}</span>AI 음성간호메모</h3><span class="ai-count">총 ${ai.count}건</span></div>
         ${ai.list.map(aiEntry).join('')}
       </section>
-      <section class="dcard photo-records">
-        <div class="dcard-head"><h3 class="dcard-title">사진 기록</h3><span class="ai-count">총 ${state.pt[state.pid].photos.length}건</span></div>
-        <div class="ph-list">${photoRows(state.pt[state.pid].photos)}</div>
-        <button class="ph-shoot" data-act="photo-shoot">${icon.camera}<span>사진 촬영</span></button>
-      </section>
+      ${mediaCard()}
       ${planCard()}
     </div>`;
   },
@@ -156,13 +172,14 @@ register('detail', {
       state.voice.origin = 'detail';
       go('voice', { step: 'record' });
     },
-    // 임상관찰기록: 기본 = 최종 측정 · 상세보기 = 이전 측정까지 (MM/DD HH:MM + VS)
+    // 임상관찰기록: 기본 = 최종 측정 · 직전 기록 보기 = 항목별 이전 측정 (24시간 이내)
     'vitals-more': () => {
       state.vhistOpen = !state.vhistOpen;
       rerender();
     },
-    // 사진 기록 → 사진 촬영: this patient is already chosen
-    'photo-shoot': () => startCamera({ pid: state.pid }),
+    // 멀티미디어: + 추가 (사진 · 동영상 · 음성기록, 모아서 메모 → 저장) · 항목 보기 / 메모 수정 / 삭제
+    'media-add': () => openMediaAdd(),
+    'media-open': (t) => openMediaViewer(t.dataset.id),
     toggle: (t) => {
       const i = +t.dataset.i;
       state.scriptOpen.detail[i] = !state.scriptOpen.detail[i];

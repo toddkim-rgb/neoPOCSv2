@@ -1,6 +1,6 @@
 // AI 커맨드바 (neo-hub-welcome-01 bottom, also on 음성간호메모 메인): text command / voice command and
-// + → 음성메모 (녹음 → 환자 팔찌 스캔) · 사진 촬영 (카메라 → 촬영 → 팔찌 스캔) · 스캔 (스캔 준비 화면)
-//   · 사진첨부 (갤러리 → 사진 선택 → 팔찌 스캔). None of them needs a patient to start.
+// + → 음성메모 (녹음 → 환자 팔찌 스캔) · 사진 (바텀시트: 사진 촬영 환자 · 장비 · 기타 / 갤러리 선택 → 팔찌 스캔)
+//   · 스캔 (스캔 준비 화면). None of them needs a patient to start.
 // Screens spread AI_ACTIONS into their actions and call mountAiBar(el) in mount().
 import { go, backTo, currentScreen } from './router.js';
 import { toast } from './ui.js';
@@ -11,17 +11,16 @@ import { state, resetPatient, selectPatient } from './state.js';
 import { startWork } from './screens/work.js';
 import { openLogout, openRoomSheet } from './screens/nav.js';
 import { startFreeMemo } from './screens/voice.js';
-import { startCamera, startAttach } from './screens/vitals.js';
+import { startCamera, startAttach, openPhotoSheet } from './screens/vitals.js';
 
 export const TODO = '프로토타입에서는 투약·채혈·수혈·활력징후를 체험할 수 있습니다.';
 
-/** The + menu: 음성메모 · 사진 촬영 · 스캔 · 사진첨부 (also above the 음성메모 녹음 input). */
+/** The + menu: 음성메모 · 사진 · 스캔 (also above the 음성메모 녹음 input). 사진 = 사진 촬영 + 사진첨부 (2026-11-23). */
 export const aiChips = () => `
     <div class="ai-chips${state.aiMore ? ' open' : ''}" aria-hidden="${!state.aiMore}">
       <button class="ai-chip" data-act="ai-voice-memo">음성메모</button>
-      <button class="ai-chip" data-act="ai-monitor">사진 촬영</button>
+      <button class="ai-chip" data-act="ai-photo">사진</button>
       <button class="ai-chip" data-act="ai-scan">스캔</button>
-      <button class="ai-chip" data-act="ai-attach">사진첨부</button>
     </div>`;
 
 /** `dots`: the hub's page indicator (only the hub has pages). */
@@ -133,7 +132,8 @@ export function runCommand(raw) {
   if (/(메모|기록).*(목록|리스트|확인대기)|(목록|리스트).*메모/.test(q)) return go('vmain');
   if (/음성|간호메모|메모/.test(q)) return startFreeMemo();
   if (/첨부|앨범|갤러리/.test(q)) return startAttach();
-  if (/모니터|사진|촬영|카메라/.test(q)) return startCamera();
+  if (/모니터/.test(q)) return startCamera({ shoot: 'device' });
+  if (/사진|촬영|카메라/.test(q)) return openPhotoSheet();
   if (/활력|바이탈|vital|혈압|체온|맥박/i.test(q)) return startWork('vital');
   if (/스캔/.test(q)) return go('qscan');
   // 시스템/설정 제어형: 우선 화면 이동
@@ -177,12 +177,10 @@ export const AI_ACTIONS = {
   'ai-more': () => setAiMore(!state.aiMore),
   // 음성메모: 환자 없이 바로 녹음 → 완료 후 환자 팔찌 스캔 → 검토 · 저장
   'ai-voice-memo': () => (setAiMore(false), startFreeMemo()),
-  // 사진 촬영: 카메라가 바로 열림 → 촬영 → 환자 팔찌 스캔 → AI 분석
-  'ai-monitor': () => (setAiMore(false), startCamera()),
+  // 사진: 바텀시트 → 사진 촬영 (환자 · 장비 · 기타 모드로 카메라) 또는 갤러리 선택 → 환자 팔찌 스캔 → 용도별 기록
+  'ai-photo': () => (setAiMore(false), openPhotoSheet()),
   // 스캔: 스캔 준비 화면 (환자 팔찌 → 업무 선택 · 처방/채혈관/혈액 → 그 업무)
   'ai-scan': () => (setAiMore(false), go('qscan')),
-  // 사진첨부: 기기 갤러리가 바로 열림 → 사진 선택 → 환자 팔찌 스캔 → AI 분석
-  'ai-attach': () => (setAiMore(false), startAttach()),
   'ai-go': () => {
     const el = screenEl();
     const input = el.querySelector('.ai-input');

@@ -17,6 +17,7 @@ import './screens/nav.js';
 import './screens/memos.js';
 import './screens/quick.js';
 import './screens/transfuse.js';
+import './screens/media.js';
 import './screens/update.js';
 import { install } from './versions.js';
 import { startPii } from './pii.js';
@@ -114,6 +115,8 @@ stage.addEventListener('click', (e) => {
 // long press (e.g. 스캔하기 → scan simulation sheet)
 let pressTimer = null;
 stage.addEventListener('pointerdown', (e) => {
+  // a new touch: a long press whose button was re-rendered never got its click, so nothing is left to suppress
+  suppressClick = false;
   const t = e.target.closest('[data-long]');
   if (!t) return;
   clearTimeout(pressTimer);

@@ -67,6 +67,7 @@ function newPatientState(p) {
     vhist: vitalHistory(p.vitals), // 이전 측정 (newest first)
     memos: p.memos(),
     photos: p.photos ? p.photos() : [], // 사진 기록 (주입 펌프 · 환부 · 기타 첨부), newest first
+    media: [], // 멀티미디어 (환자 상세 '+ 추가': 사진 · 동영상 · 음성기록, 항목마다 메모), newest first
     last: { ...p.my }, // MY환자 칩: 마지막 처리 업무
     done: {}, // menu → 완료 시각: that task is finished today (긴급 처리 업무 해소 · 업무 선택 시트 '완료')
   };

@@ -5,8 +5,9 @@
 // (and a PDA that refuses the camera) use the demo bedside scene and demo album instead. The analysis itself is a
 // demo: whatever was photographed, the demo monitor values are "read"; long presses pick the failure cases.
 // Not in the Figma file: built from the existing components (header, cards, badges, vitals cells, sheets).
-// 사진 촬영 용도 (2026-11-23): the app does not know what will be photographed. The camera has 촬영 모드 chips
-// (자동 · 장비 · 환부 · 기타) and says what it detects (환자 모니터 · 주입 펌프 · 환부 · 서류); after the photo
+// 사진 촬영 용도 (2026-11-23): the app does not know what will be photographed. AI 커맨드바 + → '사진' sheet: 사진 촬영
+// (환자 · 장비 · 기타) or 갤러리. The camera opens in that 촬영 모드, its chips (환자 · 장비 · 기타) switch it, and it
+// says what it detects (환자 모니터 · 주입 펌프 · 환부 · 서류); after the photo
 // (and the wristband, unless the patient was chosen first) it goes to the matching record screen — vitals here,
 // 주입 펌프 · 환부 · 기타 첨부 in photo.js — and an unrecognised subject asks '무엇을 촬영하셨나요?'.
 // Browsers cannot see real objects: '시연' picks what the demo camera is pointed at.
@@ -54,13 +55,15 @@ const isNative = Capacitor.isNativePlatform();
 // pointed at · shows: what the taken photo shows
 const cap = { mode: 'camera', pid: null, photo: null, gal: null, shoot: 'auto', target: 'monitor', shows: null };
 
-/* 촬영 모드: 자동 recognises every known subject; 장비 only devices; 환부 · 기타 record whatever is photographed */
+/* 촬영 모드: 환자 (환부 · 환자 상태) and 기타 record whatever is photographed; 장비 detects 환자 모니터 · 주입 펌프.
+   'auto' (every known subject) is only used for attached gallery photos. */
 const MODES = [
-  { k: 'auto', label: '자동' },
+  { k: 'wound', label: '환자' },
   { k: 'device', label: '장비' },
-  { k: 'wound', label: '환부' },
   { k: 'other', label: '기타' },
 ];
+// 시연: what the demo camera is pointed at when a 촬영 모드 is picked
+const MODE_TARGET = { wound: 'wound', device: 'monitor', other: 'doc' };
 const DETECTS = {
   auto: ['monitor', 'blur', 'pump', 'wound', 'doc'],
   device: ['monitor', 'blur', 'pump'],
@@ -77,21 +80,21 @@ const TARGETS = {
   monitor: ['환자 모니터', '환자 모니터'],
   blur: ['흐린 모니터', '흐린 모니터 (빛 반사 · 흔들림)'],
   pump: ['주입 펌프', '주입 펌프 (수액 100 mL/h)'],
-  wound: ['환부', '환부 (자와 함께)'],
+  wound: ['환부', '환부 (욕창)'],
   doc: ['서류', '서류 (동의서)'],
   none: ['다른 곳', '다른 곳 (알아볼 대상 없음)'],
 };
 const ART = ['pump', 'wound', 'doc']; // subjects drawn as pictures (photo.js artSvg) instead of the bedside scene
 // where the subject sits in its 360×480 picture (the focus frame locks onto it)
-const ART_BOX = { pump: [56, 92, 248, 308], wound: [50, 128, 260, 244], doc: [58, 48, 244, 336] };
+const ART_BOX = { pump: [31, 159, 240, 173], wound: [88, 158, 193, 158], doc: [58, 48, 244, 336] };
 
 /**
  * AI 커맨드바 + → 사진 촬영: the camera opens at once; the patient is scanned after the photo.
  * From 환자 상세 '사진 촬영' the patient is already chosen (`pid`), so the wristband scan is skipped.
  * 활력징후 '사진 입력': `shoot: 'fill'` with the patient of the 활력징후 screen.
  */
-export function startCamera({ pid = null, shoot = 'auto' } = {}) {
-  Object.assign(cap, { mode: 'camera', pid: null, photo: null, gal: null, shoot, target: 'monitor', shows: null });
+export function startCamera({ pid = null, shoot = 'device' } = {}) {
+  Object.assign(cap, { mode: 'camera', pid: null, photo: null, gal: null, shoot, target: MODE_TARGET[shoot] || 'monitor', shows: null });
   if (pid) {
     selectPatient(pid);
     cap.pid = pid;
@@ -100,7 +103,40 @@ export function startCamera({ pid = null, shoot = 'auto' } = {}) {
   go('vcam', {});
 }
 
-/** AI 커맨드바 + → 사진첨부: the PDA gallery opens at once (browsers: the demo album). */
+/**
+ * AI 커맨드바 + → 사진: 사진 촬영 (환자 · 장비 · 기타 — the camera opens in that 촬영 모드) or 갤러리 선택.
+ * The patient is scanned after the photo, as before.
+ */
+export function openPhotoSheet() {
+  const opt = (act, k, ico, label, desc) =>
+    `<button class="opt photo-opt" data-sheet-act="${act}" data-k="${k}"><span class="po-ico">${ico}</span><span class="lbl">${label}<small>${desc}</small></span><span class="chev">${icon.chevronRight}</span></button>`;
+  openSheet(
+    `<div class="sheet-head"><p class="sheet-title">사진</p></div>
+     <p class="sheet-hint">촬영할 대상을 고르거나 갤러리에서 사진을 선택하세요. 촬영 후 환자 팔찌를 스캔합니다.</p>
+     <p class="ps-sec">사진 촬영</p>
+     <div class="sheet-list">
+       ${opt('shoot', 'wound', icon.camera, '환자', '환부 · 욕창 · 피부 상태')}
+       ${opt('shoot', 'device', icon.camera, '장비', '환자 모니터(활력징후) · 주입 펌프')}
+       ${opt('shoot', 'other', icon.camera, '기타', '서류 · 약 라벨 · 식사량 등')}
+     </div>
+     <p class="ps-sec">갤러리</p>
+     <div class="sheet-list">${opt('gallery', '', icon.gallery, '갤러리에서 선택', '찍어 둔 사진을 첨부')}</div>`,
+    {
+      shoot: (t) => {
+        closeSheet(true);
+        startCamera({ shoot: t.dataset.k });
+      },
+      // still inside the tap, so the PDA gallery may open
+      gallery: () => {
+        closeSheet(true);
+        startAttach();
+      },
+    },
+    { cls: 'photo-sheet' },
+  );
+}
+
+/** 사진 → 갤러리에서 선택: the PDA gallery opens at once (browsers: the demo album). */
 export function startAttach() {
   Object.assign(cap, { mode: 'attach', pid: null, photo: null, gal: null, shoot: 'auto', target: 'monitor', shows: null });
   state.vphoto = null;
@@ -291,14 +327,14 @@ const CAM_MSG = {
 const SEARCH_MSG = {
   auto: ['촬영할 대상을 사각 영역 안에 맞춰 주세요', '환자 모니터 · 주입 펌프 · 환부 · 서류를 알아봅니다'],
   device: ['장비 화면을 사각 영역 안에 맞춰 주세요', '환자 모니터 · 주입 펌프 화면 전체가 보이도록 비춰 주세요'],
-  wound: ['환부를 사각 영역 안에 맞춰 주세요', '자(눈금)를 함께 비추면 크기를 추정합니다'],
+  wound: ['환부 · 환자 상태를 사각 영역 안에 맞춰 주세요', '밝은 곳에서 흔들리지 않게 촬영해 주세요'],
   other: ['기록할 대상을 촬영해 주세요', '촬영 후 태그와 메모를 붙여 간호기록에 첨부합니다'],
   fill: ['환자 모니터를 사각 영역 안에 맞춰 주세요', '인식한 측정값을 활력징후 입력 칸에 채웁니다'],
 };
 const FOUND_MSG = {
   monitor: ['환자 모니터가 감지되었습니다', 'PDA를 움직이지 말고 촬영 버튼을 눌러 주세요'],
   pump: ['주입 펌프가 감지되었습니다', '펌프 화면이 잘 보이게 촬영해 주세요'],
-  wound: ['환부가 감지되었습니다', '자(눈금)가 함께 보여 크기를 추정할 수 있습니다'],
+  wound: ['환부가 감지되었습니다', '환부 전체가 보이도록 촬영해 주세요'],
   doc: ['서류가 감지되었습니다', '서류 전체가 보이도록 촬영해 주세요'],
 };
 FOUND_MSG.blur = FOUND_MSG.monitor;
@@ -388,6 +424,9 @@ function photoThumb(ph, size = TILE, boxes = 'none') {
   const look = [ph.t ? `filter:${LOOK[ph.t]}` : '', ph.r ? `transform:rotate(${ph.r}deg) scale(1.12)` : ''].filter(Boolean).join(';');
   return `<span class="album-thumb${ph.blur ? ' blur' : ''}" style="width:${size}px;height:${size}px"><span class="ph-in" style="${look}">${sceneMarkup({ boxes, style })}</span></span>`;
 }
+
+/** A real photo cut from the bedside scene (멀티미디어 시연 자료): `c` = centre, `z` = side of the square crop. */
+export const scenePhoto = (size, { c = [697, 347], z = 330 } = {}) => photoThumb({ c, z }, size);
 
 /** 사진 선택: a full-screen gallery grid by date; tap a photo, then 첨부하기. */
 export function openAlbum() {
@@ -724,8 +763,12 @@ register('vcam', {
       const el = document.querySelector('.scr-vcam');
       if (!el || el.classList.contains('captured') || cap.shoot === t.dataset.k) return;
       cap.shoot = t.dataset.k;
+      // 시연: picking another mode points the demo camera at that kind of subject (unless it already sees one)
+      const retarget = !detectable(cap.shoot, cap.target) && !el.classList.contains('live');
+      if (retarget) cap.target = MODE_TARGET[cap.shoot];
       syncControls(el);
       if (el.classList.contains('live')) return aimLive(el);
+      if (retarget) return aim(el);
       // the view stays on the subject: only the detector changes
       ++cam.run;
       setPhase(el, 'search');
@@ -843,7 +886,7 @@ function route(el, kind) {
   setPhase(el, 'analyzing');
   const txt = startProgress(el, '1.3s');
   txt.textContent = attached ? '첨부한 이미지를 확인하고 있습니다' : '촬영한 이미지를 확인하고 있습니다';
-  const reading = { pump: ['pump', '펌프 표시값을 읽고 있습니다'], wound: ['wound', '자 눈금으로 크기를 재고 있습니다'] }[kind];
+  const reading = { pump: ['pump', '펌프 표시값을 읽고 있습니다'] }[kind];
   if (reading && reading[0] === cap.shows) later(el, run, 550, () => (txt.textContent = reading[1]));
   later(el, run, 1400, () => openRecord(kind));
 }
