@@ -71,8 +71,10 @@ async function voiceDemo(label) {
   await sleep(450);
   return heard;
 }
-// 수혈 목록: each 혈액번호 with its state, and the footer buttons
-const unitsNow = () => page.$$eval('.unit', (els) => els.map((e) => `${e.querySelector('.no').textContent}:${e.className.replace('unit ', '')}`).join(' '));
+// 수혈 목록: one card per 혈액팩 with its state (wait · half · ok · start · due · stop), and the footer buttons
+const BAG_ST = ['wait', 'half', 'ok', 'start', 'due', 'stop'];
+const bagsNow = () =>
+  page.$$eval('.wcard.bag', (els, st) => els.map((e) => `${e.dataset.unit}:${[...e.classList].find((c) => st.includes(c))}`).join(' '), BAG_ST);
 const footBtns = () => page.$$eval('.sticky-foot .btn', (els) => els.map((e) => e.textContent).join('|'));
 // 투약 리스트: drag a card to the left / hold it (swipe.js)
 async function swipeLeft(sel) {
@@ -110,7 +112,6 @@ async function waitFor(fn, label, ms = 30000) {
   }
   throw new Error(`timed out waiting for ${label}`);
 }
-const trfStatus = () => page.$eval('[data-v="status"]', (e) => e.textContent).catch(() => '');
 async function command(text) {
   await page.click('.ai-input');
   await page.type('.ai-input', text);
@@ -336,10 +337,14 @@ try {
   await expect('wdone');
   const doneTitle = await page.$eval('.status-title', (e) => e.textContent);
   if (doneTitle !== '채혈 완료') throw new Error(`done title: ${doneTitle}`);
-  await tap('[data-act="ok"]', 'hub-from-bld');
+  // started from the 햄버거메뉴 (업무 메뉴): 확인 → 채혈하기 바코드 스캔
+  await tap('[data-act="ok"]', 'bld-scan-again');
+  await expect('wscan');
+  await tap('[data-act="hdr-back"]', 'bld-leave');
+  await tap('.dlg [data-sheet-act="ok"]', 'hub-from-bld');
   await expect('hub');
 
-  // ---------- 수혈하기: 혈액백 = 혈액번호 + 혈액제제 바코드, 혈액백마다 고위험수행 이중확인 ----------
+  // ---------- 수혈하기: 혈액팩마다 카드 · 혈액백 = 혈액번호 + 혈액제제 바코드 · 항목마다 이중확인 → 수혈 시작 기록 ----------
   await command('수혈');
   await expect('wscan');
   await scanWedge('T1002'); // Red Cell's 혈액제제 first: it names 김철수, the wristband is still missing
@@ -348,27 +353,28 @@ try {
   await scanWedge('P21212457');
   await expect('wtask'); // no auto check: the list first
   if (await page.$('.scan-warn')) throw new Error('수혈: warning should go away after the wristband');
-  if (await page.$('.wcard .tag, .wcard .alarm-pill')) throw new Error('수혈 list should not have the time / flag row');
+  if (await page.$('.wcard .alarm-pill')) throw new Error('수혈 list should not have the time / flag row');
   const hintNow = () => page.$eval('.tube-hint', (e) => e.textContent);
   if (!(await hintNow()).includes('혈액번호를 스캔')) throw new Error(`the 혈액제제 read first should ask for its 혈액번호: ${await hintNow()}`);
+  // one card per 혈액팩 (White Cell 1 + Red Cell 7), each with its n/m 단위
+  const kimCards = await page.$$eval('.wcard.bag .badge', (els) => els.map((e) => e.textContent));
+  if (kimCards.length !== 8 || kimCards[0] !== '1/8 단위' || kimCards[7] !== '8/8 단위') throw new Error(`김철수 혈액팩 cards: ${kimCards}`);
   await scanWedge('0918039240'); // White Cell's 혈액번호 with Red Cell's 혈액제제
   await expectDialog('혈액번호/혈액제제 불일치');
   await tap('.dlg [data-sheet-act="ok"]', 'trf-pair-mismatch-ok');
   await scanWedge('0918039242'); // 혈액번호 first …
-  if ((await unitsNow()).split(' ')[2] !== '0918039242:half') throw new Error(`half-scanned bag: ${await unitsNow()}`);
+  if ((await bagsNow()).split(' ')[2] !== '0918039242:half') throw new Error(`half-scanned bag: ${await bagsNow()}`);
   await scanWedge('T1002'); // … then its 혈액제제
-  const kimUnits = await unitsNow();
-  console.log('김철수 혈액번호:', kimUnits);
+  const kimUnits = await bagsNow();
+  console.log('김철수 혈액팩:', kimUnits);
   if (!kimUnits.includes('0918039242:ok') || !kimUnits.includes('0918039241:wait')) throw new Error(`bag not confirmed: ${kimUnits}`);
-  const kimN = await page.$$eval('.unit-n', (els) => els.map((e) => e.textContent).join(' / '));
-  if (kimN !== '확인 0 / 1 / 확인 1 / 7') throw new Error(`확인 counts: ${kimN}`);
   if ((await footBtns()) !== '혈액 스캔|수행하기') throw new Error(`수혈 buttons: ${await footBtns()}`);
   await tap('[data-act="perform"]', 'trf-check-first');
   await expect('ham');
   const trfTitle = await page.$eval('.ham-hero .status-title', (e) => e.textContent);
   if (trfTitle !== '수혈하기 1차 인증') throw new Error(`trf check title: ${trfTitle}`);
   const kimBag = await page.$eval('.ham-card .ham-sub', (e) => e.textContent);
-  if (!kimBag.includes('0918039242') || !kimBag.includes('1/8 단위')) throw new Error(`이중 인증 is for the confirmed bag: ${kimBag}`);
+  if (!kimBag.includes('0918039242') || !kimBag.includes('3/8 단위')) throw new Error(`이중 인증 is for the confirmed bag: ${kimBag}`);
   for (let i = 0; i < 4; i++) await page.click(`.ham-check[data-i="${i}"]`), await sleep(120);
   await tap('[data-act="next"]', 'trf-second-popup');
   await expectDialog('고위험수행 이중 확인');
@@ -378,41 +384,49 @@ try {
   if (!rows.startsWith('■1차') || !rows.includes('김수아 간호사 N23240183')) throw new Error('수혈 2차 rows wrong');
   for (let i = 0; i < 4; i++) await page.click(`.ham-check[data-i="${i}"]`), await sleep(120);
   await tap('[data-act="next"]', 'trf-check-done');
-  await tap('[data-act="next"]', 'trf-run');
-  await expect('trfrun'); // 이중 확인 완료 → 수혈 진행 화면 (수혈 시작 전)
-  const kimBags = await page.$eval('.tr-name .badge', (e) => e.textContent);
-  if (kimBags !== '1/8 단위') throw new Error(`김철수 units: ${kimBags}`);
-  const runUnit = await page.$eval('.tr-sub b', (e) => e.textContent);
-  if (runUnit !== '0918039242') throw new Error(`수혈 진행 bag: ${runUnit}`);
-  // before 수혈 시작 the list is still reachable, and the bag's 이중 인증 still counts
-  await tap('[data-act="hdr-back"]', 'trf-list');
+  await tap('[data-act="next"]', 'trf-started');
+  await expect('trfdone'); // 이중 확인 완료 → 수혈 시작 기록 (수혈 진행 화면 없음, 종료 시각 없음)
+  const kimStart = await page.evaluate(() => ({
+    title: document.querySelector('.status-title').textContent,
+    bag: `${document.querySelector('.tr-sub b').textContent} ${document.querySelector('.tr-name .badge').textContent}`,
+    times: [...document.querySelectorAll('.tr-time .k')].map((e) => e.textContent).join(' / '),
+    old: !!document.querySelector('svg.bag, [data-act="speed"], [data-act="stop"], [data-act="complete"]'),
+  }));
+  console.log('김철수 수혈 시작:', kimStart);
+  if (kimStart.title !== '수혈 시작' || kimStart.bag !== '0918039242 3/8 단위' || kimStart.times !== '수혈 시작 / 15분 체크' || kimStart.old) {
+    throw new Error('김철수 수혈 시작 record wrong');
+  }
+  // started from the 업무 메뉴 (AI 커맨드바 '수혈'): 확인 → 수혈하기 바코드 스캔
+  await tap('[data-act="ok"]', 'trf-scan-again');
+  await expect('wscan');
+  await scanWedge('P21212457');
   await expect('wtask');
-  await tap('[data-act="perform"]', 'trf-run-2');
-  await expect('trfrun');
-  await tap('[data-act="speed"][data-s="600"]', 'trf-speed-600');
-  await tap('[data-act="start"]', 'trf-start');
-  if ((await trfStatus()) !== '수혈 중') throw new Error(`수혈 status after start: ${await trfStatus()}`);
-  await tap('[data-act="hdr-back"]', 'trf-back-blocked');
-  await expectDialog('수혈 진행 중');
-  await tap('.dlg [data-sheet-act="ok"]', 'trf-back-blocked-ok');
-  await waitFor(() => document.querySelector('.dlg-title')?.textContent === '15분 중간 체크', '15분 체크 popup');
+  const kimStarted = await page.$eval('.wcard.bag[data-unit="0918039242"] .bag-st', (e) => e.textContent);
+  if (!kimStarted.includes('수혈 시작') || !kimStarted.includes('예정')) throw new Error(`started bag card: ${kimStarted}`);
+  // 15분 알람 (시연 15초): the open list marks the bag, a popup asks for the check
+  await waitFor(() => document.querySelector('.dlg-title')?.textContent === '수혈 15분 체크', '15분 체크 알람', 25000);
+  const alarm1 = await page.$eval('.tra-box', (e) => e.textContent.replace(/\s+/g, ' ').trim());
+  console.log('15분 체크 알람:', alarm1);
+  if (!alarm1.includes('김철수') || !alarm1.includes('0918039242')) throw new Error(`alarm: ${alarm1}`);
+  if (!(await page.$('.wcard.bag.due [data-act="trf-check"]'))) throw new Error('the bag card should ask for the check');
   await tap('.dlg [data-sheet-act="ok"]', 'trf-check-15');
   await expect('trfcheck');
   await tap('[data-act="react"][data-i="1"]', 'trf-react-chill');
   const stopBtn = await page.$eval('.screen-foot .btn', (e) => e.textContent);
-  if (stopBtn !== '이상반응 · 긴급 종료') throw new Error(`reaction button: ${stopBtn}`);
+  if (stopBtn !== '이상반응 · 수혈 중단') throw new Error(`reaction button: ${stopBtn}`);
   await tap('[data-act="check-stop"]', 'trf-react-stop');
-  await expectDialog('수혈 긴급 종료');
+  await expectDialog('수혈 중단');
   await tap('.dlg [data-sheet-act="ok"]', 'trf-stopped');
   await expect('trfdone');
-  const kimDone = await page.evaluate(() => ({
+  const kimStop = await page.evaluate(() => ({
     title: document.querySelector('.status-title').textContent,
-    stop: document.querySelector('.tr-log-total.stop b')?.textContent || '',
+    note: document.querySelector('.tr-note.stop')?.textContent || '',
   }));
-  console.log('김철수 수혈:', kimDone);
-  if (kimDone.title !== '수혈 중단' || !kimDone.stop.includes('오한')) throw new Error('김철수 수혈 중단 record wrong');
-  await tap('[data-act="ok"]', 'trf-scan-again');
-  await expect('wscan');
+  console.log('김철수 수혈 중단:', kimStop);
+  if (kimStop.title !== '수혈 중단' || !kimStop.note.includes('오한')) throw new Error('김철수 수혈 중단 record wrong');
+  await tap('[data-act="ok"]', 'trf-back-to-list'); // back to the screen before the check
+  await expect('wtask');
+  if (!(await bagsNow()).includes('0918039242:stop')) throw new Error(`stopped bag: ${await bagsNow()}`);
   await tap('[data-act="hdr-menu"]', 'trf-leave');
   await tap('.dlg [data-sheet-act="ok"]', 'navmenu-from-trf');
   await expect('navmenu');
@@ -457,7 +471,7 @@ try {
   await tap('[data-act="vreset"]', 'vital-reset');
   if (await page.$$eval('.vval', (els) => els.some((e) => e.value))) throw new Error('초기화 should empty the cells');
   await tap('[data-act="save"]', 'vital-save-empty');
-  if (!(await page.$eval('#toast', (e) => e.textContent)).includes('값을 입력해')) throw new Error('empty cells must not be saved');
+  if (!(await page.$eval('#toast', (e) => e.textContent)).includes('1개 이상')) throw new Error('a VS without any value must not be saved');
   const vHeard = await voiceDemo('vital');
   const voiced = await page.$$eval('.vval', (els) => els.map((e) => e.value).join(' '));
   console.log('음성 입력:', vHeard, '→', voiced);
@@ -616,79 +630,72 @@ try {
     button: document.querySelector('.sticky-foot .btn')?.textContent,
   }));
   console.log('정민호 수혈 목록:', jmhList);
-  if (jmhList.status || jmhList.cards.length !== 1 || jmhList.button !== '혈액 바코드 스캔') throw new Error('정민호: wristband should open the 수혈하기 list');
+  if (jmhList.status || jmhList.cards.length !== 2 || jmhList.button !== '혈액 바코드 스캔') throw new Error('정민호: wristband should open the 수혈하기 list (2 혈액팩)');
   await scanWedge('T1002'); // 김철수's 혈액 제제
   await expectDialog('환자/처방 불일치');
   await tap('.dlg [data-sheet-act="ok"]', 'jmh-mismatch-ok');
   // bag 1: the scan button reads its 혈액번호, then its 혈액제제; only that bag is given, 0918039312 stays 대기
   await tap('[data-act="scan-bag"]', 'jmh-bag1-unit');
   await tap('[data-act="scan-bag"]', 'jmh-bag1-code');
-  if ((await unitsNow()) !== '0918039311:ok 0918039312:wait') throw new Error(`정민호 bag 1: ${await unitsNow()}`);
+  if ((await bagsNow()) !== '0918039311:ok 0918039312:wait') throw new Error(`정민호 bag 1: ${await bagsNow()}`);
   await tap('[data-act="perform"]', 'jmh-check-first');
   await expect('ham');
   const jmhUnits = await page.$eval('.ham-card .ham-sub', (e) => e.textContent);
   if (!jmhUnits.includes('0918039311') || !jmhUnits.includes('1/2 단위')) throw new Error(`정민호 혈액번호: ${jmhUnits}`);
   await passChecks(4, 'jmh');
-  await expect('trfrun');
-  await tap('[data-act="speed"][data-s="600"]', 'jmh-speed-600');
-  for (const n of [1, 2]) {
-    if (n === 2) {
-      // same 항목: no new 이중 인증 — the next bag needs only its 혈액번호, right on the 수혈 진행 화면
-      await expect('trfrun');
-      if ((await trfStatus()) !== '다음 혈액백 대기') throw new Error(`between bags: ${await trfStatus()}`);
-      await scanWedge('0918039999'); // not this patient's blood
-      await expectDialog('환자/처방 불일치');
-      await tap('.dlg [data-sheet-act="ok"]', 'jmh-unit-mismatch-ok');
-      await scanWedge('0918039311');
-      if ((await page.$eval('#toast', (e) => e.textContent)) !== '이미 수혈한 혈액입니다.') throw new Error('a given bag should be refused');
-      await scanWedge('T6001');
-      if (!(await page.$eval('#toast', (e) => e.textContent)).includes('혈액번호만')) throw new Error('the 혈액제제 is not needed for the next bag');
-      await scanWedge('0918039312');
-      if ((await trfStatus()) !== '수혈 대기') throw new Error(`bag 2 should be ready: ${await trfStatus()}`);
-      const bag2 = await page.evaluate(() => [document.querySelector('.tr-sub b').textContent, document.querySelector('.tr-name .badge').textContent].join(' '));
-      if (bag2 !== '0918039312 2/2 단위') throw new Error(`bag 2: ${bag2}`);
-      if (!(await page.$('[data-act="speed"][data-s="600"].on'))) throw new Error('the demo speed should carry over to the next bag');
-      // before 수혈 시작 the list shows it confirmed, and 수행하기 comes straight back (no 이중 인증)
-      await tap('[data-act="hdr-back"]', 'jmh-list-2');
-      await expect('wtask');
-      if ((await unitsNow()) !== '0918039311:done 0918039312:ok') throw new Error(`정민호 bag 2: ${await unitsNow()}`);
-      await tap('[data-act="perform"]', 'jmh-run-2');
-      await expect('trfrun');
-    }
-    await tap('[data-act="start"]', `jmh-start-${n}`);
-    await waitFor(() => document.querySelector('.dlg-title')?.textContent === '15분 중간 체크', `정민호 15분 체크 ${n}`);
-    await tap('.dlg [data-sheet-act="ok"]', `jmh-check-${n}`);
-    if (n === 1) {
-      await tap('[data-act="check-ok"]', 'jmh-check-empty');
-      if ((await screen()) !== 'trfcheck') throw new Error('the 15분 체크 needs its vitals');
-    }
-    await voiceDemo(`jmh-check-${n}`);
-    await tap('[data-act="check-ok"]', `jmh-check-ok-${n}`);
-    await expect('trfrun');
-    await waitFor(() => document.querySelector('[data-act="complete"]'), `정민호 bag ${n} empty`);
-    await tap('[data-act="complete"]', `jmh-unit-done-${n}`);
-  }
   await expect('trfdone');
-  const jmhDone = await page.evaluate(() => ({
-    title: document.querySelector('.status-title').textContent,
-    units: document.querySelector('.tr-log-head .badge').textContent,
-    rows: [...document.querySelectorAll('.tr-log-row')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
-    total: document.querySelector('.tr-log-total b').textContent,
-  }));
-  console.log('정민호 수혈:', jmhDone);
-  if (jmhDone.title !== '수혈 완료' || jmhDone.units !== '2/2 단위 완료' || jmhDone.total !== '600 ml') throw new Error('정민호 수혈 record wrong');
-  // unit 2 starts after unit 1 ended on the demo clock
-  const [end1, start2] = [jmhDone.rows[0].match(/–(\d\d:\d\d)/)[1], jmhDone.rows[1].match(/(\d\d:\d\d)–/)[1]];
-  if (start2 < end1 && end1 < '22:00') throw new Error(`unit 2 starts ${start2} before unit 1 ends ${end1}`);
-  await tap('[data-act="ok"]', 'jmh-scan-again');
-  await leaveToHub('jmh-leave');
+  // started from the 환자허브 (긴급 카드): 확인 → 환자허브
+  await tap('[data-act="ok"]', 'jmh-hub');
+  await expect('hub');
+  // 15분 알람 → 나중에: the check waits in 긴급 처리 업무
+  await waitFor(() => document.querySelector('.dlg-title')?.textContent === '수혈 15분 체크', '정민호 15분 체크 알람', 25000);
+  await tap('.dlg [data-sheet-act="later"]', 'jmh-alarm-later');
+  await expect('hub');
+  const dueCard = await page.$eval('.ucard.due[data-pid="20812233"]', (e) => e.textContent.replace(/\s+/g, ' ').trim()).catch(() => '');
+  console.log('긴급 처리 업무 15분 체크:', dueCard);
+  if (!dueCard.includes('15분 체크 필요') || !dueCard.includes('0918039311')) throw new Error(`15분 체크 card: ${dueCard}`);
+  await tap('.ucard.due[data-pid="20812233"]', 'jmh-check-1');
+  await expect('trfcheck');
+  await tap('[data-act="check-ok"]', 'jmh-check-empty');
+  if ((await screen()) !== 'trfcheck') throw new Error('the 15분 체크 needs its vitals');
+  await voiceDemo('jmh-check-1');
+  await tap('[data-act="check-ok"]', 'jmh-check-ok-1');
+  await expect('hub');
+  if (await page.$('.ucard.due')) throw new Error('the recorded check should leave 긴급 처리 업무');
+  // bag 2 (same 항목) from the 긴급 카드 again: its 혈액번호 only, no new 이중 인증
+  await tap('.ucard[data-pid="20812233"]', 'urgent-trf-jmh-2');
+  await expect('wtask');
+  await tap('[data-act="scan-patient"]', 'jmh-wristband-2');
+  const jmhBag1 = await page.$eval('.wcard.bag[data-unit="0918039311"] .bag-st', (e) => e.textContent);
+  if (!jmhBag1.includes('이상 없음')) throw new Error(`bag 1 after its check: ${jmhBag1}`);
+  await scanWedge('0918039999'); // not this patient's blood
+  await expectDialog('환자/처방 불일치');
+  await tap('.dlg [data-sheet-act="ok"]', 'jmh-unit-mismatch-ok');
+  await scanWedge('0918039311');
+  if ((await page.$eval('#toast', (e) => e.textContent)) !== '이미 수혈을 시작한 혈액입니다.') throw new Error('a started bag should be refused');
+  await scanWedge('0918039312');
+  if ((await bagsNow()) !== '0918039311:start 0918039312:ok') throw new Error(`정민호 bag 2: ${await bagsNow()}`);
+  await tap('[data-act="perform"]', 'jmh-start-2');
+  await expect('trfdone'); // no 이중 인증 for the same 항목
+  const bag2 = await page.evaluate(() => [document.querySelector('.tr-sub b').textContent, document.querySelector('.tr-name .badge').textContent].join(' '));
+  if (bag2 !== '0918039312 2/2 단위') throw new Error(`bag 2: ${bag2}`);
+  if (await page.$('.tr-note')) throw new Error('no 혈액팩 left: no note');
+  await tap('[data-act="ok"]', 'jmh-hub-2');
+  await expect('hub');
   if (!(await urgentHead()).includes('2건')) throw new Error(`정민호 수혈 card should be gone: ${await urgentHead()}`);
   if (await page.$('.ucard[data-pid="20812233"]')) throw new Error('정민호 긴급 card still shown');
+  // bag 2's alarm → 체크하기 → 이상 없음
+  await waitFor(() => document.querySelector('.dlg-title')?.textContent === '수혈 15분 체크', '정민호 2nd alarm', 25000);
+  await tap('.dlg [data-sheet-act="ok"]', 'jmh-check-2');
+  await expect('trfcheck');
+  await voiceDemo('jmh-check-2');
+  await tap('[data-act="check-ok"]', 'jmh-check-ok-2');
+  await expect('hub');
 
   // MY환자 → 강태우 → 업무 선택 시트
   await goMy();
   const jmhChip = await page.$eval('.myrow[data-pid="20812233"] .gchip', (e) => e.textContent);
-  if (jmhChip !== '수혈완료') throw new Error(`정민호 MY chip: ${jmhChip}`);
+  if (jmhChip !== '수혈시작') throw new Error(`정민호 MY chip: ${jmhChip}`);
   await tap('.myrow[data-pid="20733345"]', 'my-ktw');
   const ktwRows = await sheetRows();
   console.log('강태우 업무:', ktwRows);
@@ -742,9 +749,14 @@ try {
   await expect('task');
   await tap('[data-act="administer"]', 'ktw-done');
   await expect('done');
-  await tap('[data-act="ok"]', 'ktw-scan-again');
+  // started from the 환자허브 (MY환자): 확인 → 환자허브, the MY환자 page it came from
+  await tap('[data-act="ok"]', 'ktw-hub');
+  await expect('hub');
+  if ((await hubTab()) !== 'my') throw new Error(`투약 from MY환자 should come back to MY환자: ${await hubTab()}`);
 
-  // another wristband on the scan screen switches the patient (덮어쓰기)
+  // 업무 메뉴로 시작한 투약 → 바코드 스캔 화면; another wristband there switches the patient (덮어쓰기)
+  await command('투약');
+  await expect('scan');
   await scanWedge('P20655321');
   await expect('task');
   await expectTitle('서동건(20655321)');
@@ -769,15 +781,30 @@ try {
   await expect('vital'); // the same wristband again: '이미 확인된 환자입니다.', values kept
   // the abnormal previous values are shown in colour (이상치 재확인)
   if (!(await page.$('.vt-cell[data-k="SBP"] .vt-prev b.danger'))) throw new Error('안소율 previous SBP should be 경고');
-  await voiceDemo('asy');
+  // 사진 입력: the monitor photo fills the cells it could read (BT is not on the monitor: stays empty)
+  await tap('[data-act="vphoto"]', 'asy-photo');
+  await expect('vcam');
+  const fillCam = await page.evaluate(() => ({ title: document.querySelector('.hdr-title').textContent, modes: !!document.querySelector('.cam-modes') }));
+  if (fillCam.title !== '활력징후 사진 입력' || fillCam.modes) throw new Error(`사진 입력 camera: ${JSON.stringify(fillCam)}`);
+  await sleep(1800); // the demo camera settles on the monitor
+  await tap('[data-act="shoot"]', 'asy-photo-shoot');
+  await waitFor(() => !!document.querySelector('.scr-vital'), '사진 입력 → 활력징후', 9000);
+  await sleep(300);
+  const photoVals = await page.$$eval('.vval', (els) => els.map((e) => `${e.dataset.k}=${e.value}`).join(' '));
+  console.log('사진 입력:', photoVals, '|', await page.$eval('#toast', (e) => e.textContent));
+  if (photoVals !== 'SBP=125 DBP=81 PR=66 RR=17 BT= SpO2=98') throw new Error(`사진 입력 values: ${photoVals}`);
   for (const [k, v] of [['SBP', '108'], ['PR', '92']]) {
     await page.click(`.vval[data-k="${k}"]`, { clickCount: 3 });
     await page.type(`.vval[data-k="${k}"]`, v);
   }
+  // 빈 칸이 있어도 저장
   await tap('[data-act="save"]', 'asy-vital-done');
   await expect('wdone');
-  await tap('[data-act="ok"]', 'asy-scan-again');
-  await leaveToHub('asy-leave');
+  const asyDesc = await page.$eval('.status-desc', (e) => e.textContent);
+  if (!asyDesc.includes('5개 항목') || !asyDesc.includes('미입력 : BT')) throw new Error(`partial save: ${asyDesc}`);
+  // started from the 환자허브 (긴급 카드): 확인 → 환자허브
+  await tap('[data-act="ok"]', 'asy-hub');
+  await expect('hub');
   if (!(await urgentHead()).includes('1건')) throw new Error(`안소율 card should be gone: ${await urgentHead()}`);
 
   // MY환자 → 문가은 채혈 (2관), another patient's tube is 불일치

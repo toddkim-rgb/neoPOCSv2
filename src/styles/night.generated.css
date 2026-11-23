@@ -367,53 +367,32 @@ html.night .wcard.tube.ok {
   background: #163041;
 }
 /* screens.css */
-html.night .unit {
+html.night .bag-st {
+  background: #202937;
+}
+/* screens.css */
+html.night .bag-st .tag {
   background: var(--n-card);
 }
 /* screens.css */
-html.night .unit .st {
-  background: var(--n-card-2);
+html.night .wcard.bag.ok .bag-st {
+  background: #162a41;
 }
 /* screens.css */
-html.night .unit.done {
-  background: #222935;
-}
-/* screens.css */
-html.night .unit.done .st {
-  background: var(--n-slate-bg);
+html.night .wcard.bag.start .bag-st {
+  background: #162a41;
 }
 /* screens.css */
 html.night .tr-head {
   background: #411616;
 }
 /* screens.css */
-html.night .tr-status.wait {
-  background: #1c2a3b;
+html.night .tr-note {
+  background: #162a41;
 }
 /* screens.css */
-html.night .tr-status.run {
-  background: #411619;
-  color: var(--n-text);
-}
-/* screens.css */
-html.night .tr-status.done {
-  background: #162d41;
-}
-/* screens.css */
-html.night .tr-pct b {
-  color: var(--n-text);
-}
-/* screens.css */
-html.night .tr-pct small {
-  color: var(--n-text);
-}
-/* screens.css */
-html.night .tr-bar {
-  background: #212936;
-}
-/* screens.css */
-html.night .tr-log-row .st.done {
-  background: #162d41;
+html.night .tra-box {
+  background: #411616;
 }
 /* screens.css */
 html.night .btn.danger-line {

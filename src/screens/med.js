@@ -18,6 +18,7 @@ import {
 } from '../state.js';
 import { closeSwipes } from '../swipe.js';
 import { feedback } from '../feedback.js';
+import { startBag } from './transfuse.js';
 
 /* ---------------- scan simulation ---------------- */
 export const FAIL_SIM = { label: '인식 실패 (손상된 바코드)', code: '#FAIL' };
@@ -498,7 +499,7 @@ const CHECK = {
     item: () => {
       const { unit, o } = trfBag();
       const all = trfUnits();
-      const seq = all.filter(({ unit: u }) => ['done', 'stop'].includes(state.work.trf.bags[u])).length + 1;
+      const seq = all.findIndex(({ unit: u }) => u === unit) + 1;
       return {
         badge: '',
         html: `<p class="ham-drug">${esc(o.name)}</p>
@@ -593,10 +594,10 @@ register('ham', {
       const ham = c.get();
       if (step === 'done') {
         ham.done = true;
-        // 수혈: 이중 확인 완료 → 수혈 진행 화면 ('수혈 시작'), 투약: back to the list
+        // 수혈: 이중 확인 완료 → 수혈 시작 기록 → '수혈 시작' 완료 화면, 투약: back to the list
         if (kind === 'trf') {
           state.work.trf.checked[ham.oid || trfBag().o.id] = true; // its later bags: 혈액번호 only
-          return replace('trfrun', {}, 'fade');
+          return startBag();
         }
         return backTo(c.back);
       }
@@ -666,9 +667,13 @@ register('done', {
   },
 });
 
-/** 확인 → 투약하기 바코드 스캔 안내 화면 (the administered doses stay in the history). */
+/**
+ * 확인 → 환자허브에서 환자를 골라 시작했으면 환자허브, 업무 메뉴로 시작했으면 투약하기 바코드 스캔 안내 화면
+ * (the administered doses stay in the history).
+ */
 function toScan() {
   resetPatient();
+  if (state.origin === 'hub') return backTo('hub');
   backTo('task');
   replace('scan', {}, 'fade');
 }

@@ -18,10 +18,11 @@ export function defaultSettings() {
 function newWork(p) {
   return {
     bld: { scan: { patient: false, drug: false }, orders: p.blood(), tubes: [] }, // tubes: confirmed 채혈관 ids
-    // 수혈: a blood bag = 혈액번호 + 혈액제제 barcodes. bags: 혈액번호 → 'ok' (both scanned) · 'done' · 'stop';
-    // pend: the bag half-scanned ({ unit } or { code }); ham · run: the bag being double-checked / transfused; log: 수혈 기록;
+    // 수혈: a blood bag = 혈액번호 + 혈액제제 barcodes. bags: 혈액번호 → 'ok' (both scanned) · 'start' (수혈 시작) · 'stop';
+    // pend: the bag half-scanned ({ unit } or { code }); ham: the bag being double-checked;
+    // runs: 혈액번호 → 수혈 시작 기록 { start, at, chkAt, due, fired, chk, stop } (종료 시각은 기록하지 않음, 15분 체크 알람);
     // checked: 수혈 오더 (항목) whose 이중 인증 is done — its later bags need only their 혈액번호, no new check
-    trf: { scan: { patient: false, drug: false }, orders: p.trf(), bags: {}, pend: null, ham: null, run: null, log: [], speed: 60, result: null, checked: {} },
+    trf: { scan: { patient: false, drug: false }, orders: p.trf(), bags: {}, pend: null, ham: null, runs: {}, checked: {} },
     // plan: 예정 시각 (업무 선택 시트) · time: 측정 시간 (팔찌 스캔 때 현재 시각) · scan.patient: 팔찌 스캔 (입력 활성)
     vital: { plan: '17:00', time: '17:00', values: null, scan: { patient: false } },
   };
@@ -74,6 +75,9 @@ const newPatients = () => Object.fromEntries(PATIENTS.map((p) => [p.id, newPatie
 
 export const state = {
   hubTab: 'urgent',
+  // where the current 업무 started: 'hub' (환자허브에서 환자를 골라 시작 → 완료 후 환자허브) · 'menu' (업무 메뉴 · 퀵메뉴 ·
+  // 스캔 → 완료 후 그 업무의 바코드 스캔 화면)
+  origin: 'menu',
   mySort: { key: 'name', dir: 1 }, // MY환자 정렬: name(이름) | ward(위치) | task(업무)
   aiMore: false, // AI 커맨드바 + 메뉴 (음성메모 · 사진 촬영 · 스캔 · 사진첨부)
   loginError: false,
@@ -121,9 +125,8 @@ export function resetWork() {
   for (const k of ['bld', 'trf']) state.work[k].scan = { patient: false, drug: false };
   const t = state.work.trf;
   t.ham = null;
-  t.run = null; // 수혈 진행 (transfuse.js)
   t.pend = null;
-  // a bag confirmed by its two barcodes must be scanned again next time; 수혈 완료 · 중단 stay recorded
+  // a bag confirmed by its two barcodes must be scanned again next time; 수혈 시작 · 중단 stay recorded
   for (const [u, st] of Object.entries(t.bags)) if (st === 'ok') delete t.bags[u];
   state.work.bld.tubes = [];
   state.work.vital.values = null;
@@ -182,7 +185,7 @@ export const excludedOrders = () => state.orders.filter((o) => o.now && o.excl);
 
 /* ---------------- 업무 현황 (MY환자 업무 선택 · 긴급 처리 업무) ---------------- */
 export const TASK_LABEL = { med: '투약', bld: '채혈', trf: '수혈', vital: '활력징후' };
-const LAST = { med: ['투약완료', 'blue', 0], bld: ['채혈완료', 'orange', 1], trf: ['수혈완료', 'orange', 2], vital: ['VS완료', 'green', 3] };
+const LAST = { med: ['투약완료', 'blue', 0], bld: ['채혈완료', 'orange', 1], trf: ['수혈시작', 'orange', 2], vital: ['VS완료', 'green', 3] };
 
 /**
  * A task finished for the selected patient: MY환자 chip → 마지막 처리 업무, its 긴급 처리 업무 card goes away.
@@ -213,7 +216,7 @@ export function taskStatus(menu, id = state.pid) {
     if (!n) return { ok: false, label: '오더 없음', tone: 'none' };
     if (s.done[menu]) return { ok: false, label: `완료 ${s.done[menu]}`, tone: 'done' };
     if (menu === 'trf') {
-      // some bags already given: 진행 2/8 (단위)
+      // some bags already started: 진행 2/8 (단위)
       const units = trfUnits(id);
       const given = units.filter(({ unit }) => GIVEN.includes(s.work.trf.bags[unit])).length;
       if (given) return { ok: true, label: `진행 ${given}/${units.length}`, tone: 'wait' };
@@ -225,18 +228,26 @@ export function taskStatus(menu, id = state.pid) {
 }
 
 /* ---------------- 수혈: 혈액백 (혈액번호 + 혈액제제) ---------------- */
-const GIVEN = ['done', 'stop'];
+const GIVEN = ['start', 'stop'];
 /** Every blood bag of the patient's 수혈 오더: { unit (혈액번호), o (the order, whose code = 혈액제제 barcode) }. */
 export const trfUnits = (id = state.pid) => state.pt[id].work.trf.orders.flatMap((o) => o.units.map((unit) => ({ unit, o })));
-/** 대기 · 제제 스캔 (혈액번호 only so far) · 확인 · 수혈 완료 · 중단 */
+/** 대기 · 제제 스캔 (혈액번호 only so far) · 확인 · 수혈 시작 · 중단 */
 export function unitStatus(unit, w = state.work.trf) {
   if (w.bags[unit]) return w.bags[unit];
   return w.pend?.unit === unit ? 'half' : 'wait';
 }
-/** The next bag confirmed by both barcodes (수행하기 → 이중 인증 → 수혈 진행). */
+/** The next bag confirmed by both barcodes (수행하기 → 이중 인증 → 수혈 시작). */
 export const trfNext = () => trfUnits().find(({ unit }) => state.work.trf.bags[unit] === 'ok') || null;
-/** Bags not given yet (대기 · 확인). */
+/** Bags not started yet (대기 · 확인). */
 export const trfLeft = () => trfUnits().filter(({ unit }) => !GIVEN.includes(state.work.trf.bags[unit]));
+
+/** 수혈 15분 체크 to do (every patient): started bags whose check time has come and that are not checked yet. */
+export const trfDue = (now = Date.now()) =>
+  PATIENTS.flatMap((p) =>
+    Object.entries(state.pt[p.id].work.trf.runs)
+      .filter(([, r]) => !r.chk && !r.stop && r.due <= now)
+      .map(([unit, run]) => ({ pid: p.id, unit, run, o: state.pt[p.id].work.trf.orders.find((o) => o.units.includes(unit)) })),
+  );
 
 /** 긴급 처리 업무 = cards whose menu alarm is on (사용자설정) and whose task is not finished yet. */
 export const urgentItems = () => URGENT.filter((u) => state.settings.alarms[u.menu]?.on && !state.pt[u.pid].done[u.menu]);

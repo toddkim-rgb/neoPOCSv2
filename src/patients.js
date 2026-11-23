@@ -27,7 +27,7 @@ function med(id, { bar = 'routine', group = id, name, code, count = null, given 
 }
 const tube = (id, name, specimen, detail, code) => ({ id, name, specimen, detail, issuer: '041', issued: ISSUED, now: { time: '17:24', who: N1 }, code });
 // 수혈 혈액: one bag per unit — Red Cell 300ml over 2 hours
-// comp: 혈액 제제 종류 (RBC · WBC · FFP · PLT) · abo + rh: 혈액형 (A, +) — the 수혈 진행 bag label shows them
+// comp: 혈액 제제 종류 (RBC · WBC · FFP · PLT) · abo + rh: 혈액형 (A, +) — shown on each 혈액팩 card
 const product = (id, name, units, abo, code, comp = 'RBC') => ({
   id, name, comp, units, abo: abo.replace(/[+-]$/, ''), rh: abo.endsWith('-') ? '-' : '+', volume: 300, minutes: 120, issuer: '041', issued: ISSUED, now: { time: '17:24', st: 'Y', who: N1 }, code, focus: true,
 });

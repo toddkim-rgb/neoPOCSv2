@@ -1,13 +1,15 @@
 // Home hub (neo-hub-welcome-01): three swipeable pages MY환자 ← 환자허브 (default) → 메뉴,
 // page dots and the AI 커맨드바 at the bottom (+ → 음성메모 · 사진 촬영 · 스캔 · 사진첨부, text or voice command).
-// 긴급 처리 업무 card → that task's 바코드 스캔 for the card's patient · MY환자 row → 업무 선택 시트 (투약/채혈/수혈/활력 · 환자상세).
+// 긴급 처리 업무 card → that patient's task (환자정보 비활성 → 팔찌 스캔) · MY환자 row → 업무 선택 시트 (투약/채혈/수혈/활력 ·
+// 환자상세). 수혈 15분 체크 (알람 '나중에' 포함) also waits here as a card until it is recorded.
 import { register, go } from '../router.js';
 import { header, asset3d, esc, toast, openSheet, closeSheet } from '../ui.js';
 import { icon, sparkles } from '../icons.js';
 import { NURSE, MENU, MENU_ITEM } from '../data.js';
 import { PATIENTS, patientById, fullName } from '../patients.js';
-import { state, urgentItems, taskStatus, selectPatient, TASK_LABEL } from '../state.js';
+import { state, urgentItems, taskStatus, selectPatient, TASK_LABEL, trfDue } from '../state.js';
 import { aiBar, mountAiBar, AI_ACTIONS, aiBack, startMenu, onHubTab, TODO } from '../aibar.js';
+import { openCheck } from './transfuse.js';
 
 const TABS = ['my', 'urgent', 'menu'];
 const PAGE_W = 412; // design px
@@ -19,15 +21,32 @@ const chip = (text, tone) => `<span class="gchip ${tone}"><span>${esc(text)}</sp
 /* ---------------- 환자허브: 긴급처리업무 + 퀵메뉴 ---------------- */
 const UC_TASK = { med: '투약', bld: '채혈', vital: 'V/S', trf: '수혈' }; // 업무명 under the card icon
 
+/** 수혈 15분 체크 to do: first in 긴급 처리 업무 (the alarm's '나중에' leaves it here). */
+function checkCard({ pid, unit, run }) {
+  const p = patientById(pid);
+  return `
+        <button class="ucard due" data-act="trf-check" data-pid="${pid}" data-unit="${unit}">
+          <span class="ucard-task"><img class="ucard-ico" src="${asset3d('uc-blood')}" alt=""><span class="ucard-tname">수혈</span></span>
+          <span class="ucard-body">
+            <span class="ucard-name">${esc(fullName(p))}</span>
+            ${meta([p.bed, `혈액번호 ${unit}`])}
+            <span class="ucard-dx">수혈 시작 ${run.at} · 15분 체크 ${run.chkAt}</span>
+          </span>
+          ${chip('15분 체크 필요', 'orange')}
+        </button>`;
+}
+
 function urgentTab() {
   const items = urgentItems();
+  const checks = trfDue();
   const quick = state.settings.quick.map((k) => MENU_ITEM[k]).filter(Boolean);
   return `
     <div class="hub-hello">
       <span class="hub-spark">${sparkles('hub-spark-u')}</span><span class="night-badge">${icon.moon}야간모드</span>
-      <p class="hub-headline"><span class="gtext">긴급 처리 업무</span>가<br><span class="gtext">${items.length}건</span> 기다리고 있습니다.</p>
+      <p class="hub-headline"><span class="gtext">긴급 처리 업무</span>가<br><span class="gtext">${items.length + checks.length}건</span> 기다리고 있습니다.</p>
     </div>
     <div class="ucards">
+      ${checks.map(checkCard).join('')}
       ${items
         .map((u) => {
           const p = patientById(u.pid);
@@ -283,6 +302,8 @@ register('hub', {
     start: (t) => startMenu(t.dataset.go),
     // 긴급 처리 업무 → that task's 바코드 스캔 for the card's patient (the wristband is still scanned)
     urgent: (t) => startMenu(t.dataset.go, t.dataset.pid),
+    // 수혈 15분 체크 → 체크 화면 (활력징후 · 이상반응)
+    'trf-check': (t) => openCheck(t.dataset.pid, t.dataset.unit),
     'my-patient': (t) => openTaskSheet(t.dataset.pid),
     todo: () => toast(TODO),
   },
@@ -295,3 +316,9 @@ register('hub', {
     return false;
   },
 });
+
+/** A 15분 체크 alarm fired while the hub is shown: 긴급 처리 업무 gets its card at once. */
+export function refreshHub() {
+  const page = document.querySelector('.scr-hub .tab-urgent');
+  if (page) page.innerHTML = urgentTab();
+}

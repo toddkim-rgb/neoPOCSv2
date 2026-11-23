@@ -10,6 +10,8 @@
 // (and the wristband, unless the patient was chosen first) it goes to the matching record screen — vitals here,
 // 주입 펌프 · 환부 · 기타 첨부 in photo.js — and an unrecognised subject asks '무엇을 촬영하셨나요?'.
 // Browsers cannot see real objects: '시연' picks what the demo camera is pointed at.
+// 활력징후 '사진 입력' (2026-11-23): the same camera in 'fill' mode — 환자 모니터만 찾고, 인식한 값을 활력징후 입력 칸에
+// 채운 뒤 그 화면으로 돌아갑니다 (모드 칩 · 용도 선택 · 팔찌 스캔 없음).
 import { Capacitor } from '@capacitor/core';
 import { register, go, replace, pop, rerender } from '../router.js';
 import { header, button, statusBlock, badge, esc, toast, openSheet, closeSheet, patientLine } from '../ui.js';
@@ -19,7 +21,7 @@ import { state, completeTask, selectPatient, recordVitals } from '../state.js';
 import { askPatient } from '../patientscan.js';
 import { voiceButton, openVoiceInput, flashVoiced } from '../vvoice.js';
 import { feedback } from '../feedback.js';
-import { prevLine, prevValues, prevVital } from './work.js';
+import { prevLine, prevValues, prevVital, fillVital } from './work.js';
 import { artSvg, openPurposeSheet } from './photo.js';
 import sceneUrl from '../assets/img/icu-bedside.jpg';
 import screenUrl from '../assets/img/monitor-screen.jpg';
@@ -64,7 +66,9 @@ const DETECTS = {
   device: ['monitor', 'blur', 'pump'],
   wound: ['wound'],
   other: [],
+  fill: ['monitor', 'blur'], // 활력징후 사진 입력: 환자 모니터만
 };
+const isFill = () => cap.shoot === 'fill';
 const detectable = (shoot, target) => DETECTS[shoot].includes(target);
 // what a detected subject is recorded as
 const KIND_OF = { monitor: 'monitor', blur: 'monitor', pump: 'pump', wound: 'wound', doc: 'other' };
@@ -84,6 +88,7 @@ const ART_BOX = { pump: [56, 92, 248, 308], wound: [50, 128, 260, 244], doc: [58
 /**
  * AI 커맨드바 + → 사진 촬영: the camera opens at once; the patient is scanned after the photo.
  * From 환자 상세 '사진 촬영' the patient is already chosen (`pid`), so the wristband scan is skipped.
+ * 활력징후 '사진 입력': `shoot: 'fill'` with the patient of the 활력징후 screen.
  */
 export function startCamera({ pid = null, shoot = 'auto' } = {}) {
   Object.assign(cap, { mode: 'camera', pid: null, photo: null, gal: null, shoot, target: 'monitor', shows: null });
@@ -288,6 +293,7 @@ const SEARCH_MSG = {
   device: ['장비 화면을 사각 영역 안에 맞춰 주세요', '환자 모니터 · 주입 펌프 화면 전체가 보이도록 비춰 주세요'],
   wound: ['환부를 사각 영역 안에 맞춰 주세요', '자(눈금)를 함께 비추면 크기를 추정합니다'],
   other: ['기록할 대상을 촬영해 주세요', '촬영 후 태그와 메모를 붙여 간호기록에 첨부합니다'],
+  fill: ['환자 모니터를 사각 영역 안에 맞춰 주세요', '인식한 측정값을 활력징후 입력 칸에 채웁니다'],
 };
 const FOUND_MSG = {
   monitor: ['환자 모니터가 감지되었습니다', 'PDA를 움직이지 말고 촬영 버튼을 눌러 주세요'],
@@ -654,7 +660,7 @@ register('vcam', {
     </div>
     <header class="hdr cam-hdr">
       <button class="icon-btn dark" data-act="cam-close" aria-label="닫기">${icon.close}</button>
-      <h1 class="hdr-title">${attach ? '사진첨부' : '사진 촬영'}</h1>
+      <h1 class="hdr-title">${attach ? '사진첨부' : isFill() ? '활력징후 사진 입력' : '사진 촬영'}</h1>
       ${
         attach
           ? '<span class="icon-btn ghost"></span>'
@@ -676,9 +682,9 @@ register('vcam', {
       ${
         attach
           ? `<button class="btn cta album-btn" data-act="album" data-long="album-demo"${photo ? ' hidden' : ''}>갤러리에서 선택</button>`
-          : `<div class="cam-modes" role="radiogroup" aria-label="촬영 모드">${MODES.map(
+          : `${isFill() ? '' : `<div class="cam-modes" role="radiogroup" aria-label="촬영 모드">${MODES.map(
               (m) => `<button class="cam-mode${cap.shoot === m.k ? ' on' : ''}" data-act="cam-mode" data-k="${m.k}" role="radio">${m.label}</button>`,
-            ).join('')}</div>
+            ).join('')}</div>`}
              <div class="cam-shoot-row">
                <button class="cam-demo" data-act="cam-target" aria-label="시연: 카메라가 비추는 대상"><small>시연</small><b>${TARGETS[cap.target][0]}</b>${icon.arrowDown}</button>
                <button class="shutter" data-act="shoot" data-long="shoot-sim" aria-label="촬영"><span></span></button>
@@ -732,6 +738,7 @@ register('vcam', {
     'album-demo': () => openAlbum(),
     retake: () => retake(document.querySelector('.scr-vcam')),
     manual: () => {
+      if (isFill()) return pop(); // 직접 입력: 활력징후 입력 칸으로
       state.vocr = newOcr(true);
       replace('vreview', {}, 'fade');
     },
@@ -760,6 +767,8 @@ function capture(attachedShows = null) {
   el.classList.add('captured');
   el.classList.toggle('blurry', shows === 'blur');
   if (live) freezeFrame(el);
+  // 활력징후 사진 입력: only a monitor is read (the patient is the 활력징후 screen's)
+  if (isFill()) return analyse(el, shows === 'monitor' ? 'ok' : shows === 'blur' ? 'unreadable' : 'nomonitor', false);
   state.vphoto = {
     kind,
     attach: attached,
@@ -898,9 +907,24 @@ function analyse(el, outcome, attached) {
     txt.textContent = `측정값 ${found}개 인식${found < OCR_FIELDS.length ? ` · 미인식 ${OCR_FIELDS.length - found}개` : ''}`;
   });
   later(el, run, end + 950, () => {
+    if (isFill()) return fillFromPhoto();
     state.vocr = newOcr();
     replace('vreview', {}, 'fade');
   });
+}
+
+/** 활력징후 사진 입력: the read values fill their cells on the 활력징후 screen (unread ones keep what was typed). */
+function fillFromPhoto() {
+  const read = OCR_FIELDS.filter((f) => f.read);
+  fillVital(Object.fromEntries(read.map((f) => [f.k, f.read])));
+  pop();
+  const low = read.filter((f) => f.conf < LOW_CONF).map((f) => f.k);
+  const miss = OCR_FIELDS.filter((f) => !f.read).map((f) => f.k);
+  flashVoiced(
+    '.vt-cell',
+    read.map((f) => f.k),
+    `모니터에서 ${read.length}개 항목을 인식했습니다.${low.length ? ` ${low.join(', ')} 값을 확인해 주세요.` : ''}${miss.length ? ` (미인식 ${miss.join(', ')})` : ''}`,
+  );
 }
 
 function failed(el, kind) {

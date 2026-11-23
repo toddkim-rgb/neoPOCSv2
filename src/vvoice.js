@@ -242,7 +242,7 @@ export function openVoiceInput({ prev = {}, onApply }) {
 }
 
 /** Briefly highlights the cells voice just filled (after the screen re-rendered). */
-export function flashVoiced(selector, keys) {
+export function flashVoiced(selector, keys, msg = `음성으로 ${keys.length}개 항목을 입력했습니다.`) {
   requestAnimationFrame(() =>
     keys.forEach((k) => {
       const el = document.querySelector(`${selector}[data-k="${k}"]`);
@@ -252,5 +252,5 @@ export function flashVoiced(selector, keys) {
       el.classList.add('voiced');
     }),
   );
-  toast(`음성으로 ${keys.length}개 항목을 입력했습니다.`);
+  toast(msg);
 }

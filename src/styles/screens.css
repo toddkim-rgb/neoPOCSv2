@@ -2744,6 +2744,15 @@ html.shot .cam-sway {
   width: 14px;
   height: 14px;
 }
+.vcard-head .l .vphoto-btn {
+  margin-left: 2px;
+}
+/* 환자 상세 · 임상관찰기록: an item left empty when it was saved */
+.vv.none {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--c-gray);
+}
 .ocr-card-l {
   display: flex;
   align-items: center;
@@ -3511,102 +3520,101 @@ html.shot .cam-sway {
   color: var(--c-white);
 }
 
-/* ---------- 수혈하기: 혈액번호별 확인 상태 (혈액번호 + 혈액제제 바코드) ---------- */
-.wcard.trf .wcard-sub {
-  margin-top: 6px;
+/* ---------- 수혈하기: 혈액팩마다 카드 (혈액번호 + 혈액제제 바코드 · 수혈 시작 · 15분 체크) ---------- */
+.wcard.bag .wcard-name .badge {
+  margin-left: auto;
 }
-.wcard.trf.all {
-  border-color: var(--c-blue);
+.wcard.bag .wcard-line b {
+  font-weight: 600;
 }
-.unit-box {
-  padding: 8px 8px 8px;
-  border: 1px solid var(--c-blue);
-  border-radius: 6px;
-  background: var(--c-surface);
+.wcard.bag .wcard-line b.abo {
+  font-weight: 400;
 }
-.unit-head {
+.wcard.bag .wcard-sub {
+  margin-bottom: 8px;
+}
+.bag-st {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 4px 4px 6px;
+  border-radius: 6px;
+  background: #f3f5f8;
   font-size: 12px;
   line-height: 15px;
-  color: var(--c-text);
-}
-.unit-n {
   color: var(--c-slate);
 }
-.unit-n b {
-  font-weight: 700;
-  color: var(--c-blue-deep);
-}
-.unit-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-}
-.unit {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-  min-width: 0;
-  height: 26px;
-  padding: 0 4px 0 7px;
-  border: 1px solid var(--c-line);
-  border-radius: 6px;
-  background: var(--c-white);
-}
-.unit .no {
-  font-size: 12px;
-  line-height: 14px;
-  color: var(--c-text);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.2px;
-}
-.unit .st {
+.bag-st .tag {
   display: inline-flex;
   align-items: center;
-  gap: 1px;
+  gap: 2px;
   flex: 0 0 auto;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  background: #eef0f3;
-  font-size: 10px;
-  line-height: 12px;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--c-line);
+  border-radius: 10px;
+  background: var(--c-white);
+  font-size: 11px;
+  line-height: 18px;
   color: var(--c-gray);
   white-space: nowrap;
 }
-.unit .st svg {
-  width: 10px;
-  height: 10px;
+.bag-st .tag svg {
+  width: 12px;
+  height: 12px;
 }
-.unit.half {
-  border-color: #f3b27a;
+.bag-st .txt {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
 }
-.unit.half .st {
+.bag-chk {
+  flex: 0 0 auto;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: #fe9239;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-white);
+}
+.wcard.bag.half .bag-st .tag {
+  border-color: transparent;
   background: var(--c-warn-chip);
   color: #c4651c;
 }
-.unit.ok {
+.wcard.bag.ok {
   border-color: var(--c-blue);
 }
-.unit.ok .st {
+.wcard.bag.ok .bag-st {
+  background: #eef6ff;
+}
+.wcard.bag.ok .bag-st .tag,
+.wcard.bag.start .bag-st .tag,
+.wcard.bag.due .bag-st .tag {
+  border-color: transparent;
   background: var(--grad);
   color: var(--c-white);
 }
-.unit.done {
-  background: #f1f3f6;
+.wcard.bag.start .bag-st {
+  background: #eef6ff;
+  color: var(--c-blue-deep);
 }
-.unit.done .no {
-  color: var(--c-gray);
+.wcard.bag.due {
+  border-color: #fe9239;
 }
-.unit.done .st {
-  background: var(--c-slate);
-  color: var(--c-white);
+.wcard.bag.due .bag-st {
+  background: var(--c-warn-bg);
+  color: #c4651c;
+  font-weight: 600;
 }
-.unit.stop .st {
+.wcard.bag.stop .bag-st {
+  background: var(--c-danger-bg);
+  color: var(--c-danger-text);
+}
+.wcard.bag.stop .bag-st .tag {
+  border-color: transparent;
   background: var(--c-danger-text);
   color: var(--c-white);
 }
@@ -3772,16 +3780,14 @@ html.shot .cam-sway {
 }
 
 /* =========================================================
-   수혈 진행 (transfuse.js): 혈액팩 · 타이머 · 15분 체크 · 긴급 종료 · 수혈 기록
+   수혈 시작 · 15분 체크 · 수혈 중단 (transfuse.js)
    ========================================================= */
-.trf-run,
 .trf-check,
 .trf-done {
   gap: 10px;
   padding-top: 6px;
   padding-bottom: 18px;
 }
-.trf-run > *,
 .trf-check > *,
 .trf-done > * {
   flex: 0 0 auto;
@@ -3844,255 +3850,13 @@ html.shot .cam-sway {
   margin: 0 8px;
   background: var(--c-line);
 }
-.tr-scan {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  padding: 7px 10px;
-  border-radius: 8px;
-  background: var(--c-warn-bg);
-  font-size: 13px;
-  color: #c4651c;
-}
-.tr-scan svg {
-  width: 18px;
-  height: 18px;
-}
-
-/* the bag and its read-out */
-.tr-stage {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 6px 0;
-}
-.bag {
-  width: 164px;
-  height: 273px;
-  flex: 0 0 auto;
-  overflow: visible;
-}
-.bag-handle {
-  fill: url(#bag-handle);
-  stroke: #d3dbe7;
-  stroke-width: 1.2;
-}
-.bag-body {
-  fill: url(#bag-plastic);
-  stroke: #d3dbe7;
-  stroke-width: 1.4;
-}
-.bag-rim {
-  fill: none;
-  stroke: #fff;
-  stroke-width: 1.6;
-  opacity: 0.85;
-}
-.bag-gloss {
-  fill: none;
-  stroke: #fff;
-  stroke-width: 5;
-  stroke-linecap: round;
-  opacity: 0.95;
-}
-.bag-level {
-  transition: transform 0.25s linear;
-}
-.bag-wave {
-  animation: bag-wave 2.6s linear infinite;
-}
-.bag-edge {
-  fill: none;
-  stroke-width: 2.2;
-  opacity: 0.9;
-}
-@keyframes bag-wave {
-  to {
-    transform: translateX(60px);
-  }
-}
-.bag-ticks line {
-  stroke: #9aa6b6;
-  stroke-width: 1.5;
-}
-.bag-ticks text {
-  font-size: 9px;
-  fill: #8a96a8;
-}
-.bag-label rect {
-  fill: #fff;
-}
-.bag-ldrop {
-  fill: url(#bag-dropg);
-}
-.bag-lshine {
-  fill: #fff;
-  opacity: 0.85;
-}
-.bag-ldiv {
-  stroke: #c9d0db;
-  stroke-width: 1.4;
-  stroke-linecap: round;
-}
-.bag-t1 {
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: -0.2px;
-  fill: #26344d;
-}
-.bag-t2 {
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: -0.4px;
-  fill: #ff6a10;
-}
-.bag-lbar {
-  fill: #d5dae2;
-}
-.bag-neck {
-  fill: url(#bag-handle);
-  stroke: #d3dbe7;
-}
-.bag-stem {
-  fill: #eef2f8;
-  stroke: #d3dbe7;
-}
-.bag-flow {
-  opacity: 0.85;
-  transition: opacity 0.4s ease;
-}
-.bag.empty .bag-flow {
-  opacity: 0;
-}
-.bag-chamber {
-  fill: url(#bag-handle);
-  fill-opacity: 0.92;
-  stroke: #d3dbe7;
-}
-.bag-pool {
-  transform-box: fill-box;
-  transform-origin: center;
-}
-.bag.empty .bag-pool {
-  opacity: 0.35;
-}
-.bag-drop {
-  opacity: 0;
-}
-/* 수혈 중: drops fall into the chamber, the pool ripples */
-.bag.running .bag-drop {
-  animation: bag-drip 1s ease-in infinite;
-}
-.bag.running .bag-pool {
-  animation: bag-pool 1s ease-out infinite;
-}
-@keyframes bag-drip {
-  0% {
-    transform: translateY(0) scaleY(0.6);
-    opacity: 0;
-  }
-  15% {
-    transform: translateY(0) scaleY(1);
-    opacity: 1;
-  }
-  80% {
-    transform: translateY(12px);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(14px);
-    opacity: 0;
-  }
-}
-@keyframes bag-pool {
-  0%,
-  75% {
-    transform: scaleX(1);
-  }
-  85% {
-    transform: scaleX(1.12) scaleY(0.85);
-  }
-  100% {
-    transform: scaleX(1);
-  }
-}
-html.shot .bag-wave,
-html.shot .bag-drop,
-html.shot .bag-pool {
-  animation: none;
-}
-.tr-side {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.tr-status {
-  align-self: flex-start;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 13px;
-  line-height: 16px;
-  font-weight: 600;
-}
-.tr-status.wait {
-  background: #eef2f7;
-  color: var(--c-slate);
-}
-.tr-status.run {
-  background: #ffe7e9;
-  color: #c3192d;
-  animation: tr-pulse 1.6s ease-in-out infinite;
-}
-.tr-status.due {
-  background: var(--c-warn-chip);
-  color: #c4651c;
-}
-.tr-status.done {
-  background: #e3f2ff;
-  color: var(--c-blue-deep);
-}
-@keyframes tr-pulse {
-  50% {
-    opacity: 0.55;
-  }
-}
-.tr-pct {
-  font-size: 15px;
-  color: var(--c-slate);
-}
-.tr-pct b {
-  font-size: 46px;
-  line-height: 52px;
-  font-weight: 700;
-  color: #b3172a;
-}
-.tr-pct small {
-  margin-left: 2px;
-  font-size: 18px;
-  color: #b3172a;
-}
-.tr-ml {
-  font-size: 14px;
-  line-height: 18px;
-  color: var(--c-text);
-}
-.tr-ml b {
-  font-weight: 700;
-}
-.tr-rate {
-  font-size: 12px;
-  line-height: 15px;
-  color: var(--c-gray);
-}
-
-/* 시작 · 예상 종료 · 경과 */
+/* 수혈 시작 · 15분 체크 (· 수혈 중단) */
 .tr-times {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  row-gap: 10px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #f4c4c4;
 }
 .tr-time {
   display: flex;
@@ -4115,139 +3879,33 @@ html.shot .bag-pool {
   color: var(--c-text);
   font-variant-numeric: tabular-nums;
 }
-.tr-bar {
-  grid-column: 1 / -1;
-  height: 6px;
-  border-radius: 3px;
-  background: #e6eaf0;
-  overflow: hidden;
+.tr-time.due b {
+  color: #f07c1e;
 }
-.tr-bar i {
-  display: block;
-  height: 100%;
-  border-radius: 3px;
-  background: linear-gradient(90deg, #ff8a8a, #c3192d);
-  transition: width 0.25s linear;
+.tr-time.stop b {
+  color: var(--c-danger-text);
 }
-
-/* 15분 중간 체크 */
-.tr-check {
+.tr-note {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 48px;
-  font-size: 14px;
-  line-height: 17px;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #eef6ff;
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--c-blue-deep);
 }
-.tr-check .k {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--c-text);
-}
-.tr-check .k svg {
+.tr-note svg {
+  flex: 0 0 auto;
   width: 18px;
   height: 18px;
 }
-.tr-check .v {
-  color: var(--c-slate);
-  font-variant-numeric: tabular-nums;
-}
-.tr-check .v b {
-  font-weight: 700;
-  color: var(--c-blue-deep);
-}
-.tr-check.due {
-  border-color: #fe9239;
-  background: var(--c-warn-bg);
-}
-.tr-check.due .k {
-  color: #c4651c;
-  font-weight: 600;
-}
-.tr-check.ok .k svg {
-  color: var(--c-blue-deep);
-}
-.tr-chk-btn {
-  width: auto;
-  height: 34px;
-  padding: 0 14px;
-  border-radius: 8px;
-  background: #fe9239;
-  font-size: 14px;
-}
-.tr-speed {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--c-gray);
-}
-.tr-speed > span {
-  margin-right: 4px;
-}
-
-/* 수혈 기록 */
-.tr-log-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-.tr-log-head .tr-card-title {
-  margin: 0;
-}
-.tr-log-row {
-  display: grid;
-  grid-template-columns: 26px 1fr auto auto auto;
-  align-items: center;
-  gap: 8px;
-  padding-top: 8px;
-  font-size: 13px;
-  line-height: 16px;
-  color: var(--c-text);
-  font-variant-numeric: tabular-nums;
-}
-.tr-log-row .no {
-  color: var(--c-gray);
-}
-.tr-log-row .st {
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 11px;
-}
-.tr-log-row .st.done {
-  background: #e3f2ff;
-  color: var(--c-blue-deep);
-}
-.tr-log-row .st.stopped {
+.tr-note.stop {
   background: var(--c-danger-bg);
   color: var(--c-danger-text);
 }
-.tr-log-sub {
-  padding: 2px 0 8px 34px;
-  border-bottom: 1px dashed var(--c-line);
-  font-size: 12px;
-  line-height: 15px;
-  color: var(--c-slate);
-}
-.tr-log-total {
-  display: flex;
-  justify-content: space-between;
-  padding-top: 10px;
-  font-size: 14px;
-  color: var(--c-slate);
-}
-.tr-log-total b {
-  color: var(--c-text);
-}
-.tr-log-total.stop b {
-  color: var(--c-danger-text);
-}
 .tr-log-who {
-  margin-top: 8px;
   text-align: right;
   font-size: 12px;
   color: var(--c-gray);
@@ -4257,13 +3915,55 @@ html.shot .bag-pool {
   -webkit-background-clip: text;
   background-clip: text;
 }
-.tr-unit {
-  font-size: 12px;
-  color: var(--c-gray);
-}
 .trf-check .ham-hero img {
   width: 56px;
   height: 56px;
+}
+/* 15분 체크 알람 (popup) */
+.tra-box {
+  margin: 12px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid #ff9b9b;
+  border-radius: 10px;
+  background: #fff6f6;
+  text-align: left;
+}
+.tra-pt {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--c-slate);
+}
+.tra-pt b {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--c-text);
+}
+.tra-bag {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 17px;
+  color: var(--c-text);
+}
+.tra-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 15px;
+  color: var(--c-slate);
+  font-variant-numeric: tabular-nums;
+}
+.tra-sub i {
+  display: inline-block;
+  width: 1px;
+  height: 9px;
+  margin: 0 6px;
+  background: var(--c-line);
+}
+/* 긴급 처리 업무: 수혈 15분 체크 */
+.ucard.due {
+  box-shadow: var(--shadow1), inset 0 0 0 1.5px #fe9239;
 }
 
 /* 긴급 종료 */

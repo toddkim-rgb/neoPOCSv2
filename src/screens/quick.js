@@ -35,6 +35,7 @@ export function quickScan(code) {
   if (!c || c === '#FAIL') return openMedDialog('fail');
   resetPatient();
   resetWork();
+  state.origin = 'menu'; // 스캔으로 시작한 업무: 완료 후 그 업무의 바코드 스캔 화면
   const p = patientByCode(c);
   const label = p ? null : labelOwner(c);
   if (p || !label) {

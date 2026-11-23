@@ -2,7 +2,7 @@ import { Capacitor, SystemBars } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { reset, back, currentScreen } from './router.js';
 import { closeSheet, sheetOpen } from './ui.js';
-import { state, newHamCheck, selectPatient, completeTask } from './state.js';
+import { state, newHamCheck, selectPatient, completeTask, trfUnits } from './state.js';
 import { NURSE2, HAM_CHECKS, TRF_CHECKS } from './data.js';
 import { attachScanner } from './scanner.js';
 import { openMedDialog } from './screens/med.js';
@@ -192,6 +192,15 @@ function startShot(name) {
     else state.ham = ham;
   }
   if (p.done && state.work[p.kind]) state.work[p.kind].ham = { ...newHamCheck(), done: true };
+  // 수혈: started=N → the first N 혈액팩 started at 17:30 (15분 체크 17:45) · checked=1 → checked · due=1 → check due
+  if (p.started) {
+    trfUnits()
+      .slice(0, Number(p.started))
+      .forEach(({ unit }) => {
+        state.work.trf.bags[unit] = 'start';
+        state.work.trf.runs[unit] = { start: 0, at: '17:30', chkAt: '17:45', due: p.due === '1' ? 0 : Infinity, fired: true, chk: p.checked === '1' ? { at: '17:45', ok: true } : null, stop: null };
+      });
+  }
   if (p.open) state.scriptOpen.detail = [true, false];
   if (p.vhist) state.vhistOpen = true; // 환자 상세 · 임상관찰기록 상세보기
   // common-voice-02 'Stroke Active': script open, summary and script edited

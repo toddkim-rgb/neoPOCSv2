@@ -92,7 +92,7 @@ export function createBloodDraws() {
 }
 
 /* ---------- 수혈하기 (neo-trf-task-01) — every blood product is 고위험수행 ----------
-   volume (ml) · minutes = one unit (bag) and its planned infusion time (수혈 진행 화면의 예상 종료 시각). */
+   volume (ml) = one unit (bag), shown on its 혈액팩 card · minutes = its planned infusion time (종료 시각은 기록하지 않음). */
 /** 혈액형 + Rh of a 수혈 오더 ('AB' + '+' → 'AB+'). */
 export const bloodType = (o) => `${o.abo}${o.rh || ''}`;
 

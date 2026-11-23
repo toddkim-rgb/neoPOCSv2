@@ -3,11 +3,14 @@
 // '다른 채혈관 바코드 스캔') → 채혈 확인 → 채혈 완료 → 종료 (환자허브).
 // 수혈하기: common-scan-01 → 환자 팔찌 → 수혈하기 목록 at once (every 출고된 수혈 오더, no 처방 스캔 step). A blood bag carries
 // two barcodes — 혈액번호 and 혈액제제 — scanned in either order; once they pair up, that 혈액번호 is '확인' (a wrong pair is
-// 불일치). An order with several 혈액번호 shows each one's state (대기 · 제제 스캔 · 확인 · 수혈 완료 · 중단); only confirmed
-// bags are given, one at a time: 수행하기 → 1차 · 2차 인증 (once per 항목) → 수혈 진행 (transfuse.js). The same 항목's later
-// bags need only their 혈액번호 (on the 수혈 진행 화면, or here) and no new 이중 인증; another 항목 starts over with two
-// barcodes and its own check. A bag scanned before the wristband still shows the list with the '환자 스캔' warning. 활력징후 needs only the patient scan; its task edits SBP·DBP·PR·RR·BT·SpO2 and saves them
-// to the 임상관찰기록.
+// 불일치). Every 혈액팩 has its own card (2026-11-23: 대기 · 제제 스캔 · 확인 · 수혈 시작 · 15분 체크 · 중단); only confirmed
+// bags are given, one at a time: 수행하기 → 1차 · 2차 인증 (once per 항목) → 수혈 시작 기록 (transfuse.js; 종료 시각 없음,
+// 15분 뒤 체크 알람). The same 항목's later bags need only their 혈액번호 and no new 이중 인증; another 항목 starts over with
+// two barcodes and its own check. A bag scanned before the wristband still shows the list with the '환자 스캔' warning.
+// 활력징후 needs only the patient scan; its task edits SBP·DBP·PR·RR·BT·SpO2 (직접 · 음성 · 모니터 사진 입력, 빈 칸이
+// 있어도 저장) and saves them to the 임상관찰기록.
+// 업무 완료 → 확인 (2026-11-23): 환자허브에서 환자를 골라 시작한 업무는 환자허브로, 업무 메뉴 · 퀵메뉴 · 스캔으로 시작한
+// 업무는 그 업무의 바코드 스캔 화면으로 돌아갑니다 (state.origin).
 // 환자허브 (긴급 카드 · MY환자 업무 선택 · AI 커맨드바에 환자 이름) opens the chosen patient's work at once, like 투약
 // (2026-11-23): 환자정보 비활성 + 업무 내용 흐리게 → 환자 팔찌 스캔 → 환자정보 활성 (✓ 환자 확인) → 업무 수행.
 // Without a chosen patient (메뉴 · 퀵메뉴 · AI 커맨드바 '채혈') the 바코드 스캔 screen comes first, as before.
@@ -20,7 +23,8 @@ import { patientTitle, PATIENT, NURSE, DEMO_DATE, VITAL_STEP, bloodType } from '
 import { PATIENTS, DEFAULT_PID, patientByCode } from '../patients.js';
 import { state, resetWork, selectPatient, completeTask, taskStatus, trfUnits, unitStatus, trfNext, trfLeft, recordVitals } from '../state.js';
 import { openMedDialog, confirmReset, startCheck, openNoOrders, openScanSim, patientSims, FAIL_SIM } from './med.js';
-import { flagOf } from './vitals.js';
+import { flagOf, startCamera } from './vitals.js';
+import { startBag, openCheck } from './transfuse.js';
 import { voiceButton, openVoiceInput, flashVoiced } from '../vvoice.js';
 import { feedback } from '../feedback.js';
 
@@ -91,7 +95,8 @@ function trfScan(c, owner) {
   }
   if (unit) {
     const st = w.bags[unit];
-    if (st === 'done' || st === 'stop') return toast('이미 수혈한 혈액입니다.');
+    if (st === 'start') return toast('이미 수혈을 시작한 혈액입니다.');
+    if (st === 'stop') return toast('수혈을 중단한 혈액입니다.');
     if (st === 'ok') return toast('이미 확인된 혈액백입니다.');
     if (w.pend?.code) return w.pend.code === orderOfUnit(unit).code ? confirmBag(unit) : pairMismatch();
     // the 항목 is already double-checked (its first bag): a later bag needs only its 혈액번호
@@ -320,6 +325,7 @@ register('wscan', {
 export function startWork(kind, pid) {
   selectPatient(pid || DEFAULT_PID);
   resetWork();
+  state.origin = pid ? 'hub' : 'menu'; // 완료 후 돌아갈 곳
   if (!pid) return go('wscan', { kind });
   if (!taskStatus(kind).ok) return openNoOrders(kind);
   go(kind === 'vital' ? 'vital' : 'wtask', { kind });
@@ -332,64 +338,68 @@ const scanPatientButton = () => `<div class="sticky-foot">${button('환자 팔�
 
 /* ---------------- 채혈하기 · 수혈하기 task (no 플랜 / 실시간: removed on request) ---------------- */
 
-const UNIT_ST = {
-  wait: ['대기', 'wait'],
-  half: ['제제 스캔', 'half'],
-  ok: ['확인', 'ok'],
-  done: ['수혈 완료', 'done'],
-  stop: ['중단', 'stop'],
-};
-
-/** 수혈 오더 card: the time / flag row of the design is replaced by each 혈액번호's state (확인 n / m). */
-function trfCard(o) {
+/**
+ * A 혈액팩's state on its card: [class, tag, line]. 대기 · 제제 스캔 · 확인 → 수혈 시작 (15분 체크 예정 · 필요 · 완료) · 중단.
+ * The end of a bag is not recorded (2026-11-23), so a started bag stays '수혈 시작'.
+ */
+function bagState(unit) {
   const w = state.work.trf;
-  const seen = o.units.filter((u) => w.bags[u]).length;
-  const cells = o.units
-    .map((u) => {
-      const st = unitStatus(u);
-      const [label, cls] = UNIT_ST[st];
-      return `<span class="unit ${cls}"><span class="no">${u}</span><span class="st">${st === 'ok' || st === 'done' ? icon.check : ''}${label}</span></span>`;
-    })
-    .join('');
+  const st = unitStatus(unit);
+  if (st === 'wait') return ['wait', '대기', w.checked[orderOfUnit(unit).id] ? '혈액번호를 스캔해 주세요.' : '혈액번호와 혈액제제 바코드를 스캔해 주세요.'];
+  if (st === 'half') return ['half', '제제 스캔', '같은 혈액백의 혈액제제 바코드를 스캔해 주세요.'];
+  if (st === 'ok') return ['ok', '확인', '수행하기를 누르면 수혈을 시작합니다.'];
+  const r = w.runs[unit] || { at: '--:--', chkAt: '--:--', due: Infinity };
+  if (st === 'stop') return ['stop', '중단', `시작 ${r.at} · 중단 ${r.stop?.at || r.chkAt} · ${r.stop?.reason || ''}`];
+  if (r.chk) return ['start', '수혈 시작', `시작 ${r.at} · 15분 체크 ${r.chk.at} 이상 없음`];
+  if (r.due <= Date.now()) return ['due', '수혈 시작', `시작 ${r.at} · 15분 체크 필요`];
+  return ['start', '수혈 시작', `시작 ${r.at} · 15분 체크 ${r.chkAt} 예정`];
+}
+
+/** One card per 혈액팩 (혈액번호): product · n/m 단위 · 혈액번호 · 혈액형 · 용량, and its state. */
+function bagCard({ unit, o }, i, n) {
+  const [cls, tag, line] = bagState(unit);
+  const mark = ['ok', 'start', 'due'].includes(cls) ? icon.check : cls === 'stop' ? icon.error : '';
   return `
-    <div class="wcard trf${seen === o.units.length ? ' all' : ''}">
-      <p class="wcard-name">${esc(o.name)}<img class="warn" src="${asset3d('warning-red')}" alt="고위험"></p>
-      <p class="wcard-sub"><b class="abo">혈액형 : ${bloodType(o)}</b>발행처 : ${o.issuer}<i></i>발행시간 : ${o.issued}</p>
-      <div class="unit-box">
-        <div class="unit-head"><span>혈액번호</span><span class="unit-n">확인 <b>${seen}</b> / ${o.units.length}</span></div>
-        <div class="unit-grid">${cells}</div>
-      </div>
+    <div class="wcard trf bag ${cls}" data-unit="${unit}">
+      <p class="wcard-name">${esc(o.name)}<img class="warn" src="${asset3d('warning-red')}" alt="고위험">${badge(`${i + 1}/${n} 단위`, 'count-grad')}</p>
+      <p class="wcard-line">혈액번호 <b>${unit}</b><i></i><b class="abo">혈액형 : ${bloodType(o)}</b><i></i>${o.volume}ml</p>
+      <p class="wcard-sub">발행처 : ${o.issuer}<i></i>발행시간 : ${o.issued}</p>
+      <div class="bag-st"><span class="tag">${mark}${tag}</span><span class="txt">${esc(line)}</span>${
+        cls === 'due' ? `<button class="bag-chk" data-act="trf-check" data-unit="${unit}">체크하기</button>` : ''
+      }</div>
     </div>`;
 }
 
 /** What the nurse scans next. */
 function trfHint() {
   const w = state.work.trf;
+  if (!trfLeft().length) return [true, '남은 혈액팩이 없습니다.'];
   if (w.pend?.unit) return [false, `혈액번호 ${w.pend.unit} 확인 · 같은 혈액백의 혈액제제 바코드를 스캔해 주세요.`];
   if (w.pend?.code) return [false, `혈액제제(${bagName(w.orders.find((o) => o.code === w.pend.code))}) 확인 · 같은 혈액백의 혈액번호를 스캔해 주세요.`];
   const ok = trfUnits().filter(({ unit }) => w.bags[unit] === 'ok').length;
-  if (ok) return [true, `확인된 혈액백 ${ok}개 · 수행하기를 눌러 주세요.`];
+  if (ok) return [true, `확인된 혈액백 ${ok}개 · 수행하기를 누르면 수혈을 시작합니다.`];
   const given = trfUnits().length - trfLeft().length;
-  if (w.checked[nextWaiting()?.o.id]) return [false, `${given ? `${given}단위 수혈 완료 · ` : ''}다음 혈액백의 혈액번호를 스캔해 주세요.`];
-  return [false, `${given ? `${given}단위 수혈 완료 · 다음 ` : ''}혈액백의 혈액번호와 혈액제제 바코드를 모두 스캔해 주세요.`];
+  if (w.checked[nextWaiting()?.o.id]) return [false, `${given ? `${given}단위 수혈 시작 · ` : ''}다음 혈액백의 혈액번호를 스캔해 주세요.`];
+  return [false, `${given ? `${given}단위 수혈 시작 · 다음 ` : ''}혈액백의 혈액번호와 혈액제제 바코드를 모두 스캔해 주세요.`];
 }
 
 function trfList(interactive) {
-  const w = state.work.trf;
+  const units = trfUnits();
   const [all, hint] = trfHint();
   return `
     <div class="medlist wlist">
       <div class="medlist-head">
         <span class="l"><span class="medlist-title gtext">${KINDS.trf.list}</span></span>
-        ${badge(`총 ${w.orders.length}건`, 'count-grad')}
+        ${badge(`혈액팩 ${units.length}개`, 'count-grad')}
       </div>
       ${interactive ? `<p class="tube-hint${all ? ' all' : ''}">${all ? icon.checkCircle : icon.error}<span>${hint}</span></p>` : ''}
-      <div class="wcards">${w.orders.map(trfCard).join('')}</div>
+      <div class="wcards">${units.map((x, i) => bagCard(x, i, units.length)).join('')}</div>
     </div>`;
 }
 
 /** 혈액 스캔 until a bag is confirmed, then 수행하기 (with 혈액 스캔 beside it while bags are still 대기). */
 function trfFoot() {
+  if (!trfLeft().length) return `<div class="sticky-foot">${button('확인', 'trf-finish')}</div>`;
   const scan = (label, cls = '') => `<button class="btn${cls}" data-act="scan-bag" data-long="scan-sim-bag">${label}</button>`;
   if (!trfNext()) return `<div class="sticky-foot">${scan('혈액 바코드 스캔')}</div>`;
   const perform = button(KINDS.trf.action, 'perform', { cta: true });
@@ -454,6 +464,9 @@ register('wtask', {
       handleWorkScan('trf', c);
     },
     'scan-sim-bag': () => openSim('trf', 'bag'),
+    // 15분 체크 필요 (혈액팩 카드) · 남은 혈액팩 없음 → 확인
+    'trf-check': (t) => openCheck(state.pid, t.dataset.unit),
+    'trf-finish': () => toWorkScan('trf'),
     // 채혈관: the PDA scan button reads the next tube; long-press picks a specific label
     'scan-tube': () => handleBloodScan((bloodLeft()[0] || state.work.bld.orders[0]).code, null),
     'scan-sim-tube': () => openSim('bld', 'tube'),
@@ -463,12 +476,12 @@ register('wtask', {
       go('wdone', { kind: 'bld' });
     },
     perform: (t, { kind }) => {
-      // 수혈은 고위험수행: 수행하기 → 1차 인증 → 2차 인증 → 이중 확인 완료 → 수혈 진행 화면 (transfuse.js)
+      // 수혈은 고위험수행: 수행하기 → 1차 인증 → 2차 인증 → 이중 확인 완료 → 수혈 시작 기록 (transfuse.js)
       if (kind === 'trf') {
         const next = trfNext();
         if (!next) return toast('혈액백의 혈액번호와 혈액제제 바코드를 먼저 스캔해 주세요.');
-        // the 이중 인증 is once per 항목: a later bag of a checked 항목 goes straight to 수혈 진행
-        return state.work.trf.checked[next.o.id] ? go('trfrun') : startCheck('trf');
+        // the 이중 인증 is once per 항목: a later bag of a checked 항목 starts at once
+        return state.work.trf.checked[next.o.id] ? startBag(true) : startCheck('trf');
       }
       completeTask(kind, state.work[kind].orders[0].now.time);
       go('wdone', { kind });
@@ -489,12 +502,22 @@ const vitalValues = () => {
   if (!v.values) v.values = Object.fromEntries(state.vitals.items.map((i) => [i.k, '']));
   return v.values;
 };
-/** The patient's previous record of item `k` (임상관찰기록): { v, flag, time }. */
+/** The patient's previous record of item `k` (임상관찰기록): { v, flag, time } — an item left empty last time comes from the record before. */
 export function prevVital(k) {
   const i = state.vitals.items.find((x) => x.k === k);
-  return i ? { v: i.v, flag: i.flag || flagOf(k, i.v), time: (i.at || '').split(' ')[1] || state.vitals.time } : null;
+  if (!i) return null;
+  if (String(i.v ?? '').trim()) return { v: i.v, flag: i.flag || flagOf(k, i.v), time: (i.at || '').split(' ')[1] || state.vitals.time };
+  const row = state.pt[state.pid].vhist.find((r) => String(r.values[k] ?? '').trim());
+  return row ? { v: row.values[k], flag: flagOf(k, row.values[k]), time: row.at.split(' ')[1] } : null;
 }
-export const prevValues = () => Object.fromEntries(state.vitals.items.map((i) => [i.k, i.v]));
+export const prevValues = () => Object.fromEntries(state.vitals.items.map((i) => [i.k, prevVital(i.k)?.v ?? '']));
+
+/** 사진 입력: the values read from the monitor photo fill their cells (unread items keep what was typed). */
+export function fillVital(vals) {
+  Object.assign(vitalValues(), vals);
+}
+const photoButton = () =>
+  `<button class="vvoice-btn vphoto-btn" data-act="vphoto" aria-label="모니터 사진으로 활력징후 입력">${icon.camera}<span>사진 입력</span></button>`;
 export const prevLine = (k) => {
   const p = prevVital(k);
   return p ? `<span class="vt-prev">이전 <b class="${p.flag || ''}">${esc(p.v)}</b> · ${p.time}</span>` : '';
@@ -641,7 +664,7 @@ register('vital', {
         ${locked ? lockHint('이어서 활력징후를 입력합니다.') : ''}
         <section class="vcard">
           <div class="vcard-head">
-            <span class="l"><span class="vcard-title">활력징후</span>${voiceButton()}</span>
+            <span class="l"><span class="vcard-title">활력징후</span>${voiceButton()}${photoButton()}</span>
             <button class="vreset" data-act="vreset">초기화 ${icon.refresh}</button>
           </div>
           <div class="vgrid2">${state.vitals.items.map((i) => vitalCell(i, values[i.k])).join('')}</div>
@@ -695,6 +718,8 @@ register('vital', {
     'scan-patient': () => handleWorkScan('vital', PATIENT.barcode),
     'scan-sim-patient': () => openSim('vital'),
     'time-sheet': () => openVitalTime(),
+    // 사진 입력: 환자 모니터를 찍으면 인식한 값이 입력 칸에 채워짐 (팔찌 스캔 없이, 이 환자)
+    vphoto: () => startCamera({ pid: state.pid, shoot: 'fill' }),
     vstep: (t) => {
       const k = t.dataset.k;
       const values = vitalValues();
@@ -719,15 +744,18 @@ register('vital', {
     save: () => {
       const v = state.work.vital;
       const values = vitalValues();
-      const empty = state.vitals.items.filter((i) => !String(values[i.k]).trim());
-      if (empty.length) return toast(`${empty.map((i) => i.k).join(', ')} 값을 입력해 주세요.`);
+      // 빈 칸이 있어도 저장 (2026-11-23): 입력한 항목만 기록, 하나도 없으면 안내
+      const has = (k) => String(values[k] ?? '').trim();
+      const filled = state.vitals.items.filter((i) => has(i.k));
+      if (!filled.length) return toast('측정값을 1개 이상 입력해 주세요.');
+      v.saved = { n: filled.length, empty: state.vitals.items.filter((i) => !has(i.k)).map((i) => i.k) };
       // the detail screen's 임상관찰기록 now shows these values (the previous record moves to its history)
       recordVitals({
         time: v.time,
         who: NURSE.label,
         items: state.vitals.items.map((i) => ({
           ...i,
-          v: values[i.k],
+          v: has(i.k) ? values[i.k] : '',
           at: `${DEMO_DATE.slice(5).replace('-', '/')} ${v.time}`,
           flag: flagOf(i.k, values[i.k]),
         })),
@@ -754,7 +782,9 @@ register('wdone', {
       ${statusBlock(
         kind === 'bld'
           ? { img: 'check-blue', title: '채혈 완료', desc: `채혈관 ${state.work.bld.tubes.length}개가 환자와 교차 검증되어\nEMR 시스템에 실시간 전송되었습니다.` }
-          : { img: KINDS[kind].green ? 'check-green' : 'check-blue', title: '수행 완료', desc: '환자 및 처방 바코드 교차 검증 후\nEMR 시스템에 실시간 전송되었습니다.' },
+          : kind === 'vital' && state.work.vital.saved
+            ? { img: 'check-green', title: '수행 완료', desc: vitalSavedDesc(state.work.vital.saved) }
+            : { img: KINDS[kind].green ? 'check-green' : 'check-blue', title: '수행 완료', desc: '환자 및 처방 바코드 교차 검증 후\nEMR 시스템에 실시간 전송되었습니다.' },
       )}
       <span class="spacer" style="flex-grow: 263"></span>
     </div>
@@ -768,13 +798,17 @@ register('wdone', {
   },
 });
 
-/** 확인 → that work's 바코드 스캔 안내 화면 (채혈하기: 업무 종료 → 환자허브). */
+const vitalSavedDesc = ({ n, empty }) =>
+  `활력징후 ${n}개 항목이 EMR 임상관찰기록에\n실시간 전송되었습니다.${empty.length ? `\n미입력 : ${empty.join(', ')}` : ''}`;
+
+/**
+ * 확인 → 환자허브에서 환자를 골라 시작한 업무는 환자허브 (그때의 페이지), 업무 메뉴 · 퀵메뉴 · 스캔으로 시작한 업무는
+ * 그 업무의 바코드 스캔 안내 화면.
+ */
 export function toWorkScan(kind) {
   resetWork();
-  if (kind === 'bld') {
-    state.hubTab = 'urgent';
-    return backTo('hub');
-  }
+  state.work.vital.saved = null;
+  if (state.origin === 'hub') return backTo('hub');
   backTo(kind === 'vital' ? 'vital' : 'wtask', { kind });
   replace('wscan', { kind }, 'fade');
 }

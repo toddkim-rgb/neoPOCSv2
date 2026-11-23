@@ -88,12 +88,9 @@ html.night .dlg {
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.5);
 }
 
-/* the 3D icons and photos keep their colours; the blood bag's plastic gets a little darker */
-html.night .bag-body,
-html.night .bag-handle,
-html.night .bag-neck,
-html.night .bag-chamber {
-  filter: brightness(0.86);
+/* 긴급 처리 업무: 수혈 15분 체크 keeps its orange outline */
+html.night .ucard.due {
+  box-shadow: inset 0 0 0 1.5px #fe9239;
 }
 
 /* 야간모드 badge in the header area of the hub (and the night indicator) */

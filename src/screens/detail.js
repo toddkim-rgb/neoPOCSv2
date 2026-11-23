@@ -23,7 +23,9 @@ const infoCard = (title, rows) => `
 const vitalCell = (v, head) => `
   <div class="vcell">
     <div class="vcell-top"><span class="vk">${v.k}</span>${v.flag ? `<span class="vflag ${v.flag}">${v.flag === 'danger' ? '경고' : '주의'}</span>` : ''}</div>
-    <div class="vcell-mid"><span class="vv ${v.flag || ''}">${v.v}</span><span class="vu">${v.unit}</span></div>
+    <div class="vcell-mid">${
+      String(v.v ?? '').trim() ? `<span class="vv ${v.flag || ''}">${v.v}</span><span class="vu">${v.unit}</span>` : '<span class="vv none">미측정</span>'
+    }</div>
     ${v.at && v.at !== head ? `<p class="vat">${v.at}</p>` : ''}
   </div>`;
 /** 측정 일시 (MM/DD HH:MM) of the latest record. */
@@ -40,7 +42,8 @@ const VH_KEYS = [
 ];
 function vitalHistoryTable() {
   const rows = [vitalRow(state.vitals), ...state.pt[state.pid].vhist];
-  const cell = (k, v) => `<span class="vh-v ${flagOf(k, v) || ''}">${esc(v ?? '-')}</span>`;
+  // an item not measured that time (활력징후는 빈 칸이 있어도 저장): '-'
+  const cell = (k, v) => `<span class="vh-v ${flagOf(k, v) || ''}">${esc(String(v ?? '').trim() ? v : '-')}</span>`;
   return `
     <div class="vhist" role="table" aria-label="임상관찰기록 이전 측정">
       <div class="vh-row vh-head" role="row"><span class="vh-at">측정 일시</span>${VH_KEYS.map(([k, u]) => `<span>${k}<small>${u}</small></span>`).join('')}</div>

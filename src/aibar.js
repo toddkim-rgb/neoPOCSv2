@@ -84,6 +84,7 @@ export function mountAiBar(el, params = {}) {
 export function startMed(pid) {
   selectPatient(pid || DEFAULT_PID);
   resetPatient();
+  state.origin = pid ? 'hub' : 'menu'; // 완료 후 돌아갈 곳
   go(pid ? 'task' : 'scan');
 }
 
