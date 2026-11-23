@@ -1,6 +1,7 @@
 // Medication administration flow (SSol design): common-scan-01 → neo-med-task-01 → neo-med-check-01~03 (고위험약물
-// 1차/2차 인증) → common-done-01. The wristband alone activates the 투약 list (요청: no 처방 바코드 step, like 수혈).
-// A patient chosen beforehand (긴급 카드 · MY환자 · AI 커맨드바) opens their list first, locked until the wristband scan.
+// 1차/2차 인증) → common-done-01. 환자 팔찌 → 환자정보 확인 (투약 목록은 아직 흐림 + '투약 바코드 스캔' 안내)
+// → 투약 바코드 → 투약 목록 활성화 (고위험약물이면 1차 인증). A patient chosen beforehand (긴급 카드 · MY환자 ·
+// AI 커맨드바) opens their list first, locked until the wristband scan.
 // Errors and confirmations are popups over the current screen: common-error-01/02, neo-med-error-03, neo-med-prn-01.
 // Six sample patients: a wristband selects that patient; a prescription names its own patient (처방 우선 스캔), and a
 // wristband/prescription of two different patients is 환자/처방 불일치.
@@ -46,18 +47,19 @@ export function handleMedScan(code) {
   return state.scan.patient ? scanDrug(state.pid) : scanPatient(state.pid);
 }
 
-/** The chosen patient's list is open and locked (not scanned yet). */
-const previewing = () => !state.scan.patient && !state.scan.drug && !!document.querySelector('.scr-task');
+/** A patient's 투약 screen is open (chosen beforehand, or after the wristband). */
+const onTaskScreen = () => !!document.querySelector('.scr-task');
 
 function scanPatient(id) {
   // 처방 우선 스캔: the wristband must be the prescription's patient
   if (state.scan.drug && !state.scan.patient && id !== state.pid) return openMedDialog('mismatch');
-  // the chosen patient's list is open: another wristband is asked about, not taken silently
-  if (previewing() && id !== state.pid) return askOtherPatient(id);
+  // a patient's 투약 screen is open: another wristband is asked about, not taken silently
+  if (onTaskScreen() && id !== state.pid) return askOtherPatient(id);
+  if (state.scan.patient && id === state.pid) return toast('이미 확인된 환자입니다.');
   selectPatient(id); // 바코드 스캔 화면: 다른 환자 스캔 → (안내 없이) 덮어쓰기
   if (!state.orders.some((o) => o.now)) return openNoOrders('med');
-  // 팔찌 = 투약 목록 활성화 (처방 바코드 단계 없음)
-  state.scan = { patient: true, drug: true };
+  // 팔찌 = 환자정보 확인; 투약 목록은 투약 바코드를 스캔해야 활성화 (처방을 먼저 찍었으면 바로 활성화)
+  state.scan.patient = true;
   showMedTask();
 }
 
@@ -75,7 +77,7 @@ function askOtherPatient(id) {
         closeSheet();
         selectPatient(id);
         if (!state.orders.some((o) => o.now)) return openNoOrders('med');
-        state.scan = { patient: true, drug: true };
+        state.scan = { patient: true, drug: false };
         showMedTask();
       },
     },
@@ -83,14 +85,10 @@ function askOtherPatient(id) {
 }
 
 function scanDrug(owner) {
-  if (state.scan.patient && owner !== state.pid) return openMedDialog('mismatch');
-  if (previewing()) {
-    if (owner !== state.pid) return openMedDialog('mismatch');
-    return toast('환자 팔찌를 스캔하면 투약 목록이 활성화됩니다.');
-  }
+  if ((state.scan.patient || onTaskScreen()) && owner !== state.pid) return openMedDialog('mismatch');
   selectPatient(owner); // the prescription names its patient
-  if (state.scan.patient) return toast('이미 확인된 환자의 처방입니다.');
-  state.scan.drug = true;
+  if (state.scan.drug) return toast('이미 확인된 처방입니다.');
+  state.scan.drug = true; // 환자 확인 후면 투약 목록 활성화, 처방 먼저면 팔찌 스캔 경고
   showMedTask();
 }
 
@@ -247,9 +245,22 @@ register('task', {
       return `${hdr}
         <div class="screen-body scroll task-d task-lock">
           <div class="task-top">${aiButton()}${patientCard({ prn: hasPrn() })}</div>
-          <p class="tube-hint lock-hint">${icon.error}<span>환자 팔찌를 스캔하면 투약 목록이 활성화됩니다.</span></p>
+          <p class="tube-hint lock-hint">${icon.error}<span>환자 팔찌를 스캔해 주세요. 이어서 투약 바코드를 스캔하면 투약 목록이 활성화됩니다.</span></p>
           ${medList()}
           <div class="sticky-foot">${button('환자 팔찌 스캔', 'scan-patient', { long: 'scan-sim-lock' })}</div>
+        </div>`;
+    }
+    if (patient && !drug) {
+      // 환자 확인 완료: the 투약 list stays dim until a 투약 바코드 is scanned
+      return `${hdr}
+        <div class="screen-body scroll task-d task-lock task-drug">
+          <div class="task-top">${aiButton()}${patientCard({ prn: hasPrn(), confirmed: true })}</div>
+          <div class="drug-scan">
+            <img src="${asset3d('scan')}" alt="">
+            <div><p class="drug-scan-t gtext">투약 바코드 스캔</p><p class="drug-scan-d">투약할 약의 바코드를 PDA 레이저로 스캔하세요.<br>스캔하면 투약 목록이 활성화됩니다.</p></div>
+          </div>
+          ${medList()}
+          <div class="sticky-foot">${button('투약 바코드 스캔', 'scan-drug', { long: 'scan-sim-drug' })}</div>
         </div>`;
     }
     if (drug && !patient) {
@@ -263,7 +274,7 @@ register('task', {
     }
     return `${hdr}
       <div class="screen-body scroll task-b">
-        <div class="task-top">${aiButton()}${patientCard({ prn: hasPrn() })}</div>
+        <div class="task-top">${aiButton()}${patientCard({ prn: hasPrn(), confirmed: true })}</div>
         ${medList({ interactive: true })}
         <div class="sticky-foot${hamPending() ? ' ham-pending' : ''}">${button('투약수행', 'administer', { cta: true })}</div>
       </div>`;
@@ -279,6 +290,9 @@ register('task', {
     'prn-info': () => openMedDialog('prn'),
     'patient-detail': () => go('detail'),
     'scan-sim-lock': () => openScanSim([...patientSims(), drugSim(), otherDrugSim(), FAIL_SIM], handleMedScan),
+    // 투약 바코드: the PDA scan button reads this patient's next 투약; long-press picks one (불일치 · 인식 실패 포함)
+    'scan-drug': () => handleMedScan(firstOrder().code),
+    'scan-sim-drug': () => openScanSim([drugSim(), otherDrugSim(), FAIL_SIM], handleMedScan),
     'scan-patient': () => handleMedScan(PATIENT.barcode),
     mode: (t) => {
       state.planMode = t.dataset.mode;

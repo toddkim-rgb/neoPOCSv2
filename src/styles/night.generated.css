@@ -281,6 +281,10 @@ html.night .vstep {
   background: var(--n-card);
 }
 /* screens.css */
+html.night .drug-scan {
+  background: #162f41;
+}
+/* screens.css */
 html.night .vtp-btn {
   background: var(--n-card);
 }

@@ -106,7 +106,7 @@ stage.addEventListener('click', (e) => {
   if (fn) {
     e.preventDefault();
     // the PDA scan buttons stand for the laser scanner: 스캔음 (주간) · 진동 (야간)
-    if (/^scan(-patient|-bag|-tube|-unit)?$/.test(t.dataset.act)) feedback('scan');
+    if (/^scan(-patient|-drug|-bag|-tube|-unit)?$/.test(t.dataset.act)) feedback('scan');
     fn(t, cur.params, e);
   }
 });

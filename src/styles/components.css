@@ -377,6 +377,32 @@ html.shot .screen {
   color: var(--c-slate);
   font-variant-numeric: tabular-nums;
 }
+/* 환자 팔찌 확인됨 */
+.pcard-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  align-self: center;
+  height: 20px;
+  margin-left: auto;
+  padding: 0 8px 0 5px;
+  border-radius: 10px;
+  background: var(--grad);
+  font-size: 11px;
+  line-height: 13px;
+  font-weight: 600;
+  color: var(--c-white);
+}
+.pcard-ok svg {
+  width: 13px;
+  height: 13px;
+}
+.pcard-ok + .pcard-go {
+  margin-left: 4px;
+}
+.pcard.ok {
+  border-color: var(--c-blue);
+}
 .pcard-go {
   align-self: center;
   width: 18px;

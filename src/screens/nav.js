@@ -10,38 +10,18 @@ import { startMenu } from '../aibar.js';
 import { installed } from '../versions.js';
 import { appInfoSection, APP_INFO_ACTIONS } from './update.js';
 import { wake } from '../pii.js';
-import { isNight, syncNight } from '../night.js';
+import { isNight, applyNight } from '../night.js';
 
 const ALARM_MIN = [10, 20, 30];
 const LOGOUT_MIN = [10, 20, 30, 60];
 const PII_SEC = [0, 5, 10, 30, 60]; // 개인정보 자동 가림 (0 = 끄기)
-// 야간모드 시작 · 종료: 30분 단위, 하루를 돌아감
-const stepTime = (t, d) => {
-  const [h, m] = t.split(':').map(Number);
-  const v = (((h * 60 + m + d * 30) % 1440) + 1440) % 1440;
-  return `${String(Math.floor(v / 60)).padStart(2, '0')}:${String(v % 60).padStart(2, '0')}`;
-};
-const timeStepper = (t, act, off) => `
-  <span class="stp${off ? ' off' : ''}">
-    <button class="vstep" data-act="${act}" data-d="-1" aria-label="30분 앞으로"${off ? ' disabled' : ''}>−</button>
-    <span class="stp-v night-t">${t}</span>
-    <button class="vstep" data-act="${act}" data-d="1" aria-label="30분 뒤로"${off ? ' disabled' : ''}>+</button>
-  </span>`;
-
-/** 야간모드: 자동 전환 · 시작 · 종료 · 지금 바꾸기 */
+/** 야간모드: on / off (요청: 시간 설정 없이 스위치만) */
 function nightSection() {
-  const n = state.settings.night;
-  const now = document.documentElement.classList.contains('night'); // the mode on screen
+  const on = isNight();
   return `
       <p class="set-label">야간모드</p>
-      <div class="set-card night-card">
-        <div class="set-row first"><span>야간모드 자동 전환</span>${toggle(n.auto, 'night-auto', '')}</div>
-        <div class="set-row sub"><span>시작</span>${timeStepper(n.start, 'night-start', !n.auto)}</div>
-        <div class="set-row sub"><span>종료</span>${timeStepper(n.end, 'night-end', !n.auto)}</div>
-        <div class="set-row now"><span class="night-now-l">${icon.moon}<span>지금 <b>${now ? '야간' : '주간'}모드</b>${n.manual != null ? ' (직접 바꿈)' : ''}</span></span>
-          <button class="night-now" data-act="night-now">${now ? '주간모드로 바꾸기' : '야간모드 켜기'}</button></div>
-      </div>
-      <p class="set-note">야간에는 화면이 어두워지고, 알림·조작음 대신 진동으로 알립니다. 직접 바꾼 모드는 다음 자동 전환 시각까지 유지됩니다.</p>`;
+      <div class="set-card set-row solo night-row"><span class="night-now-l">${icon.moon}<span>야간모드</span></span>${toggle(on, 'night-toggle', '')}</div>
+      <p class="set-note">켜면 화면이 어두워지고, 알림·조작음 대신 진동으로 알립니다.</p>`;
 }
 const urgentCount = () => urgentItems().length;
 const memoPending = () => Object.values(state.pt).reduce((n, s) => n + s.memos.filter((m) => !m.reviewed).length, 0);
@@ -102,7 +82,6 @@ register('setting', {
       <p class="set-label">퀵 메뉴 설정</p>
       <div class="set-slots">${[0, 1, 2, 3].map(slot).join('')}</div>
       <p class="set-label">기타 설정</p>
-      <div class="set-card set-row solo"><span>고위험수행 2차인증</span>${toggle(state.settings.ham2, 'ham2', '')}</div>
       <div class="set-card set-row solo"><span>자동 로그아웃</span>${stepper(state.settings.autoLogout, 'auto-min', '')}</div>
       <div class="set-card set-row solo"><span>개인정보 자동 가림</span>
         <span class="stp">
@@ -137,42 +116,14 @@ register('setting', {
       a.min = stepIn(ALARM_MIN, a.min, Number(t.dataset.d));
       rerender();
     },
-    // 지원 여부 미정 (designer note): the switch is shown and remembered, the flows still always ask for 2차 인증
-    ham2: () => {
-      state.settings.ham2 = !state.settings.ham2;
-      rerender();
-      if (!state.settings.ham2) toast('고위험수행 2차인증 해제는 지원 여부가 정해지지 않아, 프로토타입에서는 표시만 바뀝니다.');
-    },
     'auto-min': (t) => {
       state.settings.autoLogout = stepIn(LOGOUT_MIN, state.settings.autoLogout, Number(t.dataset.d));
       rerender();
     },
-    // 야간모드
-    'night-auto': () => {
-      const n = state.settings.night;
-      n.auto = !n.auto;
-      n.manual = null;
-      syncNight();
-      rerender();
-    },
-    'night-start': (t) => {
-      const n = state.settings.night;
-      n.start = stepTime(n.start, Number(t.dataset.d));
-      n.manual = null;
-      syncNight();
-      rerender();
-    },
-    'night-end': (t) => {
-      const n = state.settings.night;
-      n.end = stepTime(n.end, Number(t.dataset.d));
-      n.manual = null;
-      syncNight();
-      rerender();
-    },
-    'night-now': () => {
-      const n = state.settings.night;
-      n.manual = !document.documentElement.classList.contains('night');
-      syncNight();
+    // 야간모드 on / off
+    'night-toggle': () => {
+      state.settings.night.on = !state.settings.night.on;
+      applyNight();
       rerender();
     },
     'pii-sec': (t) => {
@@ -236,7 +187,7 @@ export function openLogout() {
       ok: () => {
         closeSheet();
         resetUser();
-        syncNight(); // 로그아웃: 야간모드 설정도 기본값으로
+        applyNight(); // 로그아웃: 야간모드도 기본값(끔)으로
         reset('splash', {}, 'fade');
       },
     },

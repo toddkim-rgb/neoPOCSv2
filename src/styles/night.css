@@ -118,45 +118,16 @@ html.night .night-badge svg {
   height: 12px;
 }
 
-/* 사용자설정 · 야간모드 */
-.night-card .set-row.first {
-  border-top: 0;
-  padding-left: 16px;
-}
-.night-card .set-row.now {
-  padding-left: 16px;
-}
-.stp.off {
-  opacity: 0.45;
-}
-.night-t {
-  min-width: 44px;
-  font-variant-numeric: tabular-nums;
-}
+/* 사용자설정 · 야간모드 (on / off) */
 .night-now-l {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
 }
 .night-now-l svg {
   width: 18px;
   height: 18px;
   color: #6b7cff;
-}
-.night-now {
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 15px;
-  background: #2c3a63;
-  font-size: 12px;
-  line-height: 14px;
-  font-weight: 600;
-  color: #fff;
-}
-html.night .night-now {
-  background: #e6ebf2;
-  color: #1a212c;
 }
 /* the hub: a small badge next to the sparkle while it is night */
 .hub-spark + .night-badge {

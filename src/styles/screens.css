@@ -2567,6 +2567,33 @@ html.shot .cam-sway {
 }
 
 /* ---------- 투약: a chosen patient's list before the wristband scan (locked) ---------- */
+/* 환자 확인 후 투약 바코드 스캔 안내 */
+.drug-scan {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px dashed var(--c-blue);
+  border-radius: var(--r-card);
+  background: #f2f9fe;
+}
+.drug-scan img {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+}
+.drug-scan-t {
+  font-size: 17px;
+  line-height: 21px;
+  font-weight: 700;
+}
+.drug-scan-d {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--c-slate);
+}
 .task-lock .lock-hint {
   margin: 0;
 }

@@ -43,4 +43,6 @@
     <!-- AI 커맨드바 + → 사진 촬영: the rear camera inside the app (getUserMedia) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- 야간모드: 알림 · 조작을 소리 대신 진동으로 (navigator.vibrate) -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>

@@ -181,8 +181,13 @@ try {
   await scanWedge('#FAIL');
   await expectDialog('바코드 인식 불가');
   await tap('.dlg [data-sheet-act="ok"]', 'fail-ok');
-  // the wristband alone activates the 투약 list (no 처방 바코드 step): 고위험약물 → 1차 인증 opens at once
-  await tap('[data-act="scan"]', 'ham-first');
+  // 환자 팔찌 → 환자정보 확인 (투약 목록은 흐림) + '투약 바코드 스캔' → 투약 바코드 → 활성화; 고위험약물 → 1차 인증
+  await tap('[data-act="scan"]', 'med-wristband');
+  await expect('task');
+  if (!(await page.$('.task-drug .drug-scan')) || !(await page.$('.pcard.ok .pcard-ok'))) throw new Error('after the wristband: 환자 확인 + 투약 바코드 스캔 안내');
+  if (await page.$('.task-drug [data-act="status-sheet"], .task-drug .mswipe')) throw new Error('the 투약 list stays inactive until the 투약 바코드');
+  if ((await footBtns()) !== '투약 바코드 스캔') throw new Error(`투약 바코드 button: ${await footBtns()}`);
+  await tap('[data-act="scan-drug"]', 'ham-first');
   await expect('ham');
   await tap('[data-act="hdr-close"]', 'ham-close-first');
   await expect('task');
@@ -699,7 +704,13 @@ try {
   await expectDialog('환자 불일치');
   await tap('.dlg [data-sheet-act="cancel"]', 'ktw-other-cancel');
   await expectTitle('강태우(20733345)');
-  await tap('[data-act="scan-patient"]', 'ktw-drug'); // 강태우's wristband → active; 염화칼륨 = 고위험약물
+  await tap('[data-act="scan-patient"]', 'ktw-wristband'); // 강태우's wristband → 환자 확인, 투약 바코드를 기다림
+  await expect('task');
+  if (!(await page.$('.task-drug'))) throw new Error('강태우: 투약 바코드 스캔 안내 expected');
+  await scanWedge('D1001'); // 김철수's 처방: 불일치
+  await expectDialog('환자/처방 불일치');
+  await tap('.dlg [data-sheet-act="ok"]', 'ktw-mismatch-2-ok');
+  await tap('[data-act="scan-drug"]', 'ktw-drug'); // 염화칼륨 = 고위험약물
   await expect('ham');
   const ktwHam = await page.$eval('.ham-drug', (e) => e.textContent);
   if (!ktwHam.includes('염화칼륨')) throw new Error(`강태우 고위험약물: ${ktwHam}`);
@@ -855,7 +866,7 @@ try {
   await expect('task');
   await expectTitle('문가은(21033456)');
   if (await page.$('.scan-warn')) throw new Error('스캔: the wristband should already count');
-  if (!(await page.$('.task-b'))) throw new Error('스캔 → 투약: the wristband should open the active list');
+  if (!(await page.$('.task-drug .drug-scan'))) throw new Error('스캔 → 투약: the wristband should ask for the 투약 바코드');
   await leaveToHub('qscan-leave');
   await plus('ai-scan', 'qscan-2');
   await scanWedge('D6001');
@@ -900,13 +911,13 @@ try {
   // ---------- 앱 버전 · 업데이트 (시연) ----------
   await tap('[data-act="open-setting"]', 'ver-setting');
   const verNow = await page.$eval('.app-row .v b', (e) => e.textContent);
-  if (verNow !== 'v0.4.0') throw new Error(`current version: ${verNow}`);
+  if (verNow !== 'v0.5.0') throw new Error(`current version: ${verNow}`);
   if (await page.$('.ver-list')) throw new Error('버전 이력 should not be on the settings screen');
   await tap('[data-act="open-versions"]', 'ver-history');
   await expect('versions');
   // 현재 버전 opened, the others folded
   const opened = await page.$$eval('.ver-card.open .ver-head b', (els) => els.map((e) => e.textContent).join(','));
-  if (opened !== 'v0.4.0') throw new Error(`버전 이력 opened cards: ${opened}`);
+  if (opened !== 'v0.5.0') throw new Error(`버전 이력 opened cards: ${opened}`);
   await tap('[data-act="ver-toggle"][data-v="0.2.0"]', 'ver-open-0.2.0');
   await tap('[data-act="pick-version"][data-v="0.2.0"]', 'ver-pick-0.2.0');
   await expectDialog('이전 버전으로 변경');
@@ -920,7 +931,7 @@ try {
   await tap('[data-act="login-id"]', 'ver-login-blocked');
   await expectDialog('필수 업데이트');
   await tap('.dlg [data-sheet-act="ok"]', 'ver-force-update');
-  await waitFor(() => document.querySelector('.scr-splash .logo-ver')?.textContent === 'v0.4.0', 'updated to v0.4.0', 10000);
+  await waitFor(() => document.querySelector('.scr-splash .logo-ver')?.textContent === 'v0.5.0', 'updated to v0.5.0', 10000);
   await sleep(700);
   if (await dialog()) throw new Error(`latest version should not ask again: ${await dialog()}`);
 
@@ -939,27 +950,15 @@ try {
   await sleep(100);
   if (await isMasked()) throw new Error('a touch should show the names again');
 
-  // ---------- 야간모드: 22:00–07:00 · 사용자설정 · 주간 소리 / 야간 진동 ----------
-  const win = await page.evaluate(async () => {
-    const { inNightWindow } = await import('/src/night.js');
-    const at = (h, m) => inNightWindow(new Date(2026, 10, 17, h, m), { start: '22:00', end: '07:00' });
-    return [at(21, 59), at(22, 0), at(23, 30), at(6, 59), at(7, 0), at(12, 0)].join(',');
-  });
-  if (win !== 'false,true,true,true,false,false') throw new Error(`night window 22:00–07:00: ${win}`);
+  // ---------- 야간모드: 사용자설정 on / off · 주간 소리 / 야간 진동 ----------
   const isNightNow = () => page.$eval('html', (e) => e.classList.contains('night'));
   const fbNow = () => page.$eval('html', (e) => e.dataset.fb || '');
   await tap('[data-act="open-setting"]', 'night-setting');
-  const nightTimes = await page.$$eval('.night-card .night-t', (els) => els.map((e) => e.textContent).join('-'));
-  if (nightTimes !== '22:00-07:00') throw new Error(`야간모드 default times: ${nightTimes}`);
-  if ((await page.$eval('.night-card [data-act="night-auto"]', (e) => e.getAttribute('aria-checked'))) !== 'true') throw new Error('자동 전환 should start on');
-  await tap('[data-act="night-start"][data-d="1"]', 'night-start-2230');
-  if ((await page.$eval('.night-card .night-t', (e) => e.textContent)) !== '22:30') throw new Error('시작 should step by 30분');
-  await tap('[data-act="night-start"][data-d="-1"]', 'night-start-2200');
-  await tap('[data-act="night-auto"]', 'night-auto-off'); // whatever the real time is, now 주간
-  if (await isNightNow()) throw new Error('자동 전환 off → 주간모드');
-  if (!(await page.$eval('[data-act="night-start"]', (e) => e.disabled))) throw new Error('시작 · 종료 are off while 자동 전환 is off');
-  await tap('[data-act="night-now"]', 'night-now-on');
-  if (!(await isNightNow())) throw new Error('지금 야간모드 켜기 should turn the screens dark');
+  if (await page.$('[data-act="ham2"], [data-act="night-auto"], .night-t')) throw new Error('고위험수행 2차인증 · 야간모드 시간 설정 should be gone');
+  if ((await page.$eval('[data-act="night-toggle"]', (e) => e.getAttribute('aria-checked'))) !== 'false') throw new Error('야간모드 should start off');
+  if (await isNightNow()) throw new Error('야간모드 off → 주간');
+  await tap('[data-act="night-toggle"]', 'night-on');
+  if (!(await isNightNow())) throw new Error('야간모드 on should turn the screens dark');
   if ((await fbNow()) !== 'vibrate:alert') throw new Error(`the switch should vibrate at night: ${await fbNow()}`);
   const bg = await page.$eval('.set-card', (e) => getComputedStyle(e).backgroundColor);
   if (bg === 'rgb(255, 255, 255)') throw new Error('야간모드 cards should be dark');
@@ -975,10 +974,9 @@ try {
   const vib = await page.evaluate(() => JSON.stringify(window.__vib));
   if (!vib.includes('[35]')) throw new Error(`the scan vibration pattern: ${vib}`);
   await tap('[data-act="open-setting"]', 'night-setting-2');
-  await tap('[data-act="night-now"]', 'night-now-off');
-  if (await isNightNow()) throw new Error('주간모드로 바꾸기');
+  await tap('[data-act="night-toggle"]', 'night-off');
+  if (await isNightNow()) throw new Error('야간모드 off');
   if ((await fbNow()) !== 'sound:alert') throw new Error(`by day the feedback is a sound: ${await fbNow()}`);
-  await tap('[data-act="night-auto"]', 'night-auto-on');
   console.log('\nRESULT: OK', errors.length ? `(page errors: ${errors.join(' | ')})` : '(no page errors)');
 } catch (e) {
   console.log('\nRESULT: FAIL', e.message, errors.length ? `page errors: ${errors.join(' | ')}` : '');
