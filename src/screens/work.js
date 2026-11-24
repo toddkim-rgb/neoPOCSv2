@@ -502,13 +502,14 @@ const vitalValues = () => {
   if (!v.values) v.values = Object.fromEntries(state.vitals.items.map((i) => [i.k, '']));
   return v.values;
 };
-/** The patient's previous record of item `k` (임상관찰기록): { v, flag, time } — an item left empty last time comes from the record before. */
+/** The patient's previous record of item `k` (임상관찰기록): { v, flag, time } — an item left empty last time comes from the record before.
+ * `time` is the full 'MM/DD HH:MM' (날짜 포함, 2026-11-24 요청 — 시각만으로는 언제 잰 값인지 알기 어려움). */
 export function prevVital(k) {
   const i = state.vitals.items.find((x) => x.k === k);
   if (!i) return null;
-  if (String(i.v ?? '').trim()) return { v: i.v, flag: i.flag || flagOf(k, i.v), time: (i.at || '').split(' ')[1] || state.vitals.time };
+  if (String(i.v ?? '').trim()) return { v: i.v, flag: i.flag || flagOf(k, i.v), time: i.at || `${DEMO_DATE.slice(5).replace('-', '/')} ${state.vitals.time}` };
   const row = state.pt[state.pid].vhist.find((r) => String(r.values[k] ?? '').trim());
-  return row ? { v: row.values[k], flag: flagOf(k, row.values[k]), time: row.at.split(' ')[1] } : null;
+  return row ? { v: row.values[k], flag: flagOf(k, row.values[k]), time: row.at } : null;
 }
 export const prevValues = () => Object.fromEntries(state.vitals.items.map((i) => [i.k, prevVital(i.k)?.v ?? '']));
 
@@ -532,7 +533,7 @@ export function stepValue(k, cur, d) {
 const FLAG_LABEL = { danger: '경고', warn: '주의' };
 const fmt = (k, n) => (VITAL_STEP[k] < 1 ? n.toFixed(1) : String(Math.round(n)));
 /** Input width that hugs the number, like the design's centred values (Pretendard 20px digits ≈ 11.6px). */
-const valueWidth = (v) => {
+export const valueWidth = (v) => {
   const t = String(v);
   if (!t) return 34; // the '입력' placeholder
   return Math.round(Math.max(2, t.replace(/\./g, '').length) * 11.6 + (t.match(/\./g) || []).length * 5 + 2);
@@ -549,7 +550,9 @@ export const flagTag = (k, value) => {
   return [FLAG_LABEL[flag] || '정상', flag || 'ok'];
 };
 
-export function vitalCell(item, value) {
+/** `extra`: more markup appended after the 이전 값 line (e.g. vitals.js's AI 인식 상태 tag).
+ * `prev`: false hides the 이전 값 line (vitals.js, before its patient is known — prevLine would show the wrong patient's record). */
+export function vitalCell(item, value, { extra = '', prev = true } = {}) {
   const flag = flagOf(item.k, value);
   const [label, cls] = flagTag(item.k, value);
   return `
@@ -561,7 +564,8 @@ export function vitalCell(item, value) {
         <button class="vstep" data-act="vstep" data-k="${item.k}" data-d="1" aria-label="${item.k} 증가">+</button>
         <span class="vunit">${item.unit}</span>
       </div>
-      ${prevLine(item.k)}
+      ${prev ? prevLine(item.k) : ''}
+      ${extra}
     </div>`;
 }
 

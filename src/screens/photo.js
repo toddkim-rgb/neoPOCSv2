@@ -4,6 +4,8 @@
 //   환자 모니터 → 활력징후 (vitals.js vreview) · 주입 펌프 → 주입 정보 + 처방 속도 비교 (vpump)
 //   환부 · 환자 상태 → 부위 · 유형 · 크기(직접 측정) · 이전 사진 비교 (vwound) · 기타 → 태그 · 메모로 간호기록 첨부 (vother)
 // 자(눈금)로 크기를 추정하던 기능은 촬영 거리·각도에 따라 부정확해 뺐습니다 (2026-11-23 요청).
+// 환자 팔찌 스캔은 기록/저장/첨부 버튼을 누를 때 합니다 (2026-11-24 요청, vitals.js의 patientKnown/withPatient와 같은
+// 패턴): 그 전까지는 patientLine과 그 환자의 이전 기록(이전 사진 비교 · 처방 비교)을 보여주지 않습니다.
 // Records are kept per patient (state.pt[pid].photos) and listed on 환자 상세 '사진 기록'.
 // Not in the Figma file: built from the existing cards, chips, check rows and status blocks.
 import { register, replace, pop, rerender } from '../router.js';
@@ -11,7 +13,7 @@ import { header, button, esc, toast, openSheet, closeSheet, patientLine, badge, 
 import { icon } from '../icons.js';
 import { NURSE, DEMO_DATE } from '../data.js';
 import { state } from '../state.js';
-import { backToCamera, switchPurpose } from './vitals.js';
+import { backToCamera, switchPurpose, patientKnown, withPatient } from './vitals.js';
 import pumpUrl from '../assets/img/pump-photo.jpg';
 import woundUrl from '../assets/img/wound-photo.jpg';
 import woundPrevUrl from '../assets/img/wound-prev.jpg';
@@ -156,10 +158,10 @@ const AI_FIELDS = PUMP_FIELDS.filter((x) => !x.order);
 function pumpForm() {
   const v = state.vphoto;
   if (!v.pump) {
-    // a photo that is not of a pump (chosen via '다른 용도로'): nothing is read
+    // a photo that is not of a pump (chosen via '다른 용도로'): nothing is read. The 약물·수액 field comes from the
+    // patient's IV order, so it stays empty until the patient is known (filled in on render, see below).
     const read = v.shows === 'pump';
-    const order = IV[state.pid] || IV[21212457];
-    v.pump = { read, ack: false, values: Object.fromEntries(PUMP_FIELDS.map((f) => [f.k, f.order ? order.name : read ? f.read : ''])) };
+    v.pump = { read, ack: false, values: Object.fromEntries(PUMP_FIELDS.map((f) => [f.k, f.order ? '' : read ? f.read : ''])) };
   }
   return v.pump;
 }
@@ -169,15 +171,17 @@ register('vpump', {
   render: () => {
     const v = current('pump');
     const f = pumpForm();
-    const order = IV[state.pid] || IV[21212457];
+    const known = patientKnown();
+    const order = known ? IV[state.pid] || IV[21212457] : null;
+    if (order && !f.values.drug) f.values.drug = order.name;
     const rate = Number(f.values.rate);
     const has = String(f.values.rate).trim() !== '';
-    const match = has && rate === order.rate;
-    const diff = rate - order.rate;
+    const match = known && has && rate === order.rate;
+    const diff = known && has ? rate - order.rate : 0;
     return `
       ${header({ title: '주입 펌프', left: 'back', right: 'close' })}
       <div class="screen-body scroll ocr-review ph-review">
-        ${patientLine()}
+        ${known ? patientLine() : ''}
         <h2 class="vr-title ask gtext">${
           f.read ? `${v.attach ? '주입 펌프 사진을 첨부하신 것 같습니다.' : '주입 펌프를 촬영하신 것 같습니다.'}<br>주입 정보를 기록할까요?` : '주입 펌프 정보를<br>직접 입력해 주세요.'
         }</h2>
@@ -188,15 +192,18 @@ register('vpump', {
             (x) => `
             <label class="pf-row" data-k="${x.k}">
               <span class="pf-k">${x.name}</span>
-              <input class="pf-in${x.text ? ' text' : ''}" data-k="${x.k}" type="text" ${x.text ? '' : 'inputmode="decimal"'} value="${esc(f.values[x.k])}" placeholder="입력" autocomplete="off">
+              <input class="pf-in${x.text ? ' text' : ''}" data-k="${x.k}" type="text" ${x.text ? '' : 'inputmode="decimal"'} value="${esc(f.values[x.k])}" placeholder="${x.order && !known ? '환자 확인 후 자동 입력' : '입력'}" autocomplete="off">
               <span class="pf-u">${x.unit}</span>
               ${x.order ? '<span class="vf-tag ok">처방</span>' : `<span class="vf-tag ${f.read ? 'ai' : 'low'}">${f.read ? `AI ${x.conf}%` : '직접 입력'}</span>`}
             </label>`,
           ).join('')}</div>
         </section>
-        <section class="ocr-card pf-order ${!has ? '' : match ? 'ok' : 'warn'}">
-          <div class="ocr-card-head"><span class="ocr-card-title gtext">처방 비교</span>${has ? badge(match ? '일치' : '불일치', match ? 'count-grad' : 'nar') : ''}</div>
-          <div class="pf-cmp">
+        <section class="ocr-card pf-order ${!known || !has ? '' : match ? 'ok' : 'warn'}">
+          <div class="ocr-card-head"><span class="ocr-card-title gtext">처방 비교</span>${known && has ? badge(match ? '일치' : '불일치', match ? 'count-grad' : 'nar') : ''}</div>
+          ${
+            !known
+              ? '<p class="pf-msg">환자 확인 후 처방과 비교합니다.</p>'
+              : `<div class="pf-cmp">
             <div><span class="k">처방</span><b>${esc(order.name)}</b><b class="r">${order.rate} mL/h</b></div>
             <div><span class="k">펌프</span><b>${esc(f.values.drug || '-')}</b><b class="r${has && !match ? ' bad' : ''}">${has ? `${rate} mL/h` : '-'}</b></div>
           </div>
@@ -207,6 +214,7 @@ register('vpump', {
                 ? `<p class="pf-msg ok">${icon.checkCircle}<span>주입 속도가 처방과 같습니다.</span></p>`
                 : `<p class="pf-msg warn">${icon.error}<span>주입 속도가 처방(${order.rate} mL/h)과 다릅니다 (${diff > 0 ? '+' : ''}${diff} mL/h). 펌프 설정을 확인해 주세요.</span></p>
                    <button class="ham-check${f.ack ? ' on' : ''}" data-act="pump-ack"><span class="cb">${icon.check}</span><span>펌프 설정을 확인했습니다 (재설정 · 담당의 확인)</span></button>`
+          }`
           }
         </section>
       </div>
@@ -234,22 +242,27 @@ register('vpump', {
     },
     'pump-save': () => {
       const f = pumpForm();
-      const empty = PUMP_FIELDS.filter((x) => !String(f.values[x.k]).trim());
+      // 약물·수액 is filled from the patient's IV order once the wristband is scanned, below
+      const empty = PUMP_FIELDS.filter((x) => x.k !== 'drug' && !String(f.values[x.k]).trim());
       if (empty.length) {
         toast(`${empty.map((x) => x.name).join(', ')} 값을 입력해 주세요.`);
         return nudge(`.pf-row[data-k="${empty[0].k}"]`);
       }
-      const order = IV[state.pid] || IV[21212457];
-      const match = Number(f.values.rate) === order.rate;
-      if (!match && !f.ack) {
-        toast('처방과 다른 주입 속도입니다. 펌프 설정 확인에 체크해 주세요.');
-        return nudge('.pf-order .ham-check');
-      }
-      save({
-        kind: 'pump',
-        title: f.values.drug,
-        detail: `${f.values.rate} mL/h · 남은 ${f.values.vtbi} mL · ${f.values.left} 남음`,
-        flag: match ? null : `처방 ${order.rate} mL/h와 불일치 · 펌프 설정 확인`,
+      withPatient('주입 정보를 기록할 환자의\n팔찌 바코드를 스캔하세요.', () => {
+        const order = IV[state.pid] || IV[21212457];
+        if (!f.values.drug) f.values.drug = order.name;
+        rerender(); // shows the 처방 비교 now that the patient is known
+        const match = Number(f.values.rate) === order.rate;
+        if (!match && !f.ack) {
+          toast('처방과 다른 주입 속도입니다. 펌프 설정 확인에 체크해 주세요.');
+          return nudge('.pf-order .ham-check');
+        }
+        save({
+          kind: 'pump',
+          title: f.values.drug,
+          detail: `${f.values.rate} mL/h · 남은 ${f.values.vtbi} mL · ${f.values.left} 남음`,
+          flag: match ? null : `처방 ${order.rate} mL/h와 불일치 · 펌프 설정 확인`,
+        });
       });
     },
   },
@@ -274,12 +287,13 @@ register('vwound', {
   render: () => {
     const v = current('wound');
     const f = woundForm();
-    const prev = f.site && state.pt[state.pid].photos.find((p) => p.kind === 'wound' && p.site === f.site);
+    // the previous-photo comparison needs the patient, which isn't known until save (환자 팔찌 스캔)
+    const prev = patientKnown() && f.site && state.pt[state.pid].photos.find((p) => p.kind === 'wound' && p.site === f.site);
     const trend = prev && area(f) && area(prev) ? (area(f) < area(prev) * 0.95 ? '크기 감소' : area(f) > area(prev) * 1.05 ? '크기 증가' : '변화 없음') : '';
     return `
       ${header({ title: '환자 상태 사진', left: 'back', right: 'close' })}
       <div class="screen-body scroll ocr-review ph-review">
-        ${patientLine()}
+        ${patientKnown() ? patientLine() : ''}
         <h2 class="vr-title ask gtext">${
           v.shows === 'wound' ? '환부 사진으로 보입니다.<br>상처 기록으로 저장할까요?' : '환자 상태 사진을<br>기록합니다.'
         }</h2>
@@ -343,15 +357,26 @@ register('vwound', {
       const f = woundForm();
       // 환자 사진은 필수 항목 없음 (2026-11-23 요청): 고르지 않은 항목은 비워 둔 채 저장
       const kindTitle = f.type ? `${f.type}${f.stage ? ` ${f.stage}` : ''}` : '';
-      save({
-        kind: 'wound',
-        title: [f.site, kindTitle].filter(Boolean).join(' · ') || '환자 상태 사진',
-        detail: [f.w && f.h ? `${f.w} × ${f.h} cm` : '', f.memo].filter(Boolean).join(' · '),
-        site: f.site,
-        type: f.type,
-        stage: f.stage,
-        w: f.w,
-        h: f.h,
+      withPatient('환자 상태 사진을 저장할 환자의\n팔찌 바코드를 스캔하세요.', () => {
+        // a previous photo of the same site only shows up once the patient is known (환자 팔찌 스캔) — let the
+        // nurse see that comparison once before committing
+        const prev = f.site && state.pt[state.pid].photos.find((p) => p.kind === 'wound' && p.site === f.site);
+        if (prev && !f.prevShown) {
+          f.prevShown = true;
+          rerender();
+          toast('이전 사진과 비교했습니다. 맞으면 저장을 다시 눌러 주세요.');
+          return nudge('.ph-prev');
+        }
+        save({
+          kind: 'wound',
+          title: [f.site, kindTitle].filter(Boolean).join(' · ') || '환자 상태 사진',
+          detail: [f.w && f.h ? `${f.w} × ${f.h} cm` : '', f.memo].filter(Boolean).join(' · '),
+          site: f.site,
+          type: f.type,
+          stage: f.stage,
+          w: f.w,
+          h: f.h,
+        });
       });
     },
   },
@@ -375,7 +400,7 @@ register('vother', {
     return `
       ${header({ title: '사진 첨부', left: 'back', right: 'close' })}
       <div class="screen-body scroll ocr-review ph-review">
-        ${patientLine()}
+        ${patientKnown() ? patientLine() : ''}
         <h2 class="vr-title ask gtext">${v.shows === 'doc' ? '서류를 촬영하신 것 같습니다.<br>간호기록에 첨부할까요?' : '사진을 간호기록에<br>첨부합니다.'}</h2>
         ${mediaCard(v)}
         <section class="ocr-card ph-form">
@@ -407,7 +432,7 @@ register('vother', {
         toast('태그를 하나 이상 선택해 주세요.');
         return nudge('.ph-k[data-f="tags"]');
       }
-      save({ kind: 'other', title: f.tags.join(' · '), detail: f.memo, tags: [...f.tags] });
+      withPatient('사진을 첨부할 환자의\n팔찌 바코드를 스캔하세요.', () => save({ kind: 'other', title: f.tags.join(' · '), detail: f.memo, tags: [...f.tags] }));
     },
   },
   onBack: () => (backToCamera(), true),

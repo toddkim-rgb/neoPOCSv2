@@ -451,7 +451,7 @@ try {
   const firstCells = await page.$$eval('.vval', (els) => els.map((e) => e.value).join(''));
   if (firstCells) throw new Error(`활력징후 cells should start empty: ${firstCells}`);
   const prevSbp = await page.$eval('.vt-cell[data-k="SBP"] .vt-prev', (e) => e.textContent);
-  if (prevSbp !== '이전 118 · 15:30') throw new Error(`previous SBP: ${prevSbp}`);
+  if (prevSbp !== '이전 118 · 09/17 15:30') throw new Error(`previous SBP: ${prevSbp}`);
   if ((await page.$eval('.hdr-title', (e) => e.textContent)) !== '활력징후') throw new Error('활력징후 header should be the 업무명');
   // tapping an empty cell fills the previous value (selected, so typing replaces it)
   await page.click('.vval[data-k="DBP"]');
@@ -508,8 +508,8 @@ try {
   }));
   console.log('직전 기록:', prevRec);
   if (prevRec.table || prevRec.cells.length !== 6 || !prevRec.head.startsWith('직전 기록') || !prevRec.head.includes('24시간 이내')) throw new Error(`직전 기록: ${JSON.stringify(prevRec)}`);
-  // measured after 15:30 today: the replaced record (09/17 15:30, SBP 118) is the previous one
-  if (picked > '15:30' && (!prevRec.head.includes('09/17 15:30') || !prevRec.cells[0].includes('118'))) throw new Error(`직전 기록 values: ${JSON.stringify(prevRec)}`);
+  // measured after 15:30 today: the replaced record (09/17 15:30, SBP 118) is the previous one; each cell shows its own date·time (2026-11-24)
+  if (picked > '15:30' && (!prevRec.cells[0].includes('118') || !prevRec.cells[0].includes('09/17 15:30'))) throw new Error(`직전 기록 values: ${JSON.stringify(prevRec)}`);
   await tap('[data-act="vitals-more"]', 'vital-prev-close');
   if (await page.$('.vprev')) throw new Error('접기 should hide 직전 기록');
 
@@ -881,7 +881,7 @@ try {
     await plus('ai-photo', `${label}-sheet`);
     await tap(k === 'gallery' ? '.photo-opt[data-sheet-act="gallery"]' : `.photo-opt[data-k="${k}"]`, label);
   };
-  // 음성메모: 녹음 → 환자 팔찌 스캔 → 검토 → 저장 → 목록
+  // 음성메모: 녹음 → 검토 → 저장 (환자 팔찌 스캔) → 목록
   await plus('ai-voice-memo', 'free-memo');
   await expect('voice');
   await expectTitle('음성메모');
@@ -898,16 +898,20 @@ try {
   await tap('.dlg [data-sheet-act="cancel"]', 'free-memo-stay');
   await expect('voice');
   await tap('[data-act="finish-record"]', 'free-memo-finish');
+  // the patient isn't known yet: no patient strip, and the script still says 환자
+  await expect('voice');
+  const shownBeforeScan = await shownPatient();
+  if (shownBeforeScan) throw new Error(`patient should not be shown before 저장: ${shownBeforeScan}`);
+  await tap('[data-act="toggle-script"]', 'free-memo-script');
+  const speakersBefore = await page.$$eval('.vr-chat .chat-who', (els) => els.map((e) => e.textContent).join(' | '));
+  if (!speakersBefore.includes('환자 ')) throw new Error(`unscanned speaker expected: ${speakersBefore}`);
+  await tap('[data-act="save"]', 'free-memo-save');
   await expectDialog('환자 팔찌 스캔');
   await scanWedge('D2001'); // a prescription is not a wristband
   await expectDialog('환자 팔찌 스캔');
   await scanWedge('P20733345');
   await expect('voice');
   await expectTitle('강태우(20733345)');
-  await tap('[data-act="toggle-script"]', 'free-memo-script');
-  const speakers = await page.$$eval('.vr-chat .chat-who', (els) => els.map((e) => e.textContent).join(' | '));
-  if (!speakers.includes('강태우')) throw new Error(`scanned patient should name the speaker: ${speakers}`);
-  await tap('[data-act="save"]', 'free-memo-save');
   await tap('[data-act="to-memos"]', 'free-memo-list');
   await expect('vmain');
   const listed = await page.$$eval('.memo-rows .myrow-name', (els) => els.map((e) => e.textContent).join(' / '));
@@ -935,19 +939,18 @@ try {
   if (!(await page.$('.scan-warn'))) throw new Error('스캔 → 처방: wristband warning expected');
   await leaveToHub('qscan-leave-2');
 
-  // 사진 촬영: 촬영 → 환자 팔찌 스캔 → AI 분석 → 측정값 확인
+  // 사진 촬영: 촬영 → AI 분석 → 측정값 확인 (환자 미확인) → hdr-close (환자 팔찌 스캔은 '확인' 클릭 시로 미룸, 2026-11-24)
   await photoPick('device', 'camera');
   await expect('vcam');
   await waitFor(() => document.querySelector('.scr-vcam')?.dataset.phase === 'detected', '모니터 감지', 6000);
   await tap('[data-act="shoot"]', 'camera-shoot');
-  await expectDialog('환자 팔찌 스캔');
-  await scanWedge('P20876654');
   await waitFor(() => document.querySelector('.scr-vreview'), 'camera analysis', 8000);
-  await expectTitle('안소율(20876654)');
+  if (await page.$('.pline')) throw new Error('patient should not show before the wristband scan');
   await tap('[data-act="hdr-close"]', 'camera-close');
   await expect('hub');
 
-  // 사진첨부: 갤러리(브라우저는 시연 앨범) → 사진 선택 → 환자 팔찌 스캔(스캔하기 = 김철수) → AI 분석
+  // 사진첨부: 갤러리(브라우저는 시연 앨범) → 사진 선택 → AI 분석 → 측정값 확인(환자 미확인) → '확인' 클릭 시 환자 팔찌
+  // 스캔(스캔하기 = 김철수) → 전송 전 최종 확인 → EMR 전송
   await photoPick('gallery', 'attach');
   await expect('vcam');
   await waitFor(() => document.querySelector('.sheet .album-item'), 'album', 3000);
@@ -956,20 +959,29 @@ try {
   if (!(await page.$eval('[data-sheet-act="attach"]', (e) => e.disabled))) throw new Error('첨부하기 should wait for a photo');
   await tap('.album-item[data-k="ok"]', 'attach-pick');
   await tap('[data-sheet-act="attach"]', 'attach-attach');
-  await expectDialog('환자 팔찌 스캔');
-  await tap('.dlg [data-sheet-act="scan"]', 'attach-wristband');
   await waitFor(() => document.querySelector('.scr-vreview'), 'attach analysis', 8000);
-  await expectTitle('김철수(21212457)');
+  if (await page.$('.pline')) throw new Error('patient should not show before the wristband scan');
   const again = await page.$eval('[data-act="retake"]', (e) => e.textContent);
   if (again !== '다른 사진 선택') throw new Error(`attach review button: ${again}`);
-  if (!(await page.$('.vfield[data-k="SBP"] .vt-prev'))) throw new Error('측정값 확인 should show the previous values');
+  if (await page.$('.vt-cell[data-k="SBP"] .vt-prev')) throw new Error('이전 측정값 should wait for the patient');
   await voiceDemo('attach');
-  const ocrBt = await page.$eval('.vfield[data-k="BT"]', (e) => e.className + '|' + e.querySelector('.vf-in').value);
+  const ocrBt = await page.$eval('.vt-cell[data-k="BT"]', (e) => (e.querySelector('.vf-tag')?.className || '') + '|' + e.querySelector('.vval').value);
   if (!ocrBt.includes('edited') || ocrBt.endsWith('|')) throw new Error(`voice should fill the unread 체온: ${ocrBt}`);
-  await tap('[data-act="hdr-close"]', 'attach-close');
+  await tap('[data-act="review-ok"]', 'attach-review-ok');
+  await expectDialog('환자 팔찌 스캔');
+  await tap('.dlg [data-sheet-act="scan"]', 'attach-wristband');
+  await waitFor(() => document.querySelector('.sheet-title')?.textContent === '전송 전 최종 확인', 'confirm sheet', 4000);
+  const confirmPatient = await page.$eval('.sheet-drug', (e) => e.textContent);
+  if (!confirmPatient.includes('김철수(21212457)')) throw new Error(`confirm sheet patient: ${confirmPatient}`);
+  await tap('[data-sheet-act="send"]', 'attach-send');
+  await expect('vdone');
+  await expectTitle('김철수(21212457)');
+  await tap('[data-act="finish"]', 'attach-finish');
+  await expect('hub');
 
   // ---------- 사진 촬영 용도 (2026-11-23) ----------
-  // 주입 펌프: 시연 대상 → 감지 → 촬영 → 팔찌(강태우) → 펌프 표시값 · 처방 비교(처방 120 vs 펌프 100 → 확인 체크 필수) → 기록
+  // 주입 펌프: 시연 대상 → 감지 → 촬영 → 펌프 표시값(환자 미확인) → '기록' 클릭 시 팔찌(강태우) 스캔 →
+  // 처방 비교(처방 120 vs 펌프 100 → 확인 체크 필수) → 기록 (2026-11-24: 스캔은 저장 시점으로)
   await photoPick('device', 'pump');
   await expect('vcam');
   await tap('[data-act="cam-target"]', 'pump-target');
@@ -978,15 +990,17 @@ try {
   const pumpTag = await page.$eval('.focus-tag span', (e) => e.textContent);
   if (pumpTag !== '주입 펌프 감지') throw new Error(`pump detection badge: ${pumpTag}`);
   await tap('[data-act="shoot"]', 'pump-shoot');
-  await expectDialog('환자 팔찌 스캔');
-  await scanWedge('P20733345');
   await waitFor(() => document.querySelector('.scr-vpump'), 'pump record', 6000);
-  await expectTitle('강태우(20733345)');
+  if (await page.$('.pline')) throw new Error('patient should not show before 기록');
   const pumpRate = await page.$eval('.pf-in[data-k="rate"]', (e) => e.value);
   if (pumpRate !== '100') throw new Error(`pump rate read: ${pumpRate}`);
+  if (await page.$('.pf-order.warn')) throw new Error('처방 비교 should wait for the patient');
+  await tap('[data-act="pump-save"]', 'pump-save-scan');
+  await expectDialog('환자 팔찌 스캔');
+  await scanWedge('P20733345');
+  await expect('vpump'); // blocked: order mismatch, 확인 체크박스 미체크
+  await expectTitle('강태우(20733345)');
   if (!(await page.$('.pf-order.warn'))) throw new Error('order 120 mL/h vs pump 100 mL/h should be a mismatch');
-  await tap('[data-act="pump-save"]', 'pump-save-blocked');
-  await expect('vpump');
   await tap('[data-act="pump-ack"]', 'pump-ack');
   await tap('[data-act="pump-save"]', 'pump-save');
   await expect('vsaved');
@@ -1007,13 +1021,11 @@ try {
   await tap('[data-act="cam-close"]', 'wound-camera-close');
   await expect('hub');
 
-  // 장비 모드 · 알아볼 대상 없음 → 팔찌(강태우) → '무엇을 촬영하셨나요?' → 기타 첨부
+  // 장비 모드 · 알아볼 대상 없음 → '무엇을 촬영하셨나요?' → 기타 첨부 (환자 미확인) → '첨부' 클릭 시 팔찌(강태우) 스캔
   await photoPick('device', 'none-camera');
   await expect('vcam');
   await longPress('[data-act="shoot"]');
   await tap('[data-sheet-act="target"][data-k="none"]', 'none-shoot');
-  await waitFor(() => document.querySelector('.dlg-title')?.textContent === '환자 팔찌 스캔', 'wristband after the photo', 6000);
-  await scanWedge('P20733345');
   await waitFor(() => document.querySelector('.sheet .purpose'), 'purpose sheet', 6000);
   await tap('.purpose[data-k="other"]', 'purpose-other');
   await waitFor(() => document.querySelector('.scr-vother'), 'other record', 4000);
@@ -1029,7 +1041,10 @@ try {
   await tap('.purpose[data-k="other"]', 'monitor-to-other');
   await expect('vother');
   if (!(await page.$('.sort-chip.on[data-v="장비·환경"]'))) throw new Error('기타 첨부 should keep its tags');
+  if (await page.$('.pline')) throw new Error('patient should not show before 첨부');
   await tap('[data-act="other-save"]', 'other-save');
+  await expectDialog('환자 팔찌 스캔');
+  await scanWedge('P20733345');
   await expect('vsaved');
   await tap('[data-act="to-detail"]', 'other-detail');
   await expect('detail');
@@ -1074,31 +1089,35 @@ try {
   await tap('[data-act="hdr-back"]', 'photo-detail-back');
   await expect('hub');
 
-  // 사진 → 갤러리 · 환부: 팔찌(김철수) → 부위를 고르면 이전 사진(09/15)과 비교 → 크기는 직접 입력(자 추정 없음) → 욕창은 단계 필수 → 저장
+  // 사진 → 갤러리 · 환부: 부위 · 유형 · 크기(직접 입력, 자 추정 없음) 기록(환자 미확인) → '저장' 클릭 시 팔찌(김철수) 스캔 →
+  // 이전 사진(09/15)과 비교를 보여주고 한 번 더 '저장'
   await photoPick('gallery', 'wound-attach');
   await waitFor(() => document.querySelector('.sheet .album-item'), 'album', 3000);
   await tap('.album-item[data-k="wound"]', 'wound-pick');
   await tap('[data-sheet-act="attach"]', 'wound-attach-go');
-  await expectDialog('환자 팔찌 스캔');
-  await tap('.dlg [data-sheet-act="scan"]', 'wound-wristband');
   await waitFor(() => document.querySelector('.scr-vwound'), 'wound record', 6000);
-  await expectTitle('김철수(21212457)');
+  if (await page.$('.pline')) throw new Error('patient should not show before 저장');
   const woundSize = await page.$$eval('.ph-num', (els) => els.map((e) => e.value).join('x'));
   if (woundSize !== 'x') throw new Error(`no size estimate any more: ${woundSize}`);
-  if (await page.$('.ph-prev')) throw new Error('the comparison waits for the site');
+  if (await page.$('.ph-prev')) throw new Error('이전 사진 비교 waits for the patient (scanned on save)');
   await tap('.sort-chip[data-act="w-site"][data-v="천골·엉덩이"]', 'wound-site');
-  if ((await page.$eval('.ph-prev', (e) => e.textContent)).includes('크기 ')) throw new Error('no size trend before the size is typed');
   for (const [f, v] of [['w', '3.2'], ['h', '2.2']]) {
     await page.type(`.ph-num[data-f="${f}"]`, v);
     await page.$eval(`.ph-num[data-f="${f}"]`, (e) => e.blur());
     await sleep(200);
   }
-  const trend = await page.$eval('.ph-prev', (e) => e.textContent);
-  if (!trend.includes('크기 감소') || !trend.includes('09/15')) throw new Error(`previous photo comparison: ${trend}`);
+  if (await page.$('.ph-prev')) throw new Error('이전 사진 비교 should still wait for the patient');
   await tap('.sort-chip[data-act="w-type"][data-v="욕창"]', 'wound-type');
   // 환자 사진은 '필수' 구분 없음: no required marks, any item may be left out
   if (await page.$('.scr-vwound .ph-k em')) throw new Error("환자 사진 should not mark items '필수'");
   await tap('.sort-chip[data-act="w-stage"][data-v="2단계"]', 'wound-stage');
+  await tap('[data-act="wound-save"]', 'wound-save-scan');
+  await expectDialog('환자 팔찌 스캔');
+  await tap('.dlg [data-sheet-act="scan"]', 'wound-wristband');
+  await expect('vwound'); // the 이전 사진 비교 appears now the patient is known: 저장 again to confirm
+  await expectTitle('김철수(21212457)');
+  const trend = await page.$eval('.ph-prev', (e) => e.textContent);
+  if (!trend.includes('크기 감소') || !trend.includes('09/15')) throw new Error(`previous photo comparison: ${trend}`);
   await tap('[data-act="wound-save"]', 'wound-save');
   await expect('vsaved');
   await tap('[data-act="finish"]', 'wound-finish');

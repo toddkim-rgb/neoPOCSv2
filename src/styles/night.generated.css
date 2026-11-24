@@ -241,10 +241,6 @@ html.night .ocr-card {
   background: var(--n-card);
 }
 /* screens.css */
-html.night .vfield:focus-within {
-  background: var(--n-card);
-}
-/* screens.css */
 html.night .vf-tag {
   background: var(--n-card);
 }

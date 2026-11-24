@@ -1,7 +1,7 @@
 // AI 음성간호메모: record (common-voice-01) → review/edit/save (common-voice-02) → done (common-voice-03).
 // The review card keeps the AI 요약 and the 시간별 대화 스크립트 together; both are editable, and editing the
 // script enables "대화내용 다시 요약하기". Saving adds the memo to the 음성간호메모 list (memos.js).
-// 음성메모 from the AI 커맨드바 (+) starts without a patient (`free`): record → 환자 팔찌 스캔 → review → save.
+// 음성메모 from the AI 커맨드바 (+) starts without a patient (`free`): record → review → 저장 시 환자 팔찌 스캔 → done.
 // The 녹음 input's + opens the same menu as the AI 커맨드바 (음성메모 · 사진 촬영 · 스캔 · 사진첨부); leaving drops the recording.
 import { register, go, replace, pop, rerender } from '../router.js';
 import { header, button, statusBlock, esc, toast, openDialog, closeSheet, patientLine } from '../ui.js';
@@ -15,7 +15,7 @@ const talk = (free) => source(free).transcript;
 const aiSummary = (free) => source(free).summary;
 const UNKNOWN = '환자';
 
-/** AI 커맨드바 + → 음성메모: records first; the patient is asked for (wristband) when the recording ends. */
+/** AI 커맨드바 + → 음성메모: records first; the patient is asked for (wristband) on 저장, after review. */
 export function startFreeMemo() {
   const p = patientById(DEFAULT_PID);
   state.voice = {
@@ -51,13 +51,14 @@ export function scriptBubbles(lines, { editable = false } = {}) {
     .join('');
 }
 
-/** Review copy of the AI result: what the nurse edits before saving. */
+/** Review copy of the AI result: what the nurse edits before saving.
+ * A 음성메모 (`free`) reaches review before its patient is known (the wristband is scanned on 저장),
+ * so the speaker stays "환자" here and is only resolved to a name once that scan happens (see `save`). */
 function review(free) {
   const v = state.voice;
   if (!v.sum) {
     v.sum = aiSummary(free).map((x) => ({ ...x }));
-    // the scanned wristband names the speaker of a memo recorded without a patient
-    v.script = talk(free).map((x) => ({ ...x, who: x.who === UNKNOWN ? PATIENT.name : x.who }));
+    v.script = talk(free).map((x) => ({ ...x, who: !free && x.who === UNKNOWN ? PATIENT.name : x.who }));
     v.scriptEdited = false;
   }
   return v;
@@ -106,7 +107,7 @@ register('voice', {
       return `
         ${header({ title: '음성간호메모', right: 'close' })}
         <div class="screen-body scroll voice-review">
-          ${patientLine()}
+          ${free ? '' : patientLine()}
           <h2 class="vr-title gtext">음성간호메모</h2>
           <p class="vr-desc">대화 요약 내용을 확인하고 수정합니다.<br>음성간호메모는 환자 상세에서 확인 가능합니다.</p>
           <div class="ai-card vr-card">
@@ -218,15 +219,7 @@ register('voice', {
     },
     'finish-record': (t, { free }) => {
       clearTimeout(revealTimer);
-      if (!free) return toReview();
-      // recorded without a patient: whose memo is it? (환자 팔찌 스캔)
-      askPatient({
-        desc: '음성메모를 저장할 환자의\n팔찌 바코드를 스캔하세요.',
-        onPatient: (pid) => {
-          selectPatient(pid);
-          toReview(true);
-        },
-      });
+      toReview(free);
     },
     resummarize: (t, { free }) => {
       const v = review(free);
@@ -248,16 +241,19 @@ register('voice', {
     },
     save: (t, { free }) => {
       const v = review(free);
-      const [kind, type, color] = MEMO_TYPE[state.voice.origin] || MEMO_TYPE.task;
-      const d = new Date();
-      const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-      // the nurse has just reviewed it, so it is saved as 확인완료 (`fresh`: also listed first on 환자상세)
-      state.memos.unshift({
-        id: `m${Date.now()}`, kind, type, color, at: `${DEMO_DATE.replace(/-/g, '.')} ${hm}`, reviewed: true, fresh: true,
-        items: v.sum.map((x) => ({ ...x })), script: v.script.map((x) => ({ ...x })),
-      });
-      state.memoTab = kind;
-      replace('voice', { step: 'done', ...(free ? { free: 1 } : {}) }, 'fade');
+      if (free) {
+        // a 음성메모 only learns whose record it is here, on 저장 (환자 팔찌 스캔)
+        askPatient({
+          desc: '음성메모를 저장할 환자의\n팔찌 바코드를 스캔하세요.',
+          onPatient: (pid) => {
+            selectPatient(pid);
+            v.script = v.script.map((x) => (x.who === UNKNOWN ? { ...x, who: PATIENT.name } : x));
+            commitSave(v, free);
+          },
+        });
+        return;
+      }
+      commitSave(v, free);
     },
     finish: () => pop(),
     // + menu (same as the AI 커맨드바): the recording is not kept, so ask first
@@ -294,6 +290,19 @@ function leaveRecording(next) {
       },
     },
   );
+}
+
+/** The nurse has just reviewed it, so it is saved as 확인완료 (`fresh`: also listed first on 환자상세). */
+function commitSave(v, free) {
+  const [kind, type, color] = MEMO_TYPE[state.voice.origin] || MEMO_TYPE.task;
+  const d = new Date();
+  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  state.memos.unshift({
+    id: `m${Date.now()}`, kind, type, color, at: `${DEMO_DATE.replace(/-/g, '.')} ${hm}`, reviewed: true, fresh: true,
+    items: v.sum.map((x) => ({ ...x })), script: v.script.map((x) => ({ ...x })),
+  });
+  state.memoTab = kind;
+  replace('voice', { step: 'done', ...(free ? { free: 1 } : {}) }, 'fade');
 }
 
 function toReview(free = false) {

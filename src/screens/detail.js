@@ -52,14 +52,12 @@ function prevItems() {
   });
 }
 function prevRecord() {
+  // 항목마다 측정했을 수도, 안 했을 수도 있어 (2026-11-24 요청) 날짜·시각은 공유 헤더가 아니라 각 칸 하단에 표시
   const items = prevItems();
-  const times = items.map((i) => i.at).filter(Boolean);
-  // the time most items share goes in the head; a cell measured at another time shows its own
-  const head = times.sort((a, b) => times.filter((x) => x === b).length - times.filter((x) => x === a).length)[0] || '';
   return `
     <div class="vprev">
-      <div class="vprev-head"><span class="vprev-title">직전 기록</span><small>24시간 이내</small>${head ? `<b>${head}</b>` : ''}</div>
-      <div class="vgrid prev">${items.map((v) => vitalCell(v, head, '기록 없음')).join('')}</div>
+      <div class="vprev-head"><span class="vprev-title">직전 기록</span><small>24시간 이내</small></div>
+      <div class="vgrid prev">${items.map((v) => vitalCell(v, '', '기록 없음')).join('')}</div>
     </div>`;
 }
 

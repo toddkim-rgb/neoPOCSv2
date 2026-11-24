@@ -1,15 +1,18 @@
 // 사진 촬영 · 사진첨부 → 활력징후 OCR (AI 커맨드바 +). Both start without a patient:
-//   사진 촬영: camera → 촬영 → 환자 팔찌 스캔 → AI recognition → review & edit → final confirm → EMR sent
-//   사진첨부:  gallery → 사진 선택 → 환자 팔찌 스캔 → (same analysis)
+//   사진 촬영: camera → 촬영 → AI recognition → review & edit → '확인' 시 환자 팔찌 스캔 → final confirm → EMR 전송
+//   사진첨부:  gallery → 사진 선택 → (same analysis) → '확인' 시 환자 팔찌 스캔 → final confirm
+// the patient is only needed to send the record, so the wristband is scanned at that point, not right after the
+// photo (2026-11-24 요청; 환자(환부) 사진 · 주입 펌프 · 기타 첨부도 같은 패턴 — photo.js). Until then `patientKnown()`
+// is false and anything that depends on the patient (patientLine, 이전 측정값, 처방 비교) stays hidden.
 // On the PDA (Capacitor) the camera is the device's rear camera and the gallery is the Android photo picker; browsers
 // (and a PDA that refuses the camera) use the demo bedside scene and demo album instead. The analysis itself is a
 // demo: whatever was photographed, the demo monitor values are "read"; long presses pick the failure cases.
 // Not in the Figma file: built from the existing components (header, cards, badges, vitals cells, sheets).
 // 사진 촬영 용도 (2026-11-23): the app does not know what will be photographed. AI 커맨드바 + → '사진' sheet: 사진 촬영
 // (환자 · 장비 · 기타) or 갤러리. The camera opens in that 촬영 모드 (no chips on the camera: the mode was chosen on
-// the sheet, 2026-11-23), and it says what it detects (환자 모니터 · 주입 펌프 · 환부 · 서류); after the photo
-// (and the wristband, unless the patient was chosen first) it goes to the matching record screen — vitals here,
-// 주입 펌프 · 환부 · 기타 첨부 in photo.js — and an unrecognised subject asks '무엇을 촬영하셨나요?'.
+// the sheet, 2026-11-23), and it says what it detects (환자 모니터 · 주입 펌프 · 환부 · 서류); after the photo it goes
+// to the matching record screen — vitals here, 주입 펌프 · 환부 · 기타 첨부 in photo.js (the wristband is scanned
+// there, on save, unless the patient was chosen first) — and an unrecognised subject asks '무엇을 촬영하셨나요?'.
 // Browsers cannot see real objects: '시연' picks what the demo camera is pointed at.
 // 활력징후 '사진 입력' (2026-11-23): the same camera in 'fill' mode — 환자 모니터만 찾고, 인식한 값을 활력징후 입력 칸에
 // 채운 뒤 그 화면으로 돌아갑니다 (용도 선택 · 팔찌 스캔 없음).
@@ -22,7 +25,7 @@ import { state, completeTask, selectPatient, recordVitals } from '../state.js';
 import { askPatient } from '../patientscan.js';
 import { voiceButton, openVoiceInput, flashVoiced } from '../vvoice.js';
 import { feedback } from '../feedback.js';
-import { prevLine, prevValues, prevVital, fillVital } from './work.js';
+import { prevLine, prevValues, prevVital, fillVital, vitalCell, stepValue, valueWidth } from './work.js';
 import { artSvg, openPurposeSheet } from './photo.js';
 import sceneUrl from '../assets/img/icu-bedside.jpg';
 import screenUrl from '../assets/img/monitor-screen.jpg';
@@ -84,7 +87,7 @@ const ART = ['pump', 'wound', 'doc']; // subjects drawn as pictures (photo.js ar
 const ART_BOX = { pump: [31, 159, 240, 173], wound: [88, 158, 193, 158], doc: [58, 48, 244, 336] };
 
 /**
- * AI 커맨드바 + → 사진 촬영: the camera opens at once; the patient is scanned after the photo.
+ * AI 커맨드바 + → 사진 촬영: the camera opens at once; the patient is scanned later, when the record is saved/sent.
  * From 환자 상세 '사진 촬영' the patient is already chosen (`pid`), so the wristband scan is skipped.
  * 활력징후 '사진 입력': `shoot: 'fill'` with the patient of the 활력징후 screen.
  */
@@ -100,14 +103,14 @@ export function startCamera({ pid = null, shoot = 'device' } = {}) {
 
 /**
  * AI 커맨드바 + → 사진: 사진 촬영 (환자 · 장비 · 기타 — the camera opens in that 촬영 모드) or 갤러리 선택.
- * The patient is scanned after the photo, as before.
+ * The patient is scanned when the record is saved/sent, not here.
  */
 export function openPhotoSheet() {
   const opt = (act, k, ico, label, desc) =>
     `<button class="opt photo-opt" data-sheet-act="${act}" data-k="${k}"><span class="po-ico">${ico}</span><span class="lbl">${label}<small>${desc}</small></span><span class="chev">${icon.chevronRight}</span></button>`;
   openSheet(
     `<div class="sheet-head"><p class="sheet-title">사진</p></div>
-     <p class="sheet-hint">촬영할 대상을 고르거나 갤러리에서 사진을 선택하세요. 촬영 후 환자 팔찌를 스캔합니다.</p>
+     <p class="sheet-hint">촬영할 대상을 고르거나 갤러리에서 사진을 선택하세요. 저장할 때 환자 팔찌를 스캔합니다.</p>
      <p class="ps-sec">사진 촬영</p>
      <div class="sheet-list">
        ${opt('shoot', 'wound', icon.camera, '환자', '환부 · 욕창 · 피부 상태')}
@@ -212,8 +215,23 @@ function freezeFrame(el) {
   v.insertAdjacentHTML('afterend', `<img class="cam-shot" src="${cap.photo}" alt="촬영한 사진">`);
 }
 
-const patientChip = (attach) =>
-  cap.pid ? `${esc(patientTitle())} · ${PATIENT.bed}` : `환자 미확인 · ${attach ? '사진 선택' : '촬영'} 후 팔찌 스캔`;
+const patientChip = () => (cap.pid ? `${esc(patientTitle())} · ${PATIENT.bed}` : '환자 미확인 · 저장 시 팔찌 스캔');
+
+/** Whether the photo already knows its patient (chosen beforehand, or scanned on save). */
+export const patientKnown = () => !!cap.pid;
+
+/** Runs `fn` once the patient is known, asking for the wristband first otherwise (scanned on save, not on capture). */
+export function withPatient(desc, fn) {
+  if (cap.pid) return fn();
+  askPatient({
+    desc,
+    onPatient: (pid) => {
+      selectPatient(pid);
+      cap.pid = pid;
+      fn();
+    },
+  });
+}
 
 /** Review state. `manual`: nothing could be read from the photo, every value is typed in. */
 export function newOcr(manual = false) {
@@ -700,7 +718,7 @@ register('vcam', {
           : `<button class="icon-btn dark${flashOn ? ' lit' : ''}" data-act="flash" aria-label="플래시">${flashOn ? icon.flashOn : icon.flashOff}</button>`
       }
     </header>
-    <p class="cam-patient${cap.pid ? '' : ' unknown'}">${patientChip(attach)}</p>
+    <p class="cam-patient${cap.pid ? '' : ' unknown'}">${patientChip()}</p>
     <div class="cam-view" aria-live="polite">
       <p class="cam-hint">${msg[0]}</p>
       <p class="cam-sub">${msg[1]}</p>
@@ -770,7 +788,8 @@ register('vcam', {
  * Takes the photo. Where it goes depends on the 촬영 모드 and on what was detected in the guide, not on the button:
  * 환부 · 기타 모드 → that record · a detected subject → its record (monitor → vitals analysis) · nothing detected →
  * '무엇을 촬영하셨나요?'. An attached photo (`attachedShows`) is judged only by what it shows.
- * The patient comes first: the wristband is scanned after the photo unless the patient was chosen beforehand.
+ * The patient isn't asked for here any more: the record screen asks for the wristband when it is saved/sent
+ * (`withPatient`), unless the patient was chosen beforehand.
  */
 function capture(attachedShows = null) {
   const el = document.querySelector('.scr-vcam');
@@ -795,22 +814,9 @@ function capture(attachedShows = null) {
     art: cap.gal?.art || (ART.includes(shows) ? shows : null),
     photo: cap.photo,
   };
-  const next = () => (kind ? route(el, kind) : choosePurpose(el));
-  if (cap.pid) return next();
-  // the photo is taken: whose record is it? → 환자 팔찌 스캔
-  el.classList.add('asking');
-  askPatient({
-    desc: `${attached ? '첨부한' : '촬영한'} 사진을 저장할 환자의\n팔찌 바코드를 스캔하세요.`,
-    onPatient: (pid) => {
-      selectPatient(pid);
-      cap.pid = pid;
-      const chip = el.querySelector('.cam-patient');
-      chip.textContent = patientChip(attached);
-      chip.classList.remove('unknown');
-      next();
-    },
-    onCancel: () => (attached ? replace('vcam', { mode: 'attach' }, 'fade') : retake(el)),
-  });
+  // whose record this is only matters when it is saved (환자 팔찌 스캔 happens there, in the record screen)
+  if (kind) return route(el, kind);
+  choosePurpose(el);
 }
 
 /** The photo as the record screens show it. */
@@ -1033,9 +1039,9 @@ function shotState(el, { phase = 'detected', target, shoot }) {
 // the photo can still go to another record (주입 펌프 · 환부 · 기타)
 const otherUse = () => (state.vphoto ? `<button class="ph-other" data-act="other-use">다른 용도로 기록 ${icon.chevronRight}</button>` : '');
 
+// 활력징후 입력 화면(work.js)과 같은 모양으로 통일 (2026-11-24 요청): vitalCell에 AI 인식 상태 태그만 덧붙입니다.
 function fieldCell(f, o) {
   const v = o.values[f.k];
-  const flag = flagOf(f.k, v);
   const low = needsCheck(f, o);
   const read = readOf(f, o);
   let state3;
@@ -1044,29 +1050,20 @@ function fieldCell(f, o) {
   else if (low) state3 = `<button class="vf-tag low" data-act="ack" data-k="${f.k}">확인 필요</button>`;
   else if (o.checked[f.k]) state3 = `<span class="vf-tag ok">${icon.check}확인됨</span>`;
   else state3 = `<span class="vf-tag ai">AI ${f.conf}%</span>`;
-  const flagTag = flag ? `<span class="vflag ${flag}">${flag === 'danger' ? '경고' : '주의'}</span>` : '';
-  return `
-    <label class="vfield${low ? ' low' : ''}${o.edited[f.k] ? ' edited' : ''}" data-k="${f.k}">
-      <span class="vf-top"><span class="vf-k">${f.k}</span><span class="vf-n">${f.name}</span>${flagTag}</span>
-      <span class="vf-mid">
-        <input class="vf-in ${flag || ''}" data-k="${f.k}" type="text" inputmode="decimal" value="${esc(v)}" placeholder="${read ? '' : '입력'}" aria-label="${f.name}" autocomplete="off">
-        <span class="vf-u">${f.unit}</span>
-      </span>
-      ${prevLine(f.k).replace('vt-prev', 'vt-prev vf-prev')}
-      <span class="vf-bot">${state3}</span>
-    </label>`;
+  return vitalCell(f, v, { extra: `<div class="vf-bot">${state3}</div>`, prev: patientKnown() });
 }
 
 register('vreview', {
   bg: 'screen',
   render: () => {
     const o = state.vocr || (state.vocr = newOcr());
-    const pending = OCR_FIELDS.filter((f) => needsCheck(f, o)).length;
+    // 빈 칸은 더 이상 막지 않음 (2026-11-24): 값이 있는데 AI 신뢰도가 낮아 아직 확인 안 된 항목만 안내
+    const pending = OCR_FIELDS.filter((f) => !o.manual && f.conf < LOW_CONF && !o.edited[f.k] && !o.checked[f.k] && String(o.values[f.k]).trim()).length;
     const attach = cap.mode === 'attach';
     return `
       ${header({ title: '활력징후', left: 'back', right: 'close' })}
       <div class="screen-body scroll ocr-review">
-        ${patientLine()}
+        ${patientKnown() ? patientLine() : ''}
         ${o.manual ? `
         <h2 class="vr-title gtext">활력징후 직접 입력</h2>
         <p class="vr-desc">${attach ? '첨부한' : '촬영한'} 이미지에서 측정값을 인식하지 못했습니다.<br>환자 모니터를 보고 측정값을 직접 입력해 주세요.</p>
@@ -1080,15 +1077,18 @@ register('vreview', {
           }</div>
         </section>
         ${otherUse()}`}
-        <section class="ocr-card">
-          <div class="ocr-card-head"><span class="ocr-card-l"><span class="ocr-card-title gtext">측정값</span>${voiceButton()}</span>
-            <span class="ocr-meta">${MEASURED.time} · ${NURSE.label}</span></div>
+        <section class="vcard">
+          <div class="vcard-head">
+            <span class="l"><span class="vcard-title">활력징후</span>${voiceButton()}</span>
+            <button class="vreset" data-act="vreset">초기화 ${icon.refresh}</button>
+          </div>
           <p class="ocr-note${pending ? ' warn' : ''}">${
             pending
-              ? `${icon.error}<span>${o.manual ? `입력 필요 ${pending}건 · 측정값을 모두 입력해 주세요` : `확인 필요 ${pending}건 · 수정·입력하거나, 맞으면 '확인 필요'를 눌러 주세요`}</span>`
-              : `${icon.checkCircle}<span>${o.manual ? '모든 측정값을 입력했습니다' : '모든 항목을 확인했습니다'}. 값을 눌러 수정할 수 있습니다</span>`
+              ? `${icon.error}<span>확인 필요 ${pending}건 · 수정하거나, 맞으면 '확인 필요'를 눌러 주세요</span>`
+              : `${icon.checkCircle}<span>값을 눌러 수정할 수 있습니다. 비워 두면 미측정으로 저장됩니다</span>`
           }</p>
-          <div class="vfields">${OCR_FIELDS.map((f) => fieldCell(f, o)).join('')}</div>
+          <div class="vgrid2">${OCR_FIELDS.map((f) => fieldCell(f, o)).join('')}</div>
+          <div class="vcard-foot"><span>${MEASURED.date.slice(5).replace('-', '/')} ${MEASURED.time}</span><span>${NURSE.label} (${NURSE.no})</span></div>
         </section>
       </div>
       <div class="screen-foot two-btns">
@@ -1097,17 +1097,18 @@ register('vreview', {
       </div>`;
   },
   mount(el) {
-    el.querySelectorAll('.vf-in').forEach((input) => {
+    el.querySelectorAll('.vval').forEach((input) => {
       // an empty field (미인식 · 직접 입력): tapping it fills the previous value, selected
       input.addEventListener('focus', () => {
         const k = input.dataset.k;
-        const p = prevVital(k);
+        const p = patientKnown() && prevVital(k);
         if (!input.value && p) {
           const f = OCR_FIELDS.find((x) => x.k === k);
           state.vocr.values[k] = p.v;
           state.vocr.edited[k] = p.v !== readOf(f, state.vocr);
           input.value = p.v;
-          input.className = `vf-in ${flagOf(k, p.v) || ''}`;
+          input.className = `vval ${flagOf(k, p.v) || ''}`;
+          input.style.width = `${valueWidth(p.v)}px`;
         }
         input.select();
         input.dataset.focused = '1';
@@ -1126,7 +1127,8 @@ register('vreview', {
         state.vocr.edited[k] = input.value !== readOf(f, state.vocr);
         // update colour/flag live without re-rendering (keeps the keyboard open)
         const flag = flagOf(k, input.value);
-        input.className = `vf-in ${flag || ''}`;
+        input.className = `vval ${flag || ''}`;
+        input.style.width = `${valueWidth(input.value)}px`;
       });
       input.addEventListener('change', () => rerender());
       input.addEventListener('keydown', (e) => {
@@ -1144,10 +1146,29 @@ register('vreview', {
       state.vocr.checked[t.dataset.k] = true;
       rerender();
     },
+    vstep: (t) => {
+      const o = state.vocr;
+      const k = t.dataset.k;
+      const f = OCR_FIELDS.find((x) => x.k === k);
+      o.values[k] = stepValue(k, o.values[k], Number(t.dataset.d));
+      o.edited[k] = o.values[k] !== readOf(f, o);
+      if (!o.edited[k]) o.checked[k] = true;
+      rerender();
+    },
+    vreset: () => {
+      const o = state.vocr;
+      OCR_FIELDS.forEach((f) => {
+        o.values[f.k] = '';
+        o.edited[f.k] = false;
+        o.checked[f.k] = false;
+      });
+      rerender();
+      toast('측정값을 비웠습니다.');
+    },
     // 음성 입력: a spoken value replaces the AI reading (수정됨 / 직접 입력); the same value confirms it (확인됨)
     vvoice: () =>
       openVoiceInput({
-        prev: prevValues(),
+        prev: patientKnown() ? prevValues() : {},
         onApply: (vals) => {
           const o = state.vocr;
           for (const [k, v] of Object.entries(vals)) {
@@ -1158,25 +1179,27 @@ register('vreview', {
             if (!o.edited[k]) o.checked[k] = true;
           }
           rerender();
-          flashVoiced('.vfield', Object.keys(vals));
+          flashVoiced('.vt-cell', Object.keys(vals));
         },
       }),
     'review-ok': () => {
       const o = state.vocr;
-      const empty = OCR_FIELDS.filter((f) => readOf(f, o) && !String(o.values[f.k]).trim());
-      if (empty.length) return toast(`${empty.map((f) => f.name).join(', ')} 값을 입력해 주세요.`);
-      const pending = OCR_FIELDS.filter((f) => needsCheck(f, o));
+      // 빈 칸이 있어도 전송 (2026-11-24 요청, 활력징후 입력 화면과 동일): 1개 이상만 있으면 되고, 값이 있는데
+      // AI 신뢰도가 낮아 아직 확인하지 않은 항목만 '확인 필요'로 막습니다.
+      const filled = OCR_FIELDS.filter((f) => String(o.values[f.k]).trim());
+      if (!filled.length) return toast('측정값을 1개 이상 입력해 주세요.');
+      const pending = filled.filter((f) => !o.manual && f.conf < LOW_CONF && !o.edited[f.k] && !o.checked[f.k]);
       if (pending.length) {
-        toast(o.manual ? `측정값 ${pending.length}건을 입력해 주세요.` : `확인 필요 항목 ${pending.length}건을 확인해 주세요.`);
+        toast(`확인 필요 항목 ${pending.length}건을 확인해 주세요.`);
         pending.forEach((f) => {
-          const cell = document.querySelector(`.vfield[data-k="${f.k}"]`);
+          const cell = document.querySelector(`.vt-cell[data-k="${f.k}"]`);
           cell?.classList.remove('nudge');
           void cell?.offsetWidth;
           cell?.classList.add('nudge');
         });
         return;
       }
-      openConfirm();
+      withPatient('활력징후 데이터를 저장할 환자의\n팔찌 바코드를 스캔하세요.', openConfirm);
     },
   },
   onBack: () => {
@@ -1214,7 +1237,7 @@ function openConfirm() {
      <div class="cf-grid">${OCR_FIELDS.map((f, i) => `
        <div class="cf-cell${o.edited[f.k] ? ' edited' : ''}">
          <span class="cf-k">${f.k}</span>
-         <span class="cf-v ${flags[i] || ''}">${esc(o.values[f.k])}<small>${f.unit}</small></span>
+         <span class="cf-v ${flags[i] || ''}">${o.values[f.k] ? `${esc(o.values[f.k])}<small>${f.unit}</small>` : '<small>미입력</small>'}</span>
        </div>`).join('')}</div>
      <div class="cf-notes">${notes}<p>${icon.checkCircle}<span>측정자 ${NURSE.label} · 임상관찰기록에 저장됩니다.</span></p></div>
      <div class="sheet-btns">
