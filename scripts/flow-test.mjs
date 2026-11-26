@@ -1126,13 +1126,13 @@ try {
   // ---------- 앱 버전 · 업데이트 (시연) ----------
   await tap('[data-act="open-setting"]', 'ver-setting');
   const verNow = await page.$eval('.app-row .v b', (e) => e.textContent);
-  if (verNow !== 'v0.5.0') throw new Error(`current version: ${verNow}`);
+  if (verNow !== 'v2.5.0') throw new Error(`current version: ${verNow}`);
   if (await page.$('.ver-list')) throw new Error('버전 이력 should not be on the settings screen');
   await tap('[data-act="open-versions"]', 'ver-history');
   await expect('versions');
   // 현재 버전 opened, the others folded
   const opened = await page.$$eval('.ver-card.open .ver-head b', (els) => els.map((e) => e.textContent).join(','));
-  if (opened !== 'v0.5.0') throw new Error(`버전 이력 opened cards: ${opened}`);
+  if (opened !== 'v2.5.0') throw new Error(`버전 이력 opened cards: ${opened}`);
   await tap('[data-act="ver-toggle"][data-v="0.2.0"]', 'ver-open-0.2.0');
   await tap('[data-act="pick-version"][data-v="0.2.0"]', 'ver-pick-0.2.0');
   await expectDialog('이전 버전으로 변경');
@@ -1146,7 +1146,7 @@ try {
   await tap('[data-act="login-id"]', 'ver-login-blocked');
   await expectDialog('필수 업데이트');
   await tap('.dlg [data-sheet-act="ok"]', 'ver-force-update');
-  await waitFor(() => document.querySelector('.scr-splash .logo-ver')?.textContent === 'v0.5.0', 'updated to v0.5.0', 10000);
+  await waitFor(() => document.querySelector('.scr-splash .logo-ver')?.textContent === 'v2.5.0', 'updated to v2.5.0', 10000);
   await sleep(700);
   if (await dialog()) throw new Error(`latest version should not ask again: ${await dialog()}`);
 

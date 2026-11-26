@@ -6,15 +6,17 @@ import { icon, sparkles } from '../icons.js';
 import { state, resetDemo } from '../state.js';
 import { installed, updateState } from '../versions.js';
 import { checkOnStart, openUpdatePrompt } from './update.js';
+import coBrandUrl from '../assets/img/softbowl-kakao-logo.png';
 
 const logo = () => `
   <div class="logo">
     <span class="logo-spark">${sparkles('lg-spark', '#65BDE9', '#1878BC')}</span>
     <p class="logo-neo">neo</p>
     <p class="logo-pocs">POCS</p>
-    <p class="logo-sub">Point of care solution <b>V2</b><span class="logo-ver">v${installed()}</span></p>
+    <p class="logo-sub">Point of care solution <b>V2</b></p>
+    <p class="logo-ver-line"><span class="logo-ver">v${installed()}</span></p>
   </div>
-  <p class="softbowl">SOFTBOWL</p>`;
+  <img class="softbowl" src="${coBrandUrl}" alt="SOFTBOWL · kakao healthcare" />`;
 
 /** A version below 최소 지원 버전 cannot log in: the 필수 업데이트 popup comes back instead. */
 const blocked = () => updateState() === 'force' && (openUpdatePrompt(true), true);

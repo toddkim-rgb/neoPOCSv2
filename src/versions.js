@@ -6,6 +6,11 @@ import { version as BUILD } from '../package.json';
 /** 버전 이력, newest first (dates and contents from the released builds). */
 export const VERSIONS = [
   {
+    v: '2.5.0',
+    date: '2026-11-27',
+    notes: ['로그인 화면 버전 표시를 줄바꿈 · 큰 글씨로 변경'],
+  },
+  {
     v: '0.5.0',
     date: '2026-11-17',
     notes: [

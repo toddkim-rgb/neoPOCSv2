@@ -9,12 +9,10 @@
 }
 .softbowl {
   position: absolute;
-  top: 22px;
+  top: 24px;
   right: 20px;
-  font-size: 12px;
-  line-height: 14px;
-  letter-spacing: 0.3px;
-  color: var(--c-gray);
+  height: 20px;
+  width: auto;
 }
 .logo {
   position: absolute;
@@ -64,6 +62,10 @@
 }
 .logo-sub b {
   font-weight: 700;
+}
+.logo-ver-line {
+  top: 263px;
+  left: 4px;
 }
 .entry-msg {
   position: absolute;
@@ -4102,13 +4104,13 @@ button.vplus {
    앱 버전 · 업데이트 (update.js)
    ========================================================= */
 .logo-ver {
-  margin-left: 8px;
-  padding: 1px 7px;
+  margin-left: 0;
+  padding: 2px 10px;
   border-radius: 10px;
   background: rgba(101, 189, 233, 0.16);
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 600;
+  font-size: 19px;
+  line-height: 24px;
+  font-weight: 700;
   letter-spacing: 0;
   color: var(--c-blue-deep);
   vertical-align: 1px;
