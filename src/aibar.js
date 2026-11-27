@@ -8,7 +8,7 @@ import { icon } from './icons.js';
 import { MENU, MENU_ITEM } from './data.js';
 import { PATIENTS, DEFAULT_PID } from './patients.js';
 import { state, resetPatient, selectPatient } from './state.js';
-import { startWork } from './screens/work.js';
+import { startWork, startCare3 } from './screens/work.js';
 import { openLogout, openRoomSheet } from './screens/nav.js';
 import { startFreeMemo } from './screens/voice.js';
 import { startCamera, startAttach, openPhotoSheet } from './screens/vitals.js';
@@ -91,6 +91,7 @@ export function startMed(pid) {
 export function startMenu(key, pid) {
   if (key === 'med') return startMed(pid);
   if (['bld', 'trf', 'vital'].includes(key)) return startWork(key, pid);
+  if (key === 'care3') return startCare3(pid);
   toast(TODO);
 }
 

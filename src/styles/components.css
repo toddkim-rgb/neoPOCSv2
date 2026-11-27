@@ -311,6 +311,31 @@ html.shot .screen {
   background: var(--c-line);
 }
 
+/* 투약·채혈·수혈 공통 '초기화' 버튼 (헤더 바로 아래 오른쪽, 2026-11-27 요청) */
+.reset-row {
+  display: flex;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  margin: -6px var(--pad-x) 10px;
+}
+.reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--c-gray);
+  border-radius: 13px;
+  background: var(--c-white);
+  font-size: 12px;
+  line-height: 13px;
+  color: var(--c-slate);
+}
+.reset-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
 .dot {
   width: 8px;
   height: 8px;
@@ -941,6 +966,36 @@ html.shot .sheet-dim {
   color: var(--c-text);
 }
 .prn-row .k {
+  color: var(--c-gray);
+}
+/* 활력징후 저장 확인 팝업: 가독성 위해 더 크게, 수치 · 단위를 분리해서 표시 (2026-11-27 요청) */
+.dlg.vconfirm .tube-hint {
+  margin-top: 12px;
+}
+.dlg.vconfirm .prn-box {
+  gap: 10px;
+}
+.dlg.vconfirm .prn-row {
+  align-items: baseline;
+  font-size: 17px;
+  line-height: 20px;
+}
+.dlg.vconfirm .prn-row .k {
+  font-weight: 600;
+  color: var(--c-slate);
+}
+.dlg.vconfirm .vu {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.dlg.vconfirm .vu .v {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--c-text);
+}
+.dlg.vconfirm .vu .u {
+  font-size: 13px;
   color: var(--c-gray);
 }
 

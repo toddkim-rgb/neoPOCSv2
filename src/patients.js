@@ -261,11 +261,13 @@ export function profileOf(p) {
 
 // 긴급 처리 업무: one card per menu alarm (사용자설정 → 메뉴별 알림 설정). `chip(min)` builds the label from the alarm's 경과 시간.
 // 6명 샘플 환자 모두 한 장씩 (2026-11-27 요청).
+// `elapsed`(경과, 분) · `dueIn`(임박까지 남은 분): 긴급 처리 업무 정렬 기준 (2026-11-27 요청) — 경과가 큰 카드 우선,
+// 같으면 임박(dueIn)이 작은 카드 우선. 정렬에만 쓰이고 화면의 chip 문구(알람 설정 분)는 그대로 둔다.
 export const URGENT = [
-  { menu: 'med', pid: '21212457', icon: 'uc-pill', chip: (m) => `투약 오더 ${m}분 경과`, tone: 'blue' },
-  { menu: 'med', pid: '20733345', icon: 'uc-pill', chip: (m) => `투약 오더 ${m}분 경과`, tone: 'blue' },
-  { menu: 'med', pid: '21033456', icon: 'uc-pill', chip: (m) => `투약 오더 ${m}분 경과`, tone: 'blue' },
-  { menu: 'vital', pid: '20655321', icon: 'uc-vital', chip: () => '이상치 재확인 필요', tone: 'green' },
-  { menu: 'vital', pid: '20876654', icon: 'uc-vital', chip: () => '이상치 재확인 필요', tone: 'green' },
-  { menu: 'trf', pid: '20812233', icon: 'uc-blood', chip: (m) => `수혈 오더 ${m}분 경과`, tone: 'blue' },
+  { menu: 'med', pid: '21212457', icon: 'uc-pill', chip: (m) => `투약 오더 ${m}분 경과`, tone: 'blue', elapsed: 52 },
+  { menu: 'med', pid: '20733345', icon: 'uc-pill', chip: (m) => `투약 오더 ${m}분 경과`, tone: 'blue', elapsed: 41 },
+  { menu: 'med', pid: '21033456', icon: 'uc-pill', chip: (m) => `투약 오더 ${m}분 경과`, tone: 'blue', elapsed: 33 },
+  { menu: 'vital', pid: '20655321', icon: 'uc-vital', chip: () => '이상치 재확인 필요', tone: 'green', elapsed: 24, dueIn: 10 },
+  { menu: 'vital', pid: '20876654', icon: 'uc-vital', chip: () => '이상치 재확인 필요', tone: 'green', elapsed: 16, dueIn: 15 },
+  { menu: 'trf', pid: '20812233', icon: 'uc-blood', chip: (m) => `수혈 오더 ${m}분 경과`, tone: 'blue', elapsed: 9 },
 ];

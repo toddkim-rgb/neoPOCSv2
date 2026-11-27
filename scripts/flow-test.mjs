@@ -198,17 +198,23 @@ try {
   if (!(await page.$('.task-drug .drug-scan')) || !(await page.$('.pcard.ok .pcard-ok'))) throw new Error('after the wristband: 환자 확인 + 투약 바코드 스캔 안내');
   if (await page.$('.task-drug [data-act="status-sheet"], .task-drug .mswipe')) throw new Error('the 투약 list stays inactive until the 투약 바코드');
   if ((await footBtns()) !== '투약 바코드 스캔') throw new Error(`투약 바코드 button: ${await footBtns()}`);
-  await tap('[data-act="scan-drug"]', 'ham-first');
-  await expect('ham');
-  await tap('[data-act="hdr-close"]', 'ham-close-first');
+  // 투약 플로우 변경 (2026-11-27): 투약 바코드를 스캔하면 바로 2차 인증으로 넘어가지 않고 약정보가 활성화된 목록을 보여준다
+  await tap('[data-act="scan-drug"]', 'drug-scan');
   await expect('task');
-  if (!(await page.$('.task-b'))) throw new Error('the wristband should open the active 투약 list');
+  if (!(await page.$('.task-b'))) throw new Error('the drug scan should activate the 투약 list');
+  if (!(await page.$('.med-card.alert'))) throw new Error('고위험약물 should be flagged in the active list (no auto 인증)');
+  if ((await footBtns()) !== '처방 스캔|투약수행') throw new Error(`active list buttons: ${await footBtns()}`); // 스캔 버튼이 투약수행 옆에 항상 있음
   await scanWedge('D9999');
   await expectDialog('환자/처방 불일치');
   await tap('.dlg [data-sheet-act="ok"]', 'mismatch-ok');
   await tap('[data-act="prn-info"]', 'prn-popup');
   await expectDialog('PRN 처방');
   await tap('.dlg [data-sheet-act="ok"]', 'prn-ok');
+  // 2차 인증은 투약수행을 누를 때 시작된다 (바코드 스캔 직후가 아님)
+  await tap('[data-act="administer"]', 'ham-first');
+  await expect('ham');
+  await tap('[data-act="hdr-close"]', 'ham-close-first');
+  await expect('task');
   await tap('[data-act="administer"]', 'ham-again'); // 인증 전 투약수행 → 1차 인증 again
   await expect('ham');
   await tap('[data-act="next"]', 'ham-incomplete');
@@ -319,14 +325,17 @@ try {
   await tap('.dlg [data-sheet-act="ok"]', 'navmenu');
   await expect('navmenu');
 
-  // ---------- 채혈하기 (from the 햄버거메뉴) ----------
-  await tap('.nav-item[data-k="bld"]', 'bld-scan');
-  await expect('wscan');
+  // ---------- 채혈하기 (햄버거메뉴 전체 메뉴 → 통합 '투약/채혈/수혈' → 업무 카드, 2026-11-27 요청) ----------
+  await tap('.nav-item[data-k="care3"]', 'care3-open');
+  await expect('care3');
+  await tap('[data-act="scan-patient"]', 'care3-scan'); // 팔찌 스캔 (기본 김철수)
+  await tap('[data-act="care-task"][data-k="bld"]', 'bld-scan');
+  await expect('wtask');
   // 채혈관 before the patient → asks for the patient first
   await scanWedge('B1001');
   await expectDialog('환자 스캔 필요');
   await tap('.dlg [data-sheet-act="ok"]', 'bld-patient-first');
-  await tap('[data-act="scan"]', 'bld-patient');
+  await tap('[data-act="scan-patient"]', 'bld-patient');
   await expect('wtask');
   const btnText = () => page.$eval('.sticky-foot .btn', (e) => e.textContent.trim());
   if ((await btnText()) !== '채혈관 바코드 스캔') throw new Error(`first tube button: ${await btnText()}`);
@@ -339,16 +348,19 @@ try {
   const dup = await page.$eval('.badge.count-grad', (e) => e.textContent);
   if (dup !== '채혈관 1/2') throw new Error(`a repeated tube must not count twice: ${dup}`);
   await tap('[data-act="scan-tube"]', 'bld-tube-2');
-  if ((await btnText()) !== '채혈 확인') throw new Error(`confirm button: ${await btnText()}`);
+  // 채혈 확인 버튼 옆에 스캔 버튼도 항상 함께 있음 (2026-11-27 요청)
+  if ((await footBtns()) !== '채혈관 스캔|채혈 확인') throw new Error(`confirm buttons: ${await footBtns()}`);
   const okCards = await page.$$eval('.wcard.tube.ok', (els) => els.length);
   if (okCards !== 2) throw new Error(`confirmed tubes: ${okCards}`);
   await tap('[data-act="blood-confirm"]', 'bld-done');
   await expect('wdone');
   const doneTitle = await page.$eval('.status-title', (e) => e.textContent);
   if (doneTitle !== '채혈 완료') throw new Error(`done title: ${doneTitle}`);
-  // started from the 햄버거메뉴 (업무 메뉴): 확인 → 채혈하기 바코드 스캔
+  // 통합 업무로 시작했으므로: 확인 → 남은 업무 카드 목록('care3')으로 복귀
   await tap('[data-act="ok"]', 'bld-scan-again');
-  await expect('wscan');
+  await expect('care3');
+  const bldRowDone = await page.$eval('[data-k="bld"] .task-st', (e) => e.textContent.trim());
+  if (!bldRowDone.startsWith('완료')) throw new Error(`채혈하기 should show as done on the care3 card list: ${bldRowDone}`);
   await tap('[data-act="hdr-back"]', 'bld-leave');
   await tap('.dlg [data-sheet-act="ok"]', 'hub-from-bld');
   await expect('hub');
@@ -487,7 +499,10 @@ try {
   if (voiced.split(' ').filter(Boolean).length !== 6) throw new Error(`voice should fill all six: ${voiced}`);
   await page.click('.vval[data-k="BT"]', { clickCount: 3 });
   await page.type('.vval[data-k="BT"]', '37.9');
-  await tap('[data-act="save"]', 'vital-done');
+  // 저장 전 확인 팝업 (2026-11-27): 입력값을 보여주고 저장을 한 번 더 확인받는다
+  await tap('[data-act="save"]', 'vital-save-confirm');
+  await expectDialog('활력징후 저장');
+  await tap('.dlg [data-sheet-act="ok"]', 'vital-done');
   await expect('wdone');
   await tap('[data-act="ok"]', 'vital-scan-again');
   await expect('wscan');
@@ -713,9 +728,14 @@ try {
   await tap('.myrow[data-pid="20733345"]', 'my-ktw');
   const ktwRows = await sheetRows();
   console.log('강태우 업무:', ktwRows);
-  if (ktwRows !== 'med:대기 3건 / bld:대기 1관 / trf:오더 없음(off) / vital:17:00 예정') throw new Error(`강태우 sheet: ${ktwRows}`);
-  await tap('.sheet .task-opt[data-k="med"]', 'ktw-med');
-  // a chosen patient: their 투약 list first, locked until the wristband is scanned
+  // 투약/채혈/수혈 통합 (2026-11-27): med 대기3건 + bld 대기1관 → 'care3' 한 줄(2개 업무 남음), trf는 오더 없음이라 셈에서 빠짐
+  if (ktwRows !== 'care3:대기 2건 / vital:17:00 예정') throw new Error(`강태우 sheet: ${ktwRows}`);
+  await tap('.sheet .task-opt[data-k="care3"]', 'ktw-care3');
+  await expect('care3');
+  if (!(await page.$('.pcard.locked'))) throw new Error('강태우 care3: should open locked');
+  await tap('[data-act="scan-patient"]', 'ktw-care3-wristband');
+  await tap('[data-act="care-task"][data-k="med"]', 'ktw-med');
+  // a chosen patient: their 투약 list first, locked until the wristband is scanned (its own, separate gate)
   await expect('task');
   await expectTitle('강태우(20733345)');
   if (!(await page.$('.task-lock'))) throw new Error('강태우: the 투약 list should open locked');
@@ -741,6 +761,9 @@ try {
   await expectDialog('환자/처방 불일치');
   await tap('.dlg [data-sheet-act="ok"]', 'ktw-mismatch-2-ok');
   await tap('[data-act="scan-drug"]', 'ktw-drug'); // 염화칼륨 = 고위험약물
+  await expect('task'); // 2026-11-27: 바코드 스캔 직후 자동으로 인증을 띄우지 않고 약정보가 먼저 활성화됨
+  if (!(await page.$('.med-card.alert'))) throw new Error('강태우: 염화칼륨(고위험약물) should be flagged without an auto 인증');
+  await tap('[data-act="administer"]', 'ktw-ham-first'); // 투약수행을 누를 때 2차 인증이 시작됨
   await expect('ham');
   const ktwHam = await page.$eval('.ham-drug', (e) => e.textContent);
   if (!ktwHam.includes('염화칼륨')) throw new Error(`강태우 고위험약물: ${ktwHam}`);
@@ -763,10 +786,24 @@ try {
   await expect('task');
   await tap('[data-act="administer"]', 'ktw-done');
   await expect('done');
-  // started from the 환자허브 (MY환자): 확인 → 환자허브, the MY환자 page it came from
-  await tap('[data-act="ok"]', 'ktw-hub');
-  await expect('hub');
-  if ((await hubTab()) !== 'my') throw new Error(`투약 from MY환자 should come back to MY환자: ${await hubTab()}`);
+  // 통합 업무 중 하나(투약)만 끝났을 뿐: 확인 → 환자허브가 아니라 남은 업무 카드 목록('care3')으로
+  await tap('[data-act="ok"]', 'ktw-care3-again');
+  await expect('care3');
+  const ktwMedRow = await page.$eval('[data-k="med"] .task-st', (e) => e.textContent.trim());
+  if (!ktwMedRow.startsWith('완료')) throw new Error(`강태우 투약 should show done on the care3 list: ${ktwMedRow}`);
+  // 남은 채혈까지 마치면 카드 목록으로 복귀 (투약은 PRN 처방이 남아 있어 계속 열려 있으므로 '업무 완료' 화면으로는 가지 않음)
+  await tap('[data-act="care-task"][data-k="bld"]', 'ktw-bld');
+  await expect('wtask');
+  if (!(await page.$('.pcard.locked'))) throw new Error('강태우 채혈: should open locked');
+  await tap('[data-act="scan-patient"]', 'ktw-bld-wristband');
+  await tap('[data-act="scan-tube"]', 'ktw-bld-tube');
+  await tap('[data-act="blood-confirm"]', 'ktw-bld-done');
+  await expect('wdone');
+  await tap('[data-act="ok"]', 'ktw-bld-ok');
+  await expect('care3');
+  const ktwBldRow = await page.$eval('[data-k="bld"] .task-st', (e) => e.textContent.trim());
+  if (!ktwBldRow.startsWith('완료')) throw new Error(`강태우 채혈 should show done on the care3 list: ${ktwBldRow}`);
+  await leaveToHub('ktw-leave');
 
   // 업무 메뉴로 시작한 투약 → 바코드 스캔 화면; another wristband there switches the patient (덮어쓰기)
   await command('투약');
@@ -811,8 +848,10 @@ try {
     await page.click(`.vval[data-k="${k}"]`, { clickCount: 3 });
     await page.type(`.vval[data-k="${k}"]`, v);
   }
-  // 빈 칸이 있어도 저장
-  await tap('[data-act="save"]', 'asy-vital-done');
+  // 빈 칸이 있어도 저장 (저장 전 확인 팝업에 미입력 안내가 함께 보임)
+  await tap('[data-act="save"]', 'asy-vital-save-confirm');
+  await expectDialog('활력징후 저장');
+  await tap('.dlg [data-sheet-act="ok"]', 'asy-vital-done');
   await expect('wdone');
   const asyDesc = await page.$eval('.status-desc', (e) => e.textContent);
   if (!asyDesc.includes('5개 항목') || !asyDesc.includes('미입력 : BT')) throw new Error(`partial save: ${asyDesc}`);
@@ -824,7 +863,11 @@ try {
   // MY환자 → 문가은 채혈 (2관), another patient's tube is 불일치
   await goMy();
   await tap('.myrow[data-pid="21033456"]', 'my-mge');
-  await tap('.sheet .task-opt[data-k="bld"]', 'mge-bld');
+  await tap('.sheet .task-opt[data-k="care3"]', 'mge-care3');
+  await expect('care3');
+  if (!(await page.$('.pcard.locked'))) throw new Error('문가은 care3: should open locked');
+  await tap('[data-act="scan-patient"]', 'mge-care3-wristband');
+  await tap('[data-act="care-task"][data-k="bld"]', 'mge-bld');
   await expect('wtask');
   await expectTitle('문가은(21033456)');
   if (!(await page.$('.pcard.locked')) || !(await page.$('.task-lock .wcard.tube'))) throw new Error('문가은 채혈 should open locked');
@@ -837,13 +880,18 @@ try {
   await tap('[data-act="scan-tube"]', 'mge-tube-1');
   await tap('[data-act="scan-tube"]', 'mge-tube-2');
   await tap('[data-act="blood-confirm"]', 'mge-bld-done');
-  await tap('[data-act="ok"]', 'mge-hub');
+  await tap('[data-act="ok"]', 'mge-care3-after-bld');
+  await expect('care3'); // 투약은 아직 남아 카드 목록으로 복귀
+  const mgeBldRow = await page.$eval('[data-k="bld"] .task-st', (e) => e.textContent.trim());
+  if (!mgeBldRow.startsWith('완료')) throw new Error(`문가은 채혈 should show done on the care3 list: ${mgeBldRow}`);
+  await tap('[data-act="hdr-back"]', 'mge-leave');
+  await tap('.dlg [data-sheet-act="ok"]', 'mge-hub');
   await expect('hub');
   await goMy();
   await tap('.myrow[data-pid="21033456"]', 'my-mge-2');
   const mgeRows = await sheetRows();
   console.log('문가은 업무:', mgeRows);
-  if (!mgeRows.includes('bld:완료 17:24(off)')) throw new Error(`문가은 채혈 should be done: ${mgeRows}`);
+  if (!mgeRows.startsWith('care3:대기')) throw new Error(`문가은 should still have 투약 pending: ${mgeRows}`);
   await tap('.sheet .task-detail', 'mge-detail');
   await expect('detail');
   await expectTitle('문가은(21033456)');
@@ -927,7 +975,11 @@ try {
   await scanWedge('P21033456');
   const qRows = await sheetRows();
   console.log('스캔 → 문가은:', qRows);
-  await tap('.sheet .task-opt[data-k="med"]', 'qscan-med');
+  await tap('.sheet .task-opt[data-k="care3"]', 'qscan-care3');
+  await expect('care3');
+  // 스캔 화면에서 이미 읽은 팔찌이므로 카드 목록이 잠금 없이 바로 열림 (carePassthrough)
+  if (await page.$('.pcard.locked')) throw new Error('스캔: care3 should open unlocked (wristband already scanned)');
+  await tap('[data-act="care-task"][data-k="med"]', 'qscan-med');
   await expect('task');
   await expectTitle('문가은(21033456)');
   if (await page.$('.scan-warn')) throw new Error('스캔: the wristband should already count');

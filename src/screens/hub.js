@@ -7,7 +7,7 @@ import { header, asset3d, esc, toast, openSheet, closeSheet } from '../ui.js';
 import { icon, sparkles } from '../icons.js';
 import { NURSE, MENU, MENU_ITEM } from '../data.js';
 import { PATIENTS, patientById, fullName } from '../patients.js';
-import { state, urgentItems, taskStatus, selectPatient, TASK_LABEL, trfDue } from '../state.js';
+import { state, urgentItems, taskStatus, careStatus, selectPatient, TASK_LABEL, trfDue } from '../state.js';
 import { aiBar, mountAiBar, AI_ACTIONS, aiBack, startMenu, onHubTab, TODO } from '../aibar.js';
 import { openCheck } from './transfuse.js';
 
@@ -45,23 +45,25 @@ function urgentTab() {
       <span class="hub-spark">${sparkles('hub-spark-u')}</span><span class="night-badge">${icon.moon}야간모드</span>
       <p class="hub-headline"><span class="gtext">긴급 처리 업무</span>가<br><span class="gtext">${items.length + checks.length}건</span> 기다리고 있습니다.</p>
     </div>
-    <div class="ucards">
-      ${checks.map(checkCard).join('')}
-      ${items
-        .map((u) => {
-          const p = patientById(u.pid);
-          return `
-        <button class="ucard" data-act="urgent" data-go="${u.menu}" data-pid="${p.id}">
-          <span class="ucard-task"><img class="ucard-ico" src="${asset3d(u.icon)}" alt=""><span class="ucard-tname">${UC_TASK[u.menu]}</span></span>
-          <span class="ucard-body">
-            <span class="ucard-name">${esc(fullName(p))}</span>
-            ${meta([p.bed, p.detail])}
-            <span class="ucard-dx">${esc(p.dx)}</span>
-          </span>
-          ${chip(u.chip(state.settings.alarms[u.menu].min), u.tone)}
-        </button>`;
-        })
-        .join('')}
+    <div class="ucards-scroll scroll">
+      <div class="ucards">
+        ${checks.map(checkCard).join('')}
+        ${items
+          .map((u) => {
+            const p = patientById(u.pid);
+            return `
+          <button class="ucard" data-act="urgent" data-go="${u.menu}" data-pid="${p.id}">
+            <span class="ucard-task"><img class="ucard-ico" src="${asset3d(u.icon)}" alt=""><span class="ucard-tname">${UC_TASK[u.menu]}</span></span>
+            <span class="ucard-body">
+              <span class="ucard-name">${esc(fullName(p))}</span>
+              ${meta([p.bed, p.detail])}
+              <span class="ucard-dx">${esc(p.dx)}</span>
+            </span>
+            ${chip(u.chip(state.settings.alarms[u.menu].min), u.tone)}
+          </button>`;
+          })
+          .join('')}
+      </div>
     </div>
     <div class="shortcuts">
       ${quick
@@ -148,18 +150,20 @@ function applySort(id) {
 }
 
 /* ---------------- MY환자 → 업무 선택 시트 ---------------- */
-const TASKS = ['med', 'bld', 'trf', 'vital'];
+// 투약/채혈/수혈 통합 (2026-11-27 요청): 한 줄 'care3'로 합치고 나면 활력징후만 남는다.
+const TASKS = ['care3', 'vital'];
+const CARE3_ROW = { label: '투약/채혈/수혈', icon: 'sc-pill' };
 
 /**
- * The patient's 투약 · 채혈 · 수혈 · 활력징후 with what is left today, plus 환자상세 보기.
+ * The patient's 투약·채혈·수혈(통합) · 활력징후 with what is left today, plus 환자상세 보기.
  * `onTask(kind)`: what a picked task does (default: that task's 바코드 스캔; 스캔 passes the already-read wristband on).
  */
 export function openTaskSheet(pid, { onTask = (k) => startMenu(k, pid) } = {}) {
   const p = patientById(pid);
   const last = state.pt[pid].last;
   const row = (k) => {
-    const m = MENU_ITEM[k];
-    const st = taskStatus(k, pid);
+    const m = k === 'care3' ? CARE3_ROW : MENU_ITEM[k];
+    const st = k === 'care3' ? careStatus(pid) : taskStatus(k, pid);
     return `
       <button class="opt task-opt${st.ok ? '' : ' off'}" data-sheet-act="${st.ok ? 'task' : 'none'}" data-k="${k}"${st.ok ? '' : ' aria-disabled="true"'}>
         <img class="ico3d${m.icon.startsWith('sc-') ? '' : ' tile'}" src="${asset3d(m.icon)}" alt="">
@@ -179,8 +183,10 @@ export function openTaskSheet(pid, { onTask = (k) => startMenu(k, pid) } = {}) {
         onTask(t.dataset.k);
       },
       none: (t) => {
-        const st = taskStatus(t.dataset.k, pid);
-        toast(st.tone === 'done' ? `금일 ${TASK_LABEL[t.dataset.k]}이 모두 완료되었습니다.` : `${p.name} 환자의 ${TASK_LABEL[t.dataset.k]} 오더가 없습니다.`);
+        const k = t.dataset.k;
+        const label = k === 'care3' ? '투약·채혈·수혈' : TASK_LABEL[k];
+        const st = k === 'care3' ? careStatus(pid) : taskStatus(k, pid);
+        toast(st.tone === 'done' ? `금일 ${label}을 모두 완료했습니다.` : `${p.name} 환자의 ${label} 오더가 없습니다.`);
       },
       detail: () => {
         closeSheet();
@@ -278,11 +284,11 @@ register('hub', {
   render: () => {
     const x = -tabIndex(state.hubTab) * PAGE_W;
     return `
-      ${header({ title: `${NURSE.name}(${NURSE.role})`, right: 'menu', titleAct: 'open-setting' })}
+      ${header({ title: `${NURSE.name}(${esc(state.room || '근무위치 미설정')})`, right: 'menu', titleAct: 'open-setting' })}
       <div class="hub-pager">
         <div class="hub-track" style="transform: translate3d(${x}px, 0, 0)">
           <div class="screen-body scroll hub-body tab-my">${myTab()}</div>
-          <div class="screen-body scroll hub-body tab-urgent">${urgentTab()}</div>
+          <div class="screen-body hub-body tab-urgent">${urgentTab()}</div>
           <div class="screen-body scroll hub-body tab-menu">${menuTab()}</div>
         </div>
       </div>

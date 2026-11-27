@@ -17,12 +17,14 @@
 // Every flow works for the six sample patients: a wristband selects that patient, 채혈관/혈액 barcodes belong to one
 // patient (another patient's label is 불일치), and a patient without that order gets '수행할 오더 없음'.
 import { register, go, replace, backTo, rerender } from '../router.js';
-import { header, button, aiButton, statusBlock, patientCard, patientLine, badge, esc, toast, openSheet, closeSheet, openDialog, asset3d } from '../ui.js';
+import { header, button, aiButton, statusBlock, patientCard, patientLine, badge, esc, toast, openSheet, closeSheet, openDialog, asset3d, resetBar } from '../ui.js';
 import { icon } from '../icons.js';
-import { patientTitle, PATIENT, NURSE, DEMO_DATE, VITAL_STEP, bloodType } from '../data.js';
+import { patientTitle, PATIENT, NURSE, DEMO_DATE, VITAL_STEP, bloodType, MENU_ITEM } from '../data.js';
 import { PATIENTS, DEFAULT_PID, patientByCode } from '../patients.js';
-import { state, resetWork, selectPatient, completeTask, taskStatus, trfUnits, unitStatus, trfNext, trfLeft, recordVitals } from '../state.js';
-import { openMedDialog, confirmReset, startCheck, openNoOrders, openScanSim, patientSims, FAIL_SIM } from './med.js';
+import {
+  state, resetWork, resetPatient, selectPatient, completeTask, taskStatus, trfUnits, unitStatus, trfNext, trfLeft, recordVitals, TASK_LABEL,
+} from '../state.js';
+import { openMedDialog, confirmReset, startCheck, openNoOrders, openScanSim, patientSims, FAIL_SIM, handleMedScan } from './med.js';
 import { flagOf, startCamera } from './vitals.js';
 import { startBag, openCheck } from './transfuse.js';
 import { voiceButton, openVoiceInput, flashVoiced } from '../vvoice.js';
@@ -207,16 +209,17 @@ function bloodTask() {
   const done = bloodDone();
   const hint =
     done === 0 ? '채혈관 바코드를 스캔해 주세요.' : done < n ? '다른 채혈관 바코드를 스캔해 주세요.' : '모든 채혈관이 확인되었습니다. 채혈 확인을 눌러 주세요.';
-  const btn =
-    done === 0
-      ? button('채혈관 바코드 스캔', 'scan-tube', { long: 'scan-sim-tube' })
-      : done < n
-        ? button('다른 채혈관 바코드 스캔', 'scan-tube', { long: 'scan-sim-tube' })
-        : button('채혈 확인', 'blood-confirm', { cta: true });
+  // 채혈 확인 버튼 옆에도 스캔 버튼을 항상 함께 둔다(스마트폰은 하드웨어 스캔 버튼이 없음, 2026-11-27 요청).
+  // 수행 버튼과 나란히 놓일 땐(line) 다른 화면(수혈하기 '혈액 스캔')과 같은 짧은 이름을 써서 줄바꿈 없이 들어가게 한다.
+  const scanBtn = (line) => button(line ? '채혈관 스캔' : done === 0 ? '채혈관 바코드 스캔' : '다른 채혈관 바코드 스캔', 'scan-tube', { line, long: 'scan-sim-tube' });
+  const foot =
+    done === n
+      ? `<div class="sticky-foot two-btns">${scanBtn(true)}${button('채혈 확인', 'blood-confirm', { cta: true })}</div>`
+      : `<div class="sticky-foot">${scanBtn(false)}</div>`;
   const prn = state.orders.some((o) => o.prn);
   if (!w.scan.patient) {
     // a chosen patient: 환자정보 비활성 and the 채혈관 dim until the wristband is scanned
-    return `${header({ title: KINDS.bld.title, left: 'back', right: 'menu' })}
+    return `${header({ title: KINDS.bld.title, left: 'back', right: 'menu' })}${resetBar()}
       <div class="screen-body scroll task-w task-lock">
         <div class="task-top">${aiButton()}${patientCard({ prn, locked: true })}</div>
         ${lockHint('이어서 채혈관 바코드를 스캔합니다.')}
@@ -227,7 +230,7 @@ function bloodTask() {
         ${scanPatientButton()}
       </div>`;
   }
-  return `${header({ title: KINDS.bld.title, left: 'back', right: 'menu' })}
+  return `${header({ title: KINDS.bld.title, left: 'back', right: 'menu' })}${resetBar()}
     <div class="screen-body scroll task-w">
       <div class="task-top">${aiButton()}${patientCard({ prn, confirmed: true })}</div>
       <div class="medlist wlist">
@@ -238,7 +241,7 @@ function bloodTask() {
         <p class="tube-hint${done === n ? ' all' : ''}">${done === n ? icon.checkCircle : icon.error}<span>${hint}</span></p>
         <div class="wcards">${w.orders.map(bloodCard).join('')}</div>
       </div>
-      <div class="sticky-foot">${btn}</div>
+      ${foot}
     </div>`;
 }
 
@@ -397,14 +400,13 @@ function trfList(interactive) {
     </div>`;
 }
 
-/** 혈액 스캔 until a bag is confirmed, then 수행하기 (with 혈액 스캔 beside it while bags are still 대기). */
+/** 혈액 스캔 버튼은 수행하기 · 확인 옆에 항상 함께 둔다(스마트폰은 하드웨어 스캔 버튼이 없음, 2026-11-27 요청). */
 function trfFoot() {
-  if (!trfLeft().length) return `<div class="sticky-foot">${button('확인', 'trf-finish')}</div>`;
-  const scan = (label, cls = '') => `<button class="btn${cls}" data-act="scan-bag" data-long="scan-sim-bag">${label}</button>`;
-  if (!trfNext()) return `<div class="sticky-foot">${scan('혈액 바코드 스캔')}</div>`;
+  const scan = (label, cls = ' line') => `<button class="btn${cls}" data-act="scan-bag" data-long="scan-sim-bag">${label}</button>`;
+  if (!trfLeft().length) return `<div class="sticky-foot two-btns">${scan('혈액 바코드 스캔')}${button('확인', 'trf-finish', { cta: true })}</div>`;
+  if (!trfNext()) return `<div class="sticky-foot">${scan('혈액 바코드 스캔', '')}</div>`;
   const perform = button(KINDS.trf.action, 'perform', { cta: true });
-  const waiting = trfLeft().some(({ unit }) => state.work.trf.bags[unit] !== 'ok');
-  return waiting ? `<div class="sticky-foot two-btns">${scan('혈액 스캔', ' line')}${perform}</div>` : `<div class="sticky-foot">${perform}</div>`;
+  return `<div class="sticky-foot two-btns">${scan('혈액 스캔')}${perform}</div>`;
 }
 
 /** The action button follows the list (design) and sticks to the bottom once the list is taller than the screen. */
@@ -420,7 +422,7 @@ register('wtask', {
     const prn = state.orders.some((o) => o.prn);
     // a chosen patient: 환자정보 비활성 and the 수혈 오더 dim until the wristband is scanned
     if (!patient && !drug) {
-      return `${hdr}
+      return `${hdr}${resetBar()}
         <div class="screen-body scroll task-w task-lock">
           <div class="task-top">${aiButton()}${patientCard({ prn, locked: true })}</div>
           ${lockHint('이어서 혈액백의 혈액번호와 혈액제제 바코드를 스캔합니다.')}
@@ -430,7 +432,7 @@ register('wtask', {
     }
     // blood bag first: the wristband is still missing
     if (drug && !patient) {
-      return `${hdr}
+      return `${hdr}${resetBar()}
         <div class="screen-body scroll task-w">
           <div class="task-top">${aiButton()}${patientCard({ prn, scanWarn: true })}</div>
           ${trfList(false)}
@@ -438,7 +440,7 @@ register('wtask', {
         </div>`;
     }
     // wristband scanned: the patient's 수혈 오더 straight away; each bag is confirmed by its two barcodes
-    return `${hdr}
+    return `${hdr}${resetBar()}
       <div class="screen-body scroll task-w">
         <div class="task-top">${aiButton()}${patientCard({ prn, confirmed: true })}</div>
         ${trfList(true)}
@@ -448,6 +450,7 @@ register('wtask', {
   actions: {
     'hdr-back': () => confirmReset('hub'),
     'hdr-menu': () => confirmReset('menu'),
+    'reset-scan': () => confirmReset('hub'),
     voice: (t, { kind }) => {
       if (!state.work[kind].scan.patient) return toast('환자 스캔 후 음성간호메모를 진행할 수 있습니다.');
       state.voice.origin = kind; // bld | trf
@@ -654,6 +657,61 @@ function openVitalTime() {
   paint();
 }
 
+/** 저장 전 확인 팝업: 입력된 값을 보여주고, 빈 칸이 있으면 함께 알려준 뒤 저장을 확인받는다 (2026-11-27 요청). */
+function openVitalConfirm(filled, empty) {
+  const values = vitalValues();
+  // 가독성 위해 글자 키우고 수치 · 단위를 분리 (2026-11-27 요청) — .dlg.vconfirm 전용 스타일 (screens.css)
+  const rows = filled
+    .map(
+      (i) =>
+        `<div class="prn-row"><span class="k">${i.k}</span><span class="vu"><span class="v">${esc(values[i.k])}</span><span class="u">${esc(i.unit)}</span></span></div>`,
+    )
+    .join('');
+  // 미입력 항목은 안내 문구 안에 묻히지 않게 따로 강조 표시 (2026-11-27 요청, .tube-hint 재사용)
+  const emptyNote = empty.length
+    ? `<p class="tube-hint">${icon.error}<span>미입력 : ${esc(empty.map((i) => i.k).join(', '))}</span></p>`
+    : '';
+  openDialog(
+    {
+      title: '활력징후 저장',
+      tone: 'plain',
+      cls: 'vconfirm',
+      desc: '입력한 값을 저장할까요?',
+      body: `${emptyNote}<div class="prn-box">${rows}</div>`,
+      buttons: [{ label: '취소', act: 'cancel', line: true }, { label: '저장', act: 'ok' }],
+    },
+    {
+      cancel: () => closeSheet(),
+      ok: () => {
+        closeSheet();
+        commitVitalSave();
+      },
+    },
+  );
+}
+
+/** 측정값을 임상관찰기록에 실제로 저장 (openVitalConfirm의 '저장' 확인 이후). */
+function commitVitalSave() {
+  const v = state.work.vital;
+  const values = vitalValues();
+  const has = (k) => String(values[k] ?? '').trim();
+  const filled = state.vitals.items.filter((i) => has(i.k));
+  v.saved = { n: filled.length, empty: state.vitals.items.filter((i) => !has(i.k)).map((i) => i.k) };
+  // the detail screen's 임상관찰기록 now shows these values (the previous record moves to its history)
+  recordVitals({
+    time: v.time,
+    who: NURSE.label,
+    items: state.vitals.items.map((i) => ({
+      ...i,
+      v: has(i.k) ? values[i.k] : '',
+      at: `${DEMO_DATE.slice(5).replace('-', '/')} ${v.time}`,
+      flag: flagOf(i.k, values[i.k]),
+    })),
+  });
+  completeTask('vital', v.time);
+  go('wdone', { kind: 'vital' });
+}
+
 register('vital', {
   bg: 'green',
   render: () => {
@@ -745,27 +803,15 @@ register('vital', {
           flashVoiced('.vt-cell', Object.keys(vals));
         },
       }),
+    // 빈 칸이 있어도 저장 (2026-11-23): 입력한 항목만 기록, 하나도 없으면 안내.
+    // 저장 전 입력값 확인 팝업 (2026-11-27 요청): 빈 칸이 있으면 안내 문구를 더해 한 번 확인받고 저장.
     save: () => {
-      const v = state.work.vital;
       const values = vitalValues();
-      // 빈 칸이 있어도 저장 (2026-11-23): 입력한 항목만 기록, 하나도 없으면 안내
       const has = (k) => String(values[k] ?? '').trim();
       const filled = state.vitals.items.filter((i) => has(i.k));
+      const empty = state.vitals.items.filter((i) => !has(i.k));
       if (!filled.length) return toast('측정값을 1개 이상 입력해 주세요.');
-      v.saved = { n: filled.length, empty: state.vitals.items.filter((i) => !has(i.k)).map((i) => i.k) };
-      // the detail screen's 임상관찰기록 now shows these values (the previous record moves to its history)
-      recordVitals({
-        time: v.time,
-        who: NURSE.label,
-        items: state.vitals.items.map((i) => ({
-          ...i,
-          v: has(i.k) ? values[i.k] : '',
-          at: `${DEMO_DATE.slice(5).replace('-', '/')} ${v.time}`,
-          flag: flagOf(i.k, values[i.k]),
-        })),
-      });
-      completeTask('vital', v.time);
-      go('wdone', { kind: 'vital' });
+      openVitalConfirm(filled, empty);
     },
   },
   onBack: () => {
@@ -813,6 +859,209 @@ export function toWorkScan(kind) {
   resetWork();
   state.work.vital.saved = null;
   if (state.origin === 'hub') return backTo('hub');
+  // 투약/채혈/수혈 통합 업무 (2026-11-27 요청): 한 건을 마치면 그 환자의 남은 업무 카드 목록으로 돌아간다.
+  if (state.origin === 'care3') return backTo('care3');
   backTo(kind === 'vital' ? 'vital' : 'wtask', { kind });
   replace('wscan', { kind }, 'fade');
 }
+
+/* ---------------- 투약/채혈/수혈 통합 업무 (업무 메뉴 '투약/채혈/수혈' → 환자 팔찌 → 업무 카드별로 수행) ---------------- */
+const CARE_TASKS = ['med', 'bld', 'trf'];
+const careAllDone = () => CARE_TASKS.every((k) => !taskStatus(k).ok);
+
+function careRow(k) {
+  const m = MENU_ITEM[k];
+  const st = taskStatus(k);
+  return `
+    <button class="opt task-opt${st.ok ? '' : ' off'}" data-act="${st.ok ? 'care-task' : 'care-none'}" data-k="${k}"${st.ok ? '' : ' aria-disabled="true"'}>
+      <img class="ico3d${m.icon.startsWith('sc-') ? '' : ' tile'}" src="${asset3d(m.icon)}" alt="">
+      <span class="lbl">${esc(m.label)}</span>
+      <span class="task-st ${st.tone}">${esc(st.label)}</span>
+      <span class="chev">${st.ok ? icon.chevronRight : ''}</span>
+    </button>`;
+}
+
+/** 지금 환자의 처방 · 채혈관 · 혈액(번호/제제) 중 어느 라벨인지 (업무 카드 없이 바로 스캔으로 진행할 때 쓰임). */
+function careOwnKind(c) {
+  if (state.orders.some((o) => o.code === c)) return 'med';
+  if (state.work.bld.orders.some((o) => o.code === c || o.specimen === c)) return 'bld';
+  if (state.work.trf.orders.some((o) => o.code === c) || trfUnits().some((x) => x.unit === c)) return 'trf';
+  return null;
+}
+
+/**
+ * 환자 팔찌로 이 환자를 확인(업무 카드 중 하나를 눌러 그 업무를 시작), 또는 환자 확인 후라면
+ * 처방 · 채혈관 · 혈액 바코드로 업무 카드 없이 바로 그 업무를 시작한다 (2026-11-27 요청).
+ */
+function handleCareScan(code) {
+  const c = String(code).trim().toUpperCase();
+  if (!c || c === '#FAIL') return openMedDialog('fail');
+  const p = patientByCode(c);
+  if (p) {
+    if (state.care3Scanned && p.id === state.pid) return toast('이미 확인된 환자입니다.');
+    selectPatient(p.id);
+    state.care3Scanned = true;
+    return rerender();
+  }
+  if (!state.care3Scanned) {
+    // 팔찌가 아닌 라벨: 지금 환자로 보고 잠금 해제 (다른 화면들처럼 데모가 항상 진행되도록)
+    selectPatient(state.pid);
+    state.care3Scanned = true;
+    return rerender();
+  }
+  const kind = careOwnKind(c);
+  if (!kind) return toast('인식할 수 있는 처방·채혈관·혈액 바코드가 아닙니다.');
+  if (!taskStatus(kind).ok) return openNoOrders(kind);
+  if (kind === 'med') {
+    state.origin = 'care3';
+    state.scan = { patient: true, drug: false }; // 환자는 care3에서 이미 확인됨 — '처방 우선 스캔' 경고를 띄우지 않음
+    return handleMedScan(c);
+  }
+  if (kind === 'bld') {
+    // 채혈은 혼자서는 환자 확인이 먼저 있어야 라벨을 받으므로, 카드를 누른 것처럼 화면을 먼저 열고 이 채혈관을 바로 등록한다
+    startWork('bld', state.pid);
+    state.origin = 'care3';
+    state.work.bld.scan.patient = true;
+    return handleWorkScan('bld', c);
+  }
+  // trf: 환자는 care3에서 이미 확인됨 — '환자 스캔' 경고 없이 혈액 라벨만으로 목록이 바로 열림
+  state.origin = 'care3';
+  state.work.trf.scan.patient = true;
+  return handleWorkScan(kind, c);
+}
+
+/** 업무 카드 없이 '스캔하기'를 눌렀을 때 PDA가 읽을 다음 라벨: 투약 > 채혈 > 수혈 순으로 아직 할 수 있는 업무의 대표 코드. */
+function careDefaultCode() {
+  if (taskStatus('med').ok) {
+    const o = state.orders.find((x) => x.now && !x.prn) || state.orders[0];
+    if (o) return o.code;
+  }
+  if (taskStatus('bld').ok) {
+    const t = tubeSims()[0];
+    if (t) return t.code;
+  }
+  if (taskStatus('trf').ok) {
+    const u = trfUnits()[0];
+    if (u) return u.unit;
+  }
+  return PATIENT.barcode;
+}
+
+/** 스캔 시뮬레이션(길게 누르기): 팔찌 + 아직 할 수 있는 업무마다 대표 라벨 하나씩. */
+function careSims() {
+  const items = [...patientSims()];
+  if (taskStatus('med').ok) {
+    const o = state.orders.find((x) => x.now && !x.prn) || state.orders[0];
+    if (o) items.push({ label: `처방 바코드 · ${o.name}`, code: o.code });
+  }
+  if (taskStatus('bld').ok) {
+    const t = tubeSims()[0];
+    if (t) items.push(t);
+  }
+  if (taskStatus('trf').ok) {
+    const b = productSim();
+    if (b) items.push(b);
+    const u = trfUnits()[0];
+    if (u) items.push({ label: `혈액번호 · ${u.unit}`, code: u.unit });
+  }
+  items.push(FAIL_SIM);
+  return items;
+}
+
+/**
+ * '투약/채혈/수혈' 진입점. `pid` 없이(메뉴·퀵메뉴) 들어오면 팔찌 스캔부터, 끝나면 환자허브 긴급 탭으로 돌아간다.
+ * `pid`로(MY환자 업무 선택 시트) 들어오면 그 환자가 미리 선택된 채(여전히 팔찌 스캔은 다시 거침) 시작하고,
+ * 끝나면 환자허브(원래 있던 MY환자 탭)로 돌아간다.
+ * `scanned: true`(스캔 화면에서 팔찌를 이미 읽고 들어온 경우, quick.js)면 카드 목록이 바로 열리고,
+ * 업무 카드를 골라도 그 업무에서 다시 팔찌를 묻지 않는다(`carePassthrough`).
+ */
+export function startCare3(pid, { scanned = false } = {}) {
+  if (pid) selectPatient(pid);
+  state.care3Scanned = scanned;
+  state.carePassthrough = scanned;
+  state.origin = 'care3';
+  go('care3', { pid: pid || null });
+}
+
+register('care3', {
+  bg: 'screen',
+  render: () => {
+    const hdr = header({ title: '투약/채혈/수혈', left: 'back', right: 'menu' });
+    const prn = state.orders.some((o) => o.prn);
+    if (!state.care3Scanned) {
+      return `${hdr}${resetBar()}
+        <div class="screen-body scroll task-w task-lock">
+          <div class="task-top">${aiButton()}${patientCard({ prn, locked: true })}</div>
+          ${lockHint('이어서 투약·채혈·수혈 중 수행할 업무를 고릅니다.')}
+          <div class="medlist wlist">
+            <div class="medlist-head"><span class="l"><span class="medlist-title gtext">업무 선택</span></span></div>
+            <div class="sheet-list task-list">${CARE_TASKS.map(careRow).join('')}</div>
+          </div>
+          ${scanPatientButton()}
+        </div>`;
+    }
+    if (careAllDone()) {
+      return `${hdr}
+        <div class="screen-body center-status">
+          ${patientLine()}
+          <span class="spacer" style="flex-grow: 204"></span>
+          ${statusBlock({ img: 'check-blue', title: '업무 완료', desc: '투약·채혈·수혈 업무가 모두 처리되었습니다.' })}
+          <span class="spacer" style="flex-grow: 263"></span>
+        </div>
+        <div class="screen-foot">${button('확인', 'care-done')}</div>`;
+    }
+    return `${hdr}${resetBar()}
+      <div class="screen-body scroll task-w">
+        <div class="task-top">${aiButton()}${patientCard({ prn, confirmed: true })}</div>
+        <div class="medlist wlist">
+          <div class="medlist-head"><span class="l"><span class="medlist-title gtext">업무 선택</span></span></div>
+          <div class="sheet-list task-list">${CARE_TASKS.map(careRow).join('')}</div>
+        </div>
+        <div class="sticky-foot">${button('스캔하기', 'scan', { long: 'scan-sim' })}</div>
+      </div>`;
+  },
+  actions: {
+    'hdr-back': () => confirmReset('hub'),
+    'hdr-menu': () => confirmReset('menu'),
+    'reset-scan': () => confirmReset('hub'),
+    'patient-detail': () => go('detail'),
+    'prn-info': () => openMedDialog('prn'),
+    'scan-patient': () => handleCareScan(PATIENT.barcode),
+    'scan-sim-patient': () => openScanSim([...patientSims(), FAIL_SIM], handleCareScan),
+    // 업무 카드 없이 바로 스캔(처방·채혈관·혈액): 환자 확인 후에만 보이는 버튼
+    scan: () => handleCareScan(careDefaultCode()),
+    'scan-sim': () => openScanSim(careSims(), handleCareScan),
+    'care-task': (t) => {
+      const k = t.dataset.k;
+      // 스캔 화면에서 이미 읽은 팔찌로 들어왔으면, 업무를 골라도 그 팔찌로 바로 스캔한 것처럼 처리(다시 묻지 않음)
+      if (state.carePassthrough) {
+        const code = PATIENT.barcode;
+        state.origin = 'care3';
+        if (k === 'med') return handleMedScan(code);
+        return handleWorkScan(k, code);
+      }
+      if (k === 'med') {
+        resetPatient();
+        state.origin = 'care3';
+        go('task');
+        return;
+      }
+      // startWork()가 pid를 주면 state.origin을 'hub'로 세팅하므로, 그 다음에 'care3'로 덮어써야 한다
+      startWork(k, state.pid);
+      state.origin = 'care3';
+    },
+    'care-none': (t) => {
+      const st = taskStatus(t.dataset.k);
+      toast(st.tone === 'done' ? `금일 ${TASK_LABEL[t.dataset.k]}이 모두 완료되었습니다.` : `${TASK_LABEL[t.dataset.k]} 오더가 없습니다.`);
+    },
+    'care-done': (t, { pid } = {}) => {
+      if (!pid) state.hubTab = 'urgent'; // 메뉴로 시작했으면 긴급 탭으로, MY환자로 시작했으면 있던 탭 그대로
+      backTo('hub');
+    },
+  },
+  onBack: () => {
+    confirmReset('hub');
+    return true;
+  },
+  onScan: (code) => handleCareScan(code),
+});

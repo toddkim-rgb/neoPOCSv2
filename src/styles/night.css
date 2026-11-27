@@ -87,6 +87,10 @@ html.night .sheet,
 html.night .dlg {
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.5);
 }
+/* 메뉴별 알림 설정 드롭다운: 낮 모드의 그룹색 틴트(인라인 style)는 밤에 과하므로 중화 */
+html.night .set-gbody {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
 
 /* 긴급 처리 업무: 수혈 15분 체크 keeps its orange outline */
 html.night .ucard.due {

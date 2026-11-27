@@ -166,6 +166,7 @@ html.kb .scr-login-id .entry-link {
   padding-bottom: 150px;
 }
 .hub-hello {
+  flex: 0 0 auto;
   padding-left: 9px;
 }
 .hub-spark {
@@ -183,6 +184,16 @@ html.kb .scr-login-id .entry-link {
   background: var(--grad);
   -webkit-background-clip: text;
   background-clip: text;
+}
+/* 환자카드가 많아도 4.5장까지만 보이고 이 영역만 스크롤 (퀵메뉴는 영향받지 않는 고정 영역, 2026-11-27 요청) */
+.tab-urgent {
+  overflow: hidden;
+  padding-bottom: 16px; /* 퀵메뉴가 고정이라 다른 탭처럼 AI 커맨드바만큼의 여백(150px)이 필요 없음 */
+}
+.ucards-scroll {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 428px; /* 카드(88px) 4장 + 다섯째 카드 절반 + 간격(8px) */
 }
 .ucards {
   margin-top: 24px;
@@ -296,6 +307,7 @@ html.kb .scr-login-id .entry-link {
   background-clip: text;
 }
 .shortcuts {
+  flex: 0 0 auto;
   margin: 25px -2px 0;
   display: flex;
   justify-content: space-between;
@@ -2224,6 +2236,7 @@ html.shot .cam-sway {
 .sticky-foot {
   position: sticky;
   bottom: 0;
+  z-index: 2; /* above .mswipe > .med-card (z-index: 1), so a long list can never cover the button underneath it */
   flex: 0 0 auto;
   margin-top: 1px;
 }
@@ -2847,6 +2860,14 @@ html.shot .cam-sway {
   height: 20px;
   margin-left: auto;
   color: var(--c-gray);
+  transition: transform 0.2s ease;
+}
+.set-ghead .chev.open {
+  transform: rotate(180deg);
+}
+.set-gbody {
+  display: flex;
+  flex-direction: column;
 }
 .set-row {
   display: flex;

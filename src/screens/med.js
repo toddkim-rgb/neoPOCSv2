@@ -7,7 +7,7 @@
 // wristband/prescription of two different patients is 환자/처방 불일치.
 import { register, go, replace, backTo, rerender } from '../router.js';
 import {
-  header, button, aiButton, statusBlock, patientCard, patientLine, medList, badge, esc, toast, openSheet, closeSheet, openDialog, asset3d,
+  header, button, aiButton, statusBlock, patientCard, patientLine, medList, badge, esc, toast, openSheet, closeSheet, openDialog, asset3d, resetBar,
 } from '../ui.js';
 import { icon } from '../icons.js';
 import { patientTitle, PATIENT, NURSE, NURSE2, TIME_SLOTS, STATUS_OPTIONS, HAM_CHECKS, TRF_CHECKS, bloodType } from '../data.js';
@@ -93,15 +93,13 @@ function scanDrug(owner) {
   showMedTask();
 }
 
+// 투약 플로우 변경 (2026-11-27 요청): 환자확인 → 투약 바코드 스캔 → 약정보 활성화(목록 그대로 보임) →
+// (고위험약물이 있으면) 투약수행을 누를 때 2차 인증 → 확인 → 수행. 바코드 스캔 직후 자동으로 인증 화면을 띄우지 않는다
+// (예전엔 여기서 바로 startCheck('med')를 불렀음 — administer 액션의 hamPending() 분기가 그 역할을 대신한다).
 function showMedTask() {
   const onTask = document.querySelector('.scr-task');
   if (onTask) rerender();
   else replace('task', {}, 'fade');
-  // 고위험약물 스캔 시 - 즉시 활성화: once patient and prescription are both confirmed
-  if (state.scan.patient && state.scan.drug && hamPending()) {
-    state.ham = newHamCheck();
-    startCheck('med');
-  }
 }
 
 const hamPending = () => highAlertOrders().length > 0 && !state.ham?.done;
@@ -243,7 +241,7 @@ register('task', {
     const hdr = header({ title: '투약하기', left: 'back', right: 'menu' });
     if (!patient && !drug) {
       // a chosen patient: their 투약 list first, locked until the wristband is scanned
-      return `${hdr}
+      return `${hdr}${resetBar()}
         <div class="screen-body scroll task-d task-lock">
           <div class="task-top">${aiButton()}${patientCard({ prn: hasPrn(), locked: true })}</div>
           <p class="tube-hint lock-hint">${icon.error}<span>환자 팔찌를 스캔하면 환자정보가 활성화됩니다. 이어서 투약 바코드를 스캔하면 투약 목록이 활성화됩니다.</span></p>
@@ -253,7 +251,7 @@ register('task', {
     }
     if (patient && !drug) {
       // 환자 확인 완료: the 투약 list stays dim until a 투약 바코드 is scanned
-      return `${hdr}
+      return `${hdr}${resetBar()}
         <div class="screen-body scroll task-d task-lock task-drug">
           <div class="task-top">${aiButton()}${patientCard({ prn: hasPrn(), confirmed: true })}</div>
           <div class="drug-scan">
@@ -266,23 +264,26 @@ register('task', {
     }
     if (drug && !patient) {
       // the prescription already names the patient; the wristband scan is still missing
-      return `${hdr}
+      return `${hdr}${resetBar()}
         <div class="screen-body scroll task-d">
           <div class="task-top">${aiButton()}${patientCard({ prn: hasPrn(), scanWarn: true })}</div>
           ${medList()}
           <div class="sticky-foot">${button('환자정보 스캔하기', 'scan-patient')}</div>
         </div>`;
     }
-    return `${hdr}
+    // 약정보 활성화 (2026-11-27 요청: 바코드 스캔 직후 자동으로 2차 인증을 띄우지 않고 목록을 그대로 보여줌).
+    // 하단에는 투약수행 옆에 스캔 버튼도 항상 함께 둔다(스마트폰은 하드웨어 스캔 버튼이 없음).
+    return `${hdr}${resetBar()}
       <div class="screen-body scroll task-b">
         <div class="task-top">${aiButton()}${patientCard({ prn: hasPrn(), confirmed: true })}</div>
         ${medList({ interactive: true })}
-        <div class="sticky-foot${hamPending() ? ' ham-pending' : ''}">${button('투약수행', 'administer', { cta: true })}</div>
+        <div class="sticky-foot two-btns${hamPending() ? ' ham-pending' : ''}">${button('처방 스캔', 'scan-drug', { line: true, long: 'scan-sim-drug' })}${button('투약수행', 'administer', { cta: true })}</div>
       </div>`;
   },
   actions: {
     'hdr-back': () => confirmReset('hub'),
     'hdr-menu': () => confirmReset('menu'),
+    'reset-scan': () => confirmReset('hub'),
     voice: () => {
       if (!state.scan.patient) return toast('환자 팔찌 스캔 후 음성간호메모를 진행할 수 있습니다.');
       state.voice.origin = 'task';
@@ -674,6 +675,8 @@ register('done', {
 function toScan() {
   resetPatient();
   if (state.origin === 'hub') return backTo('hub');
+  // 투약/채혈/수혈 통합 업무 (2026-11-27 요청): 한 건을 마치면 그 환자의 남은 업무 카드 목록으로 돌아간다.
+  if (state.origin === 'care3') return backTo('care3');
   backTo('task');
   replace('scan', {}, 'fade');
 }

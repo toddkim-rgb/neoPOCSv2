@@ -1,4 +1,4 @@
-import { PATIENT, HAM_CHECKS, NURSE, NURSE2, MENU_GROUPS, DEFAULT_QUICK } from './data.js';
+import { PATIENT, HAM_CHECKS, NURSE, NURSE2, MENU_GROUPS, DEFAULT_QUICK, ROOMS } from './data.js';
 import { PATIENTS, DEFAULT_PID, URGENT, patientById, profileOf } from './patients.js';
 
 /** 사용자설정 defaults (design: 투약·수혈 알림 on 30분, 퀵메뉴 투약/채혈/활력/산모아기, 2차인증 on, 자동 로그아웃 30분). */
@@ -92,7 +92,9 @@ export const state = {
   vocr: null, // current 활력징후 OCR session
   vphoto: null, // the photo being recorded: { kind, attach, shows, media, art, photo } + its record form
   settings: defaultSettings(), // 사용자설정 — kept across logins, cleared by 로그아웃
-  room: null, // 주사실 설정
+  room: ROOMS[0], // 주사실 설정 (= 근무위치, 사용자 정보에 표시)
+  care3Scanned: false, // 투약/채혈/수혈 통합 업무: 환자 팔찌를 이미 스캔했는지
+  carePassthrough: false, // 위 업무를 스캔 화면에서 이미 읽은 팔찌로 들어왔는지 (업무를 골라도 다시 스캔하지 않음)
   memoTab: 'perform', // 수행별 | 병상 라운딩
   vhistOpen: false, // 환자 상세 · 임상관찰기록 '상세보기'
 };
@@ -228,6 +230,17 @@ export function taskStatus(menu, id = state.pid) {
   return { ok: true, label: `${s.work.vital.plan} 예정`, tone: 'wait' };
 }
 
+/**
+ * 투약/채혈/수혈 통합 업무 (2026-11-27 요청: MY환자 업무 선택 시트에서 한 줄로 보임)의 합산 상태.
+ * 셋 중 하나라도 할 수 있으면 `대기 N건`, 전부 끝났거나(완료) 전부 오더가 없으면 그 상태를 보여준다.
+ */
+export function careStatus(id = state.pid) {
+  const list = ['med', 'bld', 'trf'].map((k) => taskStatus(k, id));
+  const pending = list.filter((s) => s.ok).length;
+  if (pending) return { ok: true, label: `대기 ${pending}건`, tone: 'wait' };
+  return list.every((s) => s.tone === 'none') ? { ok: false, label: '오더 없음', tone: 'none' } : { ok: false, label: '완료', tone: 'done' };
+}
+
 /* ---------------- 수혈: 혈액백 (혈액번호 + 혈액제제) ---------------- */
 const GIVEN = ['start', 'stop'];
 /** Every blood bag of the patient's 수혈 오더: { unit (혈액번호), o (the order, whose code = 혈액제제 barcode) }. */
@@ -250,8 +263,14 @@ export const trfDue = (now = Date.now()) =>
       .map(([unit, run]) => ({ pid: p.id, unit, run, o: state.pt[p.id].work.trf.orders.find((o) => o.units.includes(unit)) })),
   );
 
-/** 긴급 처리 업무 = cards whose menu alarm is on (사용자설정) and whose task is not finished yet. */
-export const urgentItems = () => URGENT.filter((u) => state.settings.alarms[u.menu]?.on && !state.pt[u.pid].done[u.menu]);
+/**
+ * 긴급 처리 업무 = cards whose menu alarm is on (사용자설정) and whose task is not finished yet.
+ * 정렬 (2026-11-27 요청): 시간 경과순(elapsed 큰 것 먼저) → 시간 임박순(dueIn 작은 것 먼저, elapsed가 같을 때).
+ */
+export const urgentItems = () =>
+  URGENT.filter((u) => state.settings.alarms[u.menu]?.on && !state.pt[u.pid].done[u.menu]).sort(
+    (a, b) => b.elapsed - a.elapsed || (a.dueIn ?? Infinity) - (b.dueIn ?? Infinity),
+  );
 
 /** Restores the demo to its initial data (called on every login). */
 export function resetDemo() {
@@ -268,7 +287,7 @@ export function resetDemo() {
 /** 로그아웃: 사용자 정보를 초기화 합니다. */
 export function resetUser() {
   state.settings = defaultSettings();
-  state.room = null;
+  state.room = ROOMS[0];
   state.aiMore = false;
   state.mySort = { key: 'name', dir: 1 };
   resetDemo();

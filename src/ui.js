@@ -25,8 +25,11 @@ export function header({ title, left = null, right = null, align = 'center', tit
 }
 
 /* ---------- buttons ---------- */
-export const button = (label, act, { cta = false, disabled = false, long = '' } = {}) =>
-  `<button class="btn${cta ? ' cta' : ''}" data-act="${act}"${long ? ` data-long="${long}"` : ''}${disabled ? ' disabled' : ''}>${esc(label)}</button>`;
+export const button = (label, act, { cta = false, line = false, disabled = false, long = '' } = {}) =>
+  `<button class="btn${cta ? ' cta' : ''}${line ? ' line' : ''}" data-act="${act}"${long ? ` data-long="${long}"` : ''}${disabled ? ' disabled' : ''}>${esc(label)}</button>`;
+
+/** 헤더 바로 아래, 오른쪽에 붙는 '초기화' 버튼 (투약·채혈·수혈 공통, 2026-11-27 요청): 바코드·환자팔찌 등 스캔 데이터를 초기화. */
+export const resetBar = (act = 'reset-scan') => `<div class="reset-row"><button class="reset-btn" data-act="${act}">${icon.refresh}<span>초기화</span></button></div>`;
 
 export const aiButton = (act = 'voice') =>
   `<button class="btn-ai" data-act="${act}"><span class="ai-ico">${aiBadge}</span><span>음성간호메모 진행하기</span></button>`;
@@ -93,7 +96,11 @@ function nowRow(o, interactive) {
   const off = !!o.prn;
   const tagAct = interactive && !off ? 'status-sheet' : '';
   const timeAct = interactive && !off ? ' data-act="time-sheet" data-id="' + o.id + '" role="button"' : '';
-  return `<div class="trow now"><span class="l"><span class="alarm-pill${off ? ' off' : ''}"${timeAct}>${icon.alarmFill}<span>${o.now.time} </span></span>${statusTag(o.now.st, { off, act: tagAct, id: o.id })}</span><span class="who">${esc(o.now.who)}</span></div>`;
+  // PRN(실시간)은 시간 변경이 없으므로 시계 아이콘 없이 '실시간' 태그로만 보여준다 (2026-11-27 요청)
+  const timePill = off
+    ? `<span class="alarm-pill off"><span>${esc(o.now.time)} </span></span>`
+    : `<span class="alarm-pill"${timeAct}>${icon.alarmFill}<span>${o.now.time} </span></span>`;
+  return `<div class="trow now"><span class="l">${timePill}${statusTag(o.now.st, { off, act: tagAct, id: o.id })}</span><span class="who">${esc(o.now.who)}</span></div>`;
 }
 
 // 이번 투약에서 제외된 약: the dose row shows the reason code and 되돌리기

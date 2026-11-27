@@ -222,8 +222,9 @@ export function createMemos() {
   ];
 }
 
+// 투약/채혈/수혈 통합 (2026-11-27 요청): 업무 플로우가 같아 메뉴 하나로 묶고, 환자의 남은 업무를 카드별로 수행한다 (work.js care3).
 export const MENU = [
-  ['pill-45', '투약하기', 'med'], ['syringe-45', '채혈하기', 'bld'], ['blood', '수혈하기', 'trf'], ['hourglass', '약품유효기간'],
+  ['pill-45', '투약/채혈/수혈', 'care3'], ['hourglass', '약품유효기간'],
   ['blood-arrival', '혈액 도착 확인'], ['own-meds', '지참약 확인'], ['vital-45', '활력 징후', 'vital'], ['narcotic', '마약/항정'],
   ['pre-op', '수술 전 확인'], ['body-measure', '신체 계측'], ['photo', '사진 전송'], ['nursing-care', '간호 처치 시행'],
   ['messenger', '메신저'], ['mother-baby', '산모 아기 확인'], ['transfer', '환자이송'], ['chemo', '주사항암제'],

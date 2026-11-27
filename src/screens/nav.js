@@ -3,7 +3,7 @@
 import { register, go, pop, reset, backTo, rerender } from '../router.js';
 import { header, asset3d, esc, toast, openSheet, closeSheet, openDialog } from '../ui.js';
 import { icon } from '../icons.js';
-import { NURSE, DEPT, MENU_GROUPS, MENU_ITEM, ROOMS } from '../data.js';
+import { NURSE, MENU_GROUPS, MENU_ITEM, ROOMS } from '../data.js';
 import { PATIENTS } from '../patients.js';
 import { state, resetUser, urgentItems } from '../state.js';
 import { startMenu } from '../aibar.js';
@@ -23,6 +23,10 @@ function nightSection() {
       <div class="set-card set-row solo night-row"><span class="night-now-l">${icon.moon}<span>야간모드</span></span>${toggle(on, 'night-toggle', '')}</div>
       <p class="set-note">켜면 화면이 어두워지고, 알림·조작음 대신 진동으로 알립니다.</p>`;
 }
+// 투약/채혈/수혈 통합 (2026-11-27 요청): 전체 메뉴 목록에서만 보이는 교체 — MENU_GROUPS 자체(메뉴별 알림 설정 · 퀵메뉴 설정에 쓰임)는 그대로 둔다.
+const CARE3_ITEM = { key: 'care3', label: '투약/채혈/수혈' };
+const navItems = (g) => (g.key === 'perform' ? [CARE3_ITEM, ...g.items.filter((m) => !['med', 'bld', 'trf'].includes(m.key))] : g.items);
+
 const urgentCount = () => urgentItems().length;
 const memoPending = () => Object.values(state.pt).reduce((n, s) => n + s.memos.filter((m) => !m.reviewed).length, 0);
 
@@ -42,7 +46,7 @@ function alarmGroup(g) {
   const head = `
     <button class="set-ghead" data-act="toggle-group" data-g="${g.key}" aria-expanded="${open}">
       <i class="gdot" style="background:${g.color}"></i><span>${g.label}</span>
-      <span class="chev">${open ? icon.arrowDown : icon.chevronRight}</span>
+      <span class="chev${open ? ' open' : ''}">${icon.arrowDown}</span>
     </button>`;
   if (!open) return `<div class="set-card">${head}</div>`;
   const rows = g.items
@@ -52,7 +56,7 @@ function alarmGroup(g) {
       return `<div class="set-row"><span>${esc(i.label)}</span>${toggle(a.on, 'alarm', `data-k="${i.key}"`)}</div>${sub}`;
     })
     .join('');
-  return `<div class="set-card">${head}${rows}</div>`;
+  return `<div class="set-card open">${head}<div class="set-gbody" style="background:${g.color}14">${rows}</div></div>`;
 }
 
 function slot(i) {
@@ -71,7 +75,7 @@ register('setting', {
     <div class="screen-body scroll setting">
       <div class="set-user">
         <p class="set-hello">안녕하세요, ${NURSE.name}님(${NURSE.no})</p>
-        <p class="set-meta">직책 : ${NURSE.role}<i></i>진료과 : ${DEPT}</p>
+        <p class="set-meta">근무위치 : ${esc(state.room || '미설정')}</p>
       </div>
       <div class="set-stats">
         <button class="set-stat" data-act="to-tab" data-tab="urgent"><span>긴급처리업무</span><b class="gtext">${urgentCount()}건</b></button>
@@ -198,7 +202,7 @@ export function openLogout() {
 register('navmenu', {
   bg: 'gray',
   render: () => `
-    ${header({ title: `${NURSE.name}(${NURSE.role})`, right: 'close', align: 'left', titleAct: 'open-setting' })}
+    ${header({ title: `${NURSE.name}(${esc(state.room || '근무위치 미설정')})`, right: 'close', align: 'left', titleAct: 'open-setting' })}
     <div class="screen-body scroll navmenu">
       <div class="nav-tiles">
         <button class="nav-tile" data-act="home"><img src="${asset3d('nav-home')}" alt=""><span>홈(환자 허브)</span></button>
@@ -209,7 +213,7 @@ register('navmenu', {
       <div class="nav-list">${MENU_GROUPS.map(
         (g) => `
         <p class="nav-g">${g.label}</p>
-        ${g.items
+        ${navItems(g)
           .map((m) => `<button class="nav-item" data-act="menu" data-k="${m.key}"><i class="gdot" style="background:${g.color}"></i>${esc(m.label)}</button>`)
           .join('')}`,
       ).join('')}</div>

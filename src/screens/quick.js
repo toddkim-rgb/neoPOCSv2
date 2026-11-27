@@ -7,7 +7,7 @@ import { header, button, statusBlock } from '../ui.js';
 import { PATIENTS, DEFAULT_PID, patientByCode, patientById } from '../patients.js';
 import { state, resetPatient, resetWork, selectPatient } from '../state.js';
 import { handleMedScan, openMedDialog, openScanSim, patientSims, FAIL_SIM } from './med.js';
-import { handleWorkScan } from './work.js';
+import { handleWorkScan, startCare3 } from './work.js';
 import { openTaskSheet } from './hub.js';
 
 /** Which work a non-wristband barcode belongs to: { kind: med | bld | trf, pid }. */
@@ -42,7 +42,8 @@ export function quickScan(code) {
     // a wristband (any other label stands for the selected patient, so the demo always moves on)
     const pid = p?.id || state.pid;
     selectPatient(pid);
-    return openTaskSheet(pid, { onTask: (kind) => startScanned(kind, pid) });
+    // 투약/채혈/수혈 통합 카드: 팔찌는 이미 읽었으므로 업무를 골라도 다시 스캔을 묻지 않는다 (carePassthrough)
+    return openTaskSheet(pid, { onTask: (kind) => (kind === 'care3' ? startCare3(pid, { scanned: true }) : startScanned(kind, pid)) });
   }
   if (label.kind === 'med') return handleMedScan(c);
   if (label.kind === 'trf') return handleWorkScan('trf', c);
