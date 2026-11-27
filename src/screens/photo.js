@@ -40,11 +40,11 @@ const DOC = `${svgOpen('서류')}
   <rect x="-1500" y="-1500" width="3360" height="3480" fill="#8a6f55"/>
   <g transform="rotate(-3 180 220)">
     <rect x="66" y="56" width="228" height="320" fill="#fbfaf5" stroke="#d8d4c6"/>
-    <text x="180" y="98" text-anchor="middle" font-size="17" font-weight="700" fill="#2f3440">수술 · 시술 동의서</text>
+    <text x="180" y="98" text-anchor="middle" font-size="18" font-weight="700" fill="#2f3440">수술 · 시술 동의서</text>
     ${[0, 1, 2, 3, 4, 5, 6, 7].map((i) => `<rect x="90" y="${122 + i * 22}" width="${i % 3 === 2 ? 120 : 180}" height="6" rx="3" fill="#d7dbe2"/>`).join('')}
     <path d="M100 330c14-18 22 8 34-6s18-12 26 4 14-6 22-2" stroke="#2a3f7a" stroke-width="2" fill="none"/>
     <circle cx="250" cy="328" r="17" fill="none" stroke="#d0453b" stroke-width="2.5"/>
-    <text x="250" y="333" text-anchor="middle" font-size="13" font-weight="700" fill="#d0453b">인</text>
+    <text x="250" y="333" text-anchor="middle" font-size="14" font-weight="700" fill="#d0453b">인</text>
   </g>
 </svg>`;
 

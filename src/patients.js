@@ -260,8 +260,12 @@ export function profileOf(p) {
 }
 
 // 긴급 처리 업무: one card per menu alarm (사용자설정 → 메뉴별 알림 설정). `chip(min)` builds the label from the alarm's 경과 시간.
+// 6명 샘플 환자 모두 한 장씩 (2026-11-27 요청).
 export const URGENT = [
   { menu: 'med', pid: '21212457', icon: 'uc-pill', chip: (m) => `투약 오더 ${m}분 경과`, tone: 'blue' },
-  { menu: 'trf', pid: '20812233', icon: 'uc-blood', chip: (m) => `수혈 오더 ${m}분 경과`, tone: 'blue' },
+  { menu: 'med', pid: '20733345', icon: 'uc-pill', chip: (m) => `투약 오더 ${m}분 경과`, tone: 'blue' },
+  { menu: 'med', pid: '21033456', icon: 'uc-pill', chip: (m) => `투약 오더 ${m}분 경과`, tone: 'blue' },
+  { menu: 'vital', pid: '20655321', icon: 'uc-vital', chip: () => '이상치 재확인 필요', tone: 'green' },
   { menu: 'vital', pid: '20876654', icon: 'uc-vital', chip: () => '이상치 재확인 필요', tone: 'green' },
+  { menu: 'trf', pid: '20812233', icon: 'uc-blood', chip: (m) => `수혈 오더 ${m}분 경과`, tone: 'blue' },
 ];

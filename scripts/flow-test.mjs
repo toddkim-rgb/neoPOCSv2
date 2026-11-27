@@ -520,11 +520,11 @@ try {
   await expect('hub');
   await tap('[data-act="open-setting"]', 'setting');
   await expect('setting');
-  // 김철수's 투약 is done (above), so only 수혈 (정민호) and 활력징후 (안소율) are still urgent
+  // 김철수's 투약 is done (above); the other 5 (강태우·문가은 투약, 서동건·안소율 V/S, 정민호 수혈) are still urgent
   const statOf = () => page.$eval('.set-stat b', (e) => e.textContent);
-  if ((await statOf()) !== '2건') throw new Error(`긴급처리업무 after 김철수 투약: ${await statOf()}`);
+  if ((await statOf()) !== '5건') throw new Error(`긴급처리업무 after 김철수 투약: ${await statOf()}`);
   await tap('.tgl[data-k="trf"]', 'alarm-trf-off');
-  if ((await statOf()) !== '1건') throw new Error(`긴급처리업무 count after turning 수혈 off: ${await statOf()}`);
+  if ((await statOf()) !== '4건') throw new Error(`긴급처리업무 count after turning 수혈 off: ${await statOf()}`);
   await tap('.tgl[data-k="trf"]', 'alarm-trf-on');
   await tap('.vstep[data-act="alarm-min"][data-k="trf"][data-d="-1"]', 'alarm-trf-20');
   await tap('.set-slot[data-i="3"]', 'slot4-depth1');
@@ -537,12 +537,13 @@ try {
     head: document.querySelector('.tab-urgent .hub-headline').textContent.replace(/\s+/g, ' '),
     chips: [...document.querySelectorAll('.ucard .gchip')].map((e) => e.textContent).join(' / '),
     tasks: [...document.querySelectorAll('.ucard-tname')].map((e) => e.textContent).join(' / '),
+    pids: [...document.querySelectorAll('.ucard[data-pid]')].map((e) => e.dataset.pid).join(' / '),
     quick: [...document.querySelectorAll('.shortcut span')].map((e) => e.textContent).join(' / '),
   }));
   console.log('hub after settings:', hub);
-  if (!hub.head.includes('2건') || !hub.chips.includes('수혈 오더 20분 경과') || hub.chips.includes('투약')) throw new Error('alarm settings not applied to 긴급 처리 업무');
+  if (!hub.head.includes('5건') || !hub.chips.includes('수혈 오더 20분 경과') || hub.pids.includes('21212457')) throw new Error('alarm settings not applied to 긴급 처리 업무');
   if (!hub.quick.endsWith('신체계측')) throw new Error('quick slot 4 not applied');
-  if (hub.tasks !== '수혈 / V/S') throw new Error(`긴급 card 업무명: ${hub.tasks}`);
+  if (hub.tasks !== '투약 / 투약 / V/S / V/S / 수혈') throw new Error(`긴급 card 업무명: ${hub.tasks}`);
 
   // ---------- 햄버거메뉴 → 주사실 설정 ----------
   await tap('[data-act="hdr-menu"]', 'navmenu-2');
@@ -583,7 +584,7 @@ try {
   await page.type('#pw', 'pass');
   await tap('[data-act="login"]', 'hub-again');
   const reset = await page.$eval('.tab-urgent .hub-headline', (e) => e.textContent.replace(/\s+/g, ' '));
-  if (!reset.includes('3건')) throw new Error(`settings should reset on logout: ${reset}`);
+  if (!reset.includes('6건')) throw new Error(`settings should reset on logout: ${reset}`);
 
   // ---------- 샘플 환자별 업무 ----------
   const title = () => page.$eval('.hdr-title', (e) => e.textContent.trim());
@@ -695,7 +696,7 @@ try {
   if (await page.$('.tr-note')) throw new Error('no 혈액팩 left: no note');
   await tap('[data-act="ok"]', 'jmh-hub-2');
   await expect('hub');
-  if (!(await urgentHead()).includes('2건')) throw new Error(`정민호 수혈 card should be gone: ${await urgentHead()}`);
+  if (!(await urgentHead()).includes('5건')) throw new Error(`정민호 수혈 card should be gone: ${await urgentHead()}`);
   if (await page.$('.ucard[data-pid="20812233"]')) throw new Error('정민호 긴급 card still shown');
   // bag 2's alarm → 체크하기 → 이상 없음
   await waitFor(() => document.querySelector('.dlg-title')?.textContent === '수혈 15분 체크', '정민호 2nd alarm', 25000);
@@ -818,7 +819,7 @@ try {
   // started from the 환자허브 (긴급 카드): 확인 → 환자허브
   await tap('[data-act="ok"]', 'asy-hub');
   await expect('hub');
-  if (!(await urgentHead()).includes('1건')) throw new Error(`안소율 card should be gone: ${await urgentHead()}`);
+  if (!(await urgentHead()).includes('3건')) throw new Error(`안소율 card should be gone: ${await urgentHead()}`);
 
   // MY환자 → 문가은 채혈 (2관), another patient's tube is 불일치
   await goMy();

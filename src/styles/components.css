@@ -87,7 +87,7 @@ html.shot .screen {
   left: 50%;
   top: 20px;
   transform: translateX(-50%);
-  font-size: 20px;
+  font-size: 21px;
   line-height: 24px;
   color: var(--c-text);
   white-space: nowrap;
@@ -137,7 +137,7 @@ html.shot .screen {
   border-radius: 12px;
   background: var(--c-slate);
   color: var(--c-white);
-  font-size: 20px;
+  font-size: 21px;
   line-height: 24px;
   transition: filter 0.12s ease, transform 0.12s ease, opacity 0.2s ease;
 }
@@ -164,7 +164,7 @@ html.shot .screen {
   border-radius: 50px;
   background: var(--grad);
   color: var(--c-white);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 19px;
   text-align: left;
 }
@@ -200,13 +200,13 @@ html.shot .screen {
 }
 .status-title {
   margin-top: 24px;
-  font-size: 28px;
+  font-size: 29px;
   line-height: 33px;
   font-weight: 700;
 }
 .status-desc {
   margin-top: 8px;
-  font-size: 16px;
+  font-size: 17px;
   line-height: 20px;
   color: var(--c-text);
   white-space: pre-line;
@@ -223,7 +223,7 @@ html.shot .screen {
   border-radius: var(--r-badge);
   background: var(--c-badge);
   color: var(--c-badge-text);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 18px;
   white-space: nowrap;
   flex: 0 0 auto;
@@ -253,7 +253,7 @@ html.shot .screen {
   border: 1px solid var(--c-muted);
   background: var(--c-white);
   color: var(--c-muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 18px;
   white-space: nowrap;
 }
@@ -275,7 +275,7 @@ html.shot .screen {
   border-radius: 25px;
   background: var(--c-slate);
   color: var(--c-white);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 18px;
   flex: 0 0 auto;
 }
@@ -299,7 +299,7 @@ html.shot .screen {
   border-radius: 12px;
   background: var(--grad);
   color: var(--c-white);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   flex: 0 0 auto;
 }
@@ -366,13 +366,13 @@ html.shot .screen {
   border-bottom: 1px solid var(--c-line);
 }
 .pn {
-  font-size: 17px;
+  font-size: 18px;
   line-height: 21px;
   font-weight: 700;
   color: var(--c-text);
 }
 .pid {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-slate);
   font-variant-numeric: tabular-nums;
@@ -388,7 +388,7 @@ html.shot .screen {
   padding: 0 8px 0 5px;
   border-radius: 10px;
   background: var(--grad);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   font-weight: 600;
   color: var(--c-white);
@@ -424,7 +424,7 @@ html.shot .screen {
   padding: 0 8px;
   border-radius: 10px;
   background: var(--c-line);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   font-weight: 600;
   color: var(--c-slate);
@@ -450,7 +450,7 @@ html.shot .screen {
   border: 1px solid var(--c-gray);
   border-radius: var(--r-card);
   background: var(--c-surface);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 15px;
   color: var(--c-slate);
   white-space: nowrap;
@@ -465,7 +465,7 @@ html.shot .screen {
   margin-top: 12px;
 }
 .pline .pn {
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
 }
 .pline i {
@@ -479,7 +479,7 @@ html.shot .screen {
   align-items: flex-end;
   justify-content: space-between;
   padding: 4px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-text);
 }
@@ -521,12 +521,12 @@ html.shot .screen {
   gap: 6px;
 }
 .scan-warn > span > span {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   color: var(--c-text);
 }
 .otext {
-  font-size: 18px;
+  font-size: 19px;
   line-height: 21px;
   font-weight: 700;
   background: linear-gradient(90deg, #f6b24c, #f0842a);
@@ -555,7 +555,7 @@ html.shot .screen {
   gap: 8px;
 }
 .medlist-title {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   font-weight: 700;
 }
@@ -621,12 +621,12 @@ html.shot .screen {
 }
 .med-name {
   padding: 2px 0;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   color: var(--c-text);
 }
 .med-date {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-muted);
 }
@@ -650,12 +650,12 @@ html.shot .screen {
 }
 .trow .t {
   width: 35px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-slate);
 }
 .trow .who {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   color: var(--c-slate);
 }
@@ -694,7 +694,7 @@ html.shot .screen {
   height: 28px;
   padding: 0 12px;
   border-radius: 14px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-slate);
   white-space: nowrap;
@@ -774,7 +774,7 @@ html.shot .screen {
   line-height: 20px;
 }
 .sheet-title {
-  font-size: 18px;
+  font-size: 19px;
   line-height: 21px;
   color: var(--c-text);
 }
@@ -785,7 +785,7 @@ html.shot .screen {
   height: 22px;
   margin-top: 12px;
   margin-bottom: 11px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   color: var(--c-text);
 }
@@ -808,7 +808,7 @@ html.shot .screen {
   border: 1px solid var(--c-line);
   border-radius: 8px;
   background: var(--c-white);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 19px;
   color: var(--c-text);
   text-align: left;
@@ -866,7 +866,7 @@ html.shot .sheet-dim {
   transition: none;
 }
 .dlg-title {
-  font-size: 20px;
+  font-size: 21px;
   line-height: 24px;
   font-weight: 700;
   background: linear-gradient(90deg, #f6b24c, #f0642a);
@@ -886,7 +886,7 @@ html.shot .sheet-dim {
 }
 .dlg-desc {
   margin-top: 12px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 20px;
   color: var(--c-text);
   white-space: pre-line;
@@ -908,12 +908,12 @@ html.shot .sheet-dim {
   padding: 22px 20px 20px;
 }
 .dlg.prn .dlg-title {
-  font-size: 22px;
+  font-size: 23px;
   line-height: 26px;
 }
 .dlg.prn .dlg-desc {
   margin-top: 6px;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 26px;
 }
 .dlg.prn .dlg-btns {
@@ -936,7 +936,7 @@ html.shot .sheet-dim {
 .prn-row {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-text);
 }
@@ -979,7 +979,7 @@ html.shot .sheet-dim {
   flex: 0 0 auto;
 }
 .sheet-cur {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-gray);
 }
@@ -1003,7 +1003,7 @@ html.shot .sheet-dim {
   border-radius: 20px;
   background: rgba(51, 51, 51, 0.88);
   color: #fff;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.35;
   text-align: center;
   opacity: 0;

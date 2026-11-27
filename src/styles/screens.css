@@ -41,12 +41,12 @@
 .logo-neo {
   top: 105px;
   left: -1px;
-  font-size: 59px;
+  font-size: 60px;
   line-height: 59px;
 }
 .logo-pocs {
   top: 161px;
-  font-size: 72px;
+  font-size: 73px;
   line-height: 72px;
   background: linear-gradient(90deg, #74d3f3 0%, #3b8fdc 60%, #2f7fd3 100%);
   -webkit-background-clip: text;
@@ -55,7 +55,7 @@
 .logo-sub {
   top: 237px;
   left: 4px;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   letter-spacing: 0.9px;
   color: var(--c-slate);
@@ -71,7 +71,7 @@
   position: absolute;
   left: 40px;
   top: 297px;
-  font-size: 24px;
+  font-size: 25px;
   line-height: 34px;
   color: var(--c-slate);
 }
@@ -91,7 +91,7 @@
 .entry-link {
   margin-top: 25px;
   margin-bottom: 0;
-  font-size: 16px;
+  font-size: 17px;
   line-height: 19px;
   color: var(--c-text);
 }
@@ -122,7 +122,7 @@
   border: 0;
   outline: 0;
   background: transparent;
-  font-size: 16px;
+  font-size: 17px;
   color: var(--c-text);
   user-select: text;
   -webkit-user-select: text;
@@ -139,7 +139,7 @@
 .login-error {
   margin-top: 10px;
   text-align: center;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   color: var(--c-danger-text);
   visibility: hidden;
@@ -175,7 +175,7 @@ html.kb .scr-login-id .entry-link {
 }
 .hub-headline {
   margin-top: 10px;
-  font-size: 28px;
+  font-size: 29px;
   line-height: 36px;
   color: var(--c-slate);
 }
@@ -217,7 +217,7 @@ html.kb .scr-login-id .entry-link {
   flex: 0 0 auto;
 }
 .ucard-tname {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   font-weight: 600;
   color: var(--c-slate);
@@ -231,13 +231,13 @@ html.kb .scr-login-id .entry-link {
   gap: 4px;
 }
 .ucard-name {
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   font-weight: 700;
   color: var(--c-text);
 }
 .ucard-dx {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-slate);
   white-space: nowrap;
@@ -248,7 +248,7 @@ html.kb .scr-login-id .entry-link {
   right: 12px;
 }
 .meta {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-slate);
   white-space: nowrap;
@@ -267,7 +267,7 @@ html.kb .scr-login-id .entry-link {
   border: 1px solid transparent;
   border-radius: 4px;
   background: linear-gradient(var(--c-surface), var(--c-surface)) padding-box, var(--grad) border-box;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   white-space: nowrap;
   flex: 0 0 auto;
@@ -306,7 +306,7 @@ html.kb .scr-login-id .entry-link {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   color: var(--c-text);
 }
@@ -327,7 +327,7 @@ html.kb .scr-login-id .entry-link {
   padding: 0 20px;
   border-radius: 16px;
   background: var(--c-white);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   color: var(--c-slate);
   white-space: nowrap;
@@ -383,7 +383,7 @@ html.kb .scr-login-id .entry-link {
   gap: 4px;
 }
 .myrow-name {
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   font-weight: 700;
   color: var(--c-text);
@@ -411,7 +411,7 @@ html.kb .scr-login-id .entry-link {
   border-radius: 12px;
   background: var(--c-white);
   box-shadow: var(--shadow1);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   color: var(--c-text);
   text-align: left;
@@ -485,7 +485,7 @@ html.shot .ai-chips {
   border-radius: 17px;
   background: var(--c-white);
   box-shadow: 2px 4px 12px rgba(46, 88, 160, 0.12);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   color: var(--c-text);
   white-space: nowrap;
@@ -538,7 +538,7 @@ html.shot .ai-chips {
   border: 0;
   outline: 0;
   background: transparent;
-  font-size: 16px;
+  font-size: 17px;
   color: var(--c-text);
   user-select: text;
   -webkit-user-select: text;
@@ -667,7 +667,7 @@ html.kb .scr-hub .ai-chips {
 }
 .ham-done .status-desc {
   margin-top: 14px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 24px;
 }
 .ham-card {
@@ -683,7 +683,7 @@ html.kb .scr-hub .ai-chips {
   justify-content: space-between;
   padding: 0 4px;
   height: 20px;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   font-weight: 700;
   color: #e03434;
@@ -691,7 +691,7 @@ html.kb .scr-hub .ai-chips {
 .ham-drug {
   margin-top: 8px;
   padding: 0 4px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   color: var(--c-text);
 }
@@ -711,12 +711,12 @@ html.kb .scr-hub .ai-chips {
   background: linear-gradient(var(--c-surface), var(--c-surface)) padding-box, var(--grad) border-box;
 }
 .ham-nurse .k {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-text);
 }
 .ham-nurse .v {
-  font-size: 16px;
+  font-size: 17px;
   line-height: 19px;
   background: var(--grad);
   -webkit-background-clip: text;
@@ -738,14 +738,14 @@ html.kb .scr-hub .ai-chips {
 }
 .ham-who .k,
 .ham-who .at {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-gray);
 }
 .ham-who .v {
   grid-column: 1 / -1;
   justify-self: end;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   color: var(--c-text);
 }
@@ -765,7 +765,7 @@ html.kb .scr-hub .ai-chips {
   border: 1px solid var(--c-gray);
   border-radius: 8px;
   background: var(--c-white);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-text);
   text-align: left;
@@ -812,7 +812,7 @@ html.kb .scr-hub .ai-chips {
 .mswipe-btn {
   width: 64px;
   height: 100%;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   font-weight: 600;
   color: var(--c-white);
@@ -830,7 +830,7 @@ html.kb .scr-hub .ai-chips {
   margin-top: 14px;
   padding: 10px 4px 8px;
   border-top: 1px dashed var(--c-muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   font-weight: 700;
   color: var(--c-slate);
@@ -854,7 +854,7 @@ html.kb .scr-hub .ai-chips {
 }
 .excl-why {
   margin-left: 2px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-danger-text);
 }
@@ -863,7 +863,7 @@ html.kb .scr-hub .ai-chips {
   padding: 0 8px;
   border: 1px solid var(--c-blue);
   border-radius: 11px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   font-weight: 600;
   color: var(--c-blue-deep);
@@ -871,7 +871,7 @@ html.kb .scr-hub .ai-chips {
 .meds-empty {
   padding: 18px 0;
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--c-gray);
 }
 
@@ -887,7 +887,7 @@ html.kb .scr-hub .ai-chips {
   margin-top: 6px;
 }
 .ham-count {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-slate);
 }
@@ -901,7 +901,7 @@ html.kb .scr-hub .ai-chips {
   gap: 4px;
   height: 32px;
   padding: 0 4px 0 2px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   font-weight: 700;
   color: var(--c-text);
@@ -956,7 +956,7 @@ html.kb .scr-hub .ai-chips {
 /* ---------- sheets ---------- */
 .sheet-hint {
   margin: 8px 0 14px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 18px;
   color: var(--c-slate);
 }
@@ -980,13 +980,13 @@ html.kb .scr-hub .ai-chips {
   gap: 11px;
 }
 .tl-who {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-gray);
 }
 .tl-text {
   margin-top: 5px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 18px;
   color: var(--c-text);
 }
@@ -1049,7 +1049,7 @@ html.shot .wave i {
   border: 0;
   outline: 0;
   background: transparent;
-  font-size: 16px;
+  font-size: 17px;
   color: var(--c-text);
   user-select: text;
   -webkit-user-select: text;
@@ -1074,14 +1074,14 @@ html.shot .wave i {
 }
 .vr-title {
   text-align: center;
-  font-size: 28px;
+  font-size: 29px;
   line-height: 33px;
   font-weight: 700;
 }
 .vr-desc {
   margin-top: 8px;
   text-align: center;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 20px;
   color: var(--c-text);
 }
@@ -1103,7 +1103,7 @@ html.shot .wave i {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   font-weight: 700;
   color: var(--c-ai-deep);
@@ -1113,7 +1113,7 @@ html.shot .wave i {
   height: 20px;
 }
 .ai-who {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   color: var(--c-text);
 }
@@ -1126,13 +1126,13 @@ html.shot .wave i {
   background: var(--c-white);
 }
 .ai-sum-t {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 19px;
   font-weight: 700;
   color: var(--c-text);
 }
 .ai-sum-d {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 17px;
   color: var(--c-gray);
 }
@@ -1149,7 +1149,7 @@ html.shot .wave i {
   padding: 0 12px;
   border-radius: 8px;
   background: var(--c-white);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   font-weight: 700;
   color: var(--c-ai-deep);
@@ -1168,7 +1168,7 @@ html.shot .wave i {
   gap: 11px;
 }
 .chat-who {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   font-weight: 600;
   color: var(--c-slate);
@@ -1186,7 +1186,7 @@ html.shot .wave i {
   border-radius: 12px 0 12px 12px;
   background: #592ac5;
   color: var(--c-white);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 18px;
   text-align: right;
 }
@@ -1195,7 +1195,7 @@ html.shot .wave i {
   padding: 14px 12px 10px;
   border-radius: 0 12px 12px 12px;
   background: var(--c-white);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 18px;
   color: var(--c-text);
 }
@@ -1220,7 +1220,7 @@ html.shot .wave i {
   align-items: center;
   gap: 4px;
   margin-bottom: 10px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   font-weight: 700;
   color: var(--c-slate);
@@ -1230,13 +1230,13 @@ html.shot .wave i {
   height: 18px;
 }
 .dcard-title small {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 .drow {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-text);
 }
@@ -1258,7 +1258,7 @@ html.shot .wave i {
   border: 1px solid var(--c-line);
   border-radius: 8px;
   background: var(--c-white);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-slate);
 }
@@ -1278,18 +1278,18 @@ html.shot .wave i {
   align-items: baseline;
   gap: 6px;
   margin: 0 4px 8px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-slate);
 }
 .vprev-title {
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   font-weight: 700;
   color: var(--c-text);
 }
 .vprev-head small {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--c-gray);
 }
 .vgrid.prev .vcell {
@@ -1305,7 +1305,7 @@ html.shot .wave i {
 .dcard.infection .dcard-title {
   height: 18px;
   margin-bottom: 8px;
-  font-size: 14px;
+  font-size: 15px;
 }
 .dcard.allergy {
   border-color: var(--c-warn);
@@ -1340,7 +1340,7 @@ html.shot .wave i {
   border: 1px solid #f9b26d;
   border-radius: 8px;
   background: var(--c-warn-chip);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: #a4510f;
 }
@@ -1350,7 +1350,7 @@ html.shot .wave i {
   color: #e03434;
 }
 .dcard-meta {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-slate);
 }
@@ -1403,7 +1403,7 @@ html.shot .wave i {
   height: 18px;
 }
 .vk {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-text);
 }
@@ -1411,7 +1411,7 @@ html.shot .wave i {
   height: 18px;
   padding: 0 8px;
   border-radius: 9px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 18px;
 }
 .vflag.danger {
@@ -1429,7 +1429,7 @@ html.shot .wave i {
   margin-top: 5px;
 }
 .vv {
-  font-size: 18px;
+  font-size: 19px;
   line-height: 22px;
   font-weight: 700;
   color: var(--c-text);
@@ -1441,13 +1441,13 @@ html.shot .wave i {
   color: var(--c-warn);
 }
 .vu {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   color: var(--c-gray);
 }
 .vat {
   margin-top: 3px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   color: var(--c-gray);
 }
@@ -1465,7 +1465,7 @@ html.shot .wave i {
   border: 1px solid var(--c-ai);
   border-radius: 4px;
   background: var(--c-white);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 18px;
   font-weight: 700;
   color: var(--c-ai-deep);
@@ -1481,7 +1481,7 @@ html.shot .wave i {
   align-items: center;
   justify-content: space-between;
   padding: 0 4px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-text);
 }
@@ -1489,7 +1489,7 @@ html.shot .wave i {
   display: flex;
   align-items: center;
   gap: 2px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--c-slate);
 }
 .ai-time svg {
@@ -1516,7 +1516,7 @@ html.shot .wave i {
 .medlist.plan .medlist-head .badge {
   height: 24px;
   padding: 0 8px;
-  font-size: 12px;
+  font-size: 13px;
 }
 .medlist.plan .med-card {
   gap: 6px;
@@ -1546,7 +1546,7 @@ html.desktop #root[data-bg='dark'] .fake-handle {
 }
 .cam-hdr .hdr-title {
   color: #fff;
-  font-size: 18px;
+  font-size: 19px;
 }
 .icon-btn.dark {
   background: rgba(255, 255, 255, 0.14);
@@ -1564,7 +1564,7 @@ html.desktop #root[data-bg='dark'] .fake-handle {
   padding: 5px 12px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.12);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: rgba(255, 255, 255, 0.85);
 }
@@ -1699,7 +1699,7 @@ html.shot .cam-sway {
   padding: 4px 10px;
   border-radius: 12px;
   background: rgba(24, 120, 188, 0.85);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 16px;
   color: #fff;
   white-space: nowrap;
@@ -1810,7 +1810,7 @@ html.shot .cam-sway {
   border-color: var(--c-blue-deep);
 }
 .cam-hint {
-  font-size: 16px;
+  font-size: 17px;
   line-height: 20px;
   color: #fff;
 }
@@ -1835,7 +1835,7 @@ html.shot .cam-sway {
   }
 }
 .cam-sub {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: rgba(255, 255, 255, 0.6);
 }
@@ -1869,7 +1869,7 @@ html.shot .cam-sway {
   transform: scale(0.9);
 }
 .cam-tip {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: rgba(255, 255, 255, 0.5);
 }
@@ -1883,7 +1883,7 @@ html.shot .cam-sway {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  font-size: 14px;
+  font-size: 15px;
   color: #fff;
 }
 .cam-progress[hidden] {
@@ -1963,7 +1963,7 @@ html.shot .cam-sway {
 /* OCR result boxes */
 .ocr-tag {
   font-family: var(--font);
-  font-size: 62px;
+  font-size: 63px;
   font-weight: 700;
   fill: #fff;
 }
@@ -2013,7 +2013,7 @@ html.shot .cam-sway {
 }
 /* the AI's question as the title: same gradient title, sized to keep each sentence on one line */
 .vr-title.ask {
-  font-size: 24px;
+  font-size: 25px;
   line-height: 31px;
 }
 .ocr-card-head {
@@ -2023,12 +2023,12 @@ html.shot .cam-sway {
   padding: 0 4px 8px;
 }
 .ocr-card-title {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   font-weight: 700;
 }
 .ocr-meta {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-slate);
 }
@@ -2045,7 +2045,7 @@ html.shot .cam-sway {
 .ocr-retake {
   display: block;
   margin: 10px auto 0;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-blue-deep);
   text-decoration: underline;
@@ -2056,7 +2056,7 @@ html.shot .cam-sway {
   align-items: center;
   gap: 4px;
   margin: 0 4px 10px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 16px;
   color: var(--c-slate);
 }
@@ -2085,7 +2085,7 @@ html.shot .cam-sway {
   border: 1px solid var(--c-line);
   border-radius: 4px;
   background: var(--c-white);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 18px;
   color: var(--c-slate);
 }
@@ -2120,7 +2120,7 @@ html.shot .cam-sway {
 
 /* final confirm sheet */
 .cf-when {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--c-slate);
 }
 .cf-grid {
@@ -2140,19 +2140,19 @@ html.shot .cam-sway {
   border-color: var(--c-blue);
 }
 .cf-k {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   color: var(--c-gray);
 }
 .cf-v {
-  font-size: 18px;
+  font-size: 19px;
   line-height: 22px;
   font-weight: 700;
   color: var(--c-text);
 }
 .cf-v small {
   margin-left: 2px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--c-gray);
 }
@@ -2172,7 +2172,7 @@ html.shot .cam-sway {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 17px;
   color: var(--c-slate);
 }
@@ -2250,7 +2250,7 @@ html.shot .cam-sway {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   color: var(--c-text);
 }
@@ -2260,14 +2260,14 @@ html.shot .cam-sway {
 }
 .wcard-line {
   margin-top: 6px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 15px;
   color: var(--c-text);
 }
 .wcard-sub {
   margin-top: 3px;
   margin-bottom: 7px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 15px;
   color: var(--c-muted);
 }
@@ -2288,7 +2288,7 @@ html.shot .cam-sway {
 .ham-sub {
   margin-top: 4px;
   padding: 0 4px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 15px;
   color: var(--c-text);
 }
@@ -2327,7 +2327,7 @@ html.shot .cam-sway {
 }
 .vcard-title {
   margin-right: 4px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   font-weight: 700;
   color: var(--c-slate);
@@ -2345,7 +2345,7 @@ html.shot .cam-sway {
   border: 1px solid var(--c-gray);
   border-radius: 4px;
   background: var(--c-badge);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   color: var(--c-text);
 }
@@ -2374,7 +2374,7 @@ html.shot .cam-sway {
   justify-content: space-between;
 }
 .vt-k {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-text);
 }
@@ -2382,7 +2382,7 @@ html.shot .cam-sway {
   height: 18px;
   padding: 0 7px;
   border-radius: 9px;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 18px;
   background: #eff1f4;
   color: var(--c-badge-text);
@@ -2406,7 +2406,7 @@ html.shot .cam-sway {
   border-radius: 4px;
   background: var(--c-white);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 20px;
   color: var(--c-text);
   flex: 0 0 auto;
@@ -2418,7 +2418,7 @@ html.shot .cam-sway {
   border: 0;
   outline: 0;
   background: transparent;
-  font-size: 20px;
+  font-size: 21px;
   line-height: 24px;
   color: var(--c-text);
   text-align: center;
@@ -2434,7 +2434,7 @@ html.shot .cam-sway {
 .vunit {
   margin-left: auto;
   align-self: flex-end;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 12px;
   color: var(--c-gray);
 }
@@ -2442,7 +2442,7 @@ html.shot .cam-sway {
   display: flex;
   justify-content: space-between;
   padding: 14px 4px 2px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-gray);
 }
@@ -2465,13 +2465,13 @@ html.shot .cam-sway {
   flex: 0 0 auto;
 }
 .drug-scan-t {
-  font-size: 17px;
+  font-size: 18px;
   line-height: 21px;
   font-weight: 700;
 }
 .drug-scan-d {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 17px;
   color: var(--c-slate);
 }
@@ -2497,7 +2497,7 @@ html.shot .cam-sway {
   gap: 6px;
 }
 .vt-prev {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   color: var(--c-gray);
   white-space: nowrap;
@@ -2518,7 +2518,7 @@ html.shot .cam-sway {
   color: var(--c-gray);
 }
 .vval::placeholder {
-  font-size: 14px;
+  font-size: 15px;
   color: #b4bcc8;
 }
 .vt-cell.voiced {
@@ -2542,7 +2542,7 @@ html.shot .cam-sway {
   margin: -4px 0 -4px -4px;
   padding: 0 4px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-gray);
 }
@@ -2592,20 +2592,20 @@ html.shot .cam-sway {
   height: 22px;
 }
 .vtp-v {
-  font-size: 40px;
+  font-size: 41px;
   line-height: 48px;
   font-weight: 700;
   color: var(--c-text);
   font-variant-numeric: tabular-nums;
 }
 .vtp-l {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-gray);
 }
 .vtp-colon {
   margin-bottom: 20px;
-  font-size: 36px;
+  font-size: 37px;
   font-weight: 700;
   color: var(--c-gray);
 }
@@ -2617,7 +2617,7 @@ html.shot .cam-sway {
   padding: 0 8px 0 5px;
   border-radius: 11px;
   background: var(--grad);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   font-weight: 600;
   color: var(--c-white);
@@ -2632,7 +2632,7 @@ html.shot .cam-sway {
 }
 /* 환자 상세 · 임상관찰기록: an item left empty when it was saved */
 .vv.none {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 400;
   color: var(--c-gray);
 }
@@ -2684,7 +2684,7 @@ html.shot .cam-sway {
   box-shadow: inset 0 0 0 2px var(--c-blue);
 }
 .vv-state {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 18px;
   font-weight: 600;
   color: var(--c-text);
@@ -2693,14 +2693,14 @@ html.shot .cam-sway {
 .vv-text {
   min-height: 40px;
   padding: 0 8px;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 20px;
   color: var(--c-blue-deep);
   text-align: center;
 }
 .vv-hint {
   margin: 0 0 10px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 16px;
   color: var(--c-gray);
   text-align: center;
@@ -2721,12 +2721,12 @@ html.shot .cam-sway {
   gap: 1px;
   padding: 6px 4px;
   border-radius: 8px;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   font-weight: 700;
 }
 .vv-chip b {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   font-weight: 500;
 }
@@ -2740,7 +2740,7 @@ html.shot .cam-sway {
 }
 .vv-chip.miss {
   background: #f4f5f7;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--c-gray);
 }
@@ -2748,7 +2748,7 @@ html.shot .cam-sway {
   display: block;
   margin: 10px auto 0;
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-gray);
   text-decoration: underline;
@@ -2777,12 +2777,12 @@ html.shot .cam-sway {
   color: var(--c-white);
 }
 .set-hello {
-  font-size: 20px;
+  font-size: 21px;
   line-height: 24px;
 }
 .set-meta {
   margin-top: 6px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
 }
 .set-meta i {
@@ -2803,19 +2803,19 @@ html.shot .cam-sway {
   padding: 0 14px 0 12px;
   border-radius: 12px;
   background: var(--c-white);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   color: var(--c-text);
 }
 .set-stat b {
-  font-size: 22px;
+  font-size: 23px;
   line-height: 26px;
   font-weight: 500;
 }
 .set-label {
   margin: 16px 0 9px;
   padding-left: 9px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   font-weight: 700;
   color: var(--c-text);
@@ -2837,7 +2837,7 @@ html.shot .cam-sway {
   width: 100%;
   height: 48px;
   padding: 0 16px 0 17px;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   color: var(--c-text);
   text-align: left;
@@ -2855,14 +2855,14 @@ html.shot .cam-sway {
   height: 48px;
   padding: 0 16px 0 32px;
   border-top: 2px solid #f7f7f7;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   color: var(--c-text);
 }
 .set-row.sub {
   padding-left: 32px;
   background: var(--c-surface);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
 }
 .set-row.solo {
@@ -2884,14 +2884,14 @@ html.shot .cam-sway {
   border-radius: 4px;
   background: var(--c-white);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 20px;
   color: var(--c-text);
 }
 .stp-v {
   min-width: 30px;
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-text);
 }
@@ -2908,7 +2908,7 @@ html.shot .cam-sway {
   padding: 0 12px;
   border-radius: 12px;
   background: var(--c-white);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   color: var(--c-text);
 }
@@ -2918,7 +2918,7 @@ html.shot .cam-sway {
   border-radius: 4px;
   background: #99a4b4;
   color: var(--c-white);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 24px;
   text-align: center;
 }
@@ -2940,7 +2940,7 @@ html.shot .cam-sway {
   justify-content: center;
   gap: 4px;
   margin: 26px auto 0;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   color: #a9b2bf;
 }
@@ -2973,7 +2973,7 @@ html.shot .cam-sway {
   padding: 0 12px 0 13px;
   border-radius: 12px;
   background: var(--c-white);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   color: var(--c-text);
   text-align: right;
@@ -2987,7 +2987,7 @@ html.shot .cam-sway {
   flex-direction: column;
 }
 .nav-tile small {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   color: var(--c-blue-deep);
 }
@@ -3004,7 +3004,7 @@ html.shot .cam-sway {
   padding: 0 17px;
   border-top: 1px solid #f1f2f4;
   border-bottom: 1px solid #f1f2f4;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 38px;
   color: var(--c-slate);
 }
@@ -3018,7 +3018,7 @@ html.shot .cam-sway {
   width: 100%;
   height: 40px;
   padding: 0 31px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-text);
   text-align: left;
@@ -3033,7 +3033,7 @@ html.shot .cam-sway {
 .nav-ver {
   margin-top: 22px;
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: #a9b2bf;
 }
@@ -3068,7 +3068,7 @@ html.shot .cam-sway {
   height: 32px;
   padding: 0 20px;
   border-radius: 16px;
-  font-size: 15px;
+  font-size: 16px;
 }
 .memo-card {
   padding: 14px 12px 12px;
@@ -3088,7 +3088,7 @@ html.shot .cam-sway {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
 }
 .memo-head b {
@@ -3103,13 +3103,13 @@ html.shot .cam-sway {
   padding: 16px 8px 4px;
 }
 .mi-t {
-  font-size: 16px;
+  font-size: 17px;
   line-height: 20px;
   color: var(--c-text);
 }
 .mi-d {
   margin-top: 4px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 20px;
   color: var(--c-gray);
 }
@@ -3130,7 +3130,7 @@ html.shot .cam-sway {
   width: 100%;
   height: 46px;
   padding: 0 12px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-slate);
 }
@@ -3155,7 +3155,7 @@ html.shot .cam-sway {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-text);
 }
@@ -3173,21 +3173,21 @@ html.shot .cam-sway {
   color: var(--c-white);
 }
 .memo-foot .who {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-text);
 }
 .memo-empty {
   padding: 40px 0;
   text-align: center;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--c-gray);
 }
 
 /* ---------- 음성간호메모 검토 (common-voice-02): summary + script in one card ---------- */
 .voice-review .vr-desc {
   margin-top: 10px;
-  font-size: 16px;
+  font-size: 17px;
   line-height: 25px;
 }
 .voice-review .vr-card {
@@ -3206,7 +3206,7 @@ html.shot .cam-sway {
   margin-top: 10px;
 }
 .vr-script .script-toggle {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
 }
 .vr-card .ai-sum.vr-sum {
@@ -3269,7 +3269,7 @@ html.shot .cam-sway {
   width: 100%;
   height: 48px;
   border-top: 1px solid var(--c-line);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   font-weight: 700;
   color: var(--c-ai-deep);
@@ -3318,7 +3318,7 @@ html.shot .cam-sway {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-slate);
 }
@@ -3351,7 +3351,7 @@ html.shot .cam-sway {
   padding: 8px 10px;
   border-radius: 8px;
   background: var(--c-warn-bg);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: #c4651c;
 }
@@ -3380,7 +3380,7 @@ html.shot .cam-sway {
   padding: 0 7px;
   border: 1px solid var(--c-line);
   border-radius: var(--r-badge);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 18px;
   color: var(--c-gray);
   white-space: nowrap;
@@ -3416,7 +3416,7 @@ html.shot .cam-sway {
   padding: 4px 4px 4px 6px;
   border-radius: 6px;
   background: #f3f5f8;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 15px;
   color: var(--c-slate);
 }
@@ -3430,7 +3430,7 @@ html.shot .cam-sway {
   border: 1px solid var(--c-line);
   border-radius: 10px;
   background: var(--c-white);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 18px;
   color: var(--c-gray);
   white-space: nowrap;
@@ -3450,7 +3450,7 @@ html.shot .cam-sway {
   padding: 0 10px;
   border-radius: 6px;
   background: #fe9239;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--c-white);
 }
@@ -3527,7 +3527,7 @@ html.shot .cam-sway {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-slate);
 }
@@ -3549,7 +3549,7 @@ html.shot .cam-sway {
 }
 .task-st {
   flex: 0 0 auto;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   white-space: nowrap;
 }
@@ -3579,7 +3579,7 @@ html.shot .cam-sway {
   color: var(--c-slate);
 }
 .mini-none {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 24px;
   color: var(--c-gray);
 }
@@ -3675,14 +3675,14 @@ html.shot .cam-sway {
 }
 .tr-card-title {
   margin-bottom: 8px;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   font-weight: 600;
   color: var(--c-text);
 }
 .tr-card-title small {
   margin-left: 6px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 400;
   color: var(--c-gray);
 }
@@ -3694,7 +3694,7 @@ html.shot .cam-sway {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 16px;
+  font-size: 17px;
   line-height: 19px;
   color: var(--c-text);
 }
@@ -3707,7 +3707,7 @@ html.shot .cam-sway {
 }
 .tr-sub {
   margin-top: 6px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-slate);
 }
@@ -3743,12 +3743,12 @@ html.shot .cam-sway {
   border-left: 1px solid var(--c-line);
 }
 .tr-time .k {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-gray);
 }
 .tr-time b {
-  font-size: 20px;
+  font-size: 21px;
   line-height: 24px;
   font-weight: 600;
   color: var(--c-text);
@@ -3767,7 +3767,7 @@ html.shot .cam-sway {
   padding: 8px 10px;
   border-radius: 8px;
   background: #eef6ff;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-blue-deep);
 }
@@ -3782,7 +3782,7 @@ html.shot .cam-sway {
 }
 .tr-log-who {
   text-align: right;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--c-gray);
 }
 .trf-done.stopped .status-title {
@@ -3807,24 +3807,24 @@ html.shot .cam-sway {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-slate);
 }
 .tra-pt b {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--c-text);
 }
 .tra-bag {
   margin-top: 6px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 17px;
   color: var(--c-text);
 }
 .tra-sub {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 15px;
   color: var(--c-slate);
   font-variant-numeric: tabular-nums;
@@ -3880,7 +3880,7 @@ html.shot .cam-sway {
 }
 .gal-title {
   text-align: center;
-  font-size: 18px;
+  font-size: 19px;
   line-height: 22px;
   color: var(--c-text);
 }
@@ -3896,7 +3896,7 @@ html.shot .cam-sway {
   padding: 8px 10px;
   border-radius: 8px;
   background: #eef7fd;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-blue-deep);
 }
@@ -3918,13 +3918,13 @@ html.shot .cam-sway {
   padding: 14px var(--pad-x) 8px;
 }
 .gal-day b {
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   font-weight: 700;
   color: var(--c-text);
 }
 .gal-day span {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--c-gray);
 }
 .gal-grid {
@@ -4009,7 +4009,7 @@ html.shot .cam-sway {
   transform: rotate(-4deg);
 }
 .gdoc b {
-  font-size: 9px;
+  font-size: 10px;
   line-height: 11px;
   font-weight: 700;
   color: #2b3a55;
@@ -4108,7 +4108,7 @@ button.vplus {
   padding: 2px 10px;
   border-radius: 10px;
   background: rgba(101, 189, 233, 0.16);
-  font-size: 19px;
+  font-size: 20px;
   line-height: 24px;
   font-weight: 700;
   letter-spacing: 0;
@@ -4126,7 +4126,7 @@ button.vplus {
 }
 .upd-box-t {
   margin-bottom: 6px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   font-weight: 700;
   color: var(--c-text);
@@ -4139,7 +4139,7 @@ button.vplus {
   list-style: disc;
 }
 .upd-box li {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 17px;
   color: var(--c-slate);
 }
@@ -4177,7 +4177,7 @@ button.vplus {
   align-items: center;
   gap: 6px;
   margin-top: 10px;
-  font-size: 18px;
+  font-size: 19px;
   line-height: 22px;
   color: var(--c-slate);
 }
@@ -4213,7 +4213,7 @@ button.vplus {
 }
 .upd-st {
   margin-top: 10px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 18px;
   color: var(--c-text);
   font-variant-numeric: tabular-nums;
@@ -4234,7 +4234,7 @@ button.vplus {
   width: 100%;
   height: 44px;
   padding: 0 16px;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   color: var(--c-text);
   text-align: left;
@@ -4259,7 +4259,7 @@ button.vplus {
 .app-badge {
   padding: 2px 7px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 14px;
   font-weight: 600;
 }
@@ -4311,19 +4311,19 @@ button.vplus {
   transform: rotate(90deg);
 }
 .ver-head b {
-  font-size: 16px;
+  font-size: 17px;
   line-height: 19px;
   color: var(--c-text);
 }
 .ver-date {
   margin-left: auto;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--c-gray);
 }
 .ver-tag {
   padding: 1px 6px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 15px;
 }
 .ver-tag.cur {
@@ -4347,7 +4347,7 @@ button.vplus {
   list-style: disc;
 }
 .ver-notes li {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 17px;
   color: var(--c-slate);
 }
@@ -4357,7 +4357,7 @@ button.vplus {
   margin-top: 10px;
   border-radius: 8px;
   background: var(--grad);
-  font-size: 14px;
+  font-size: 15px;
   color: var(--c-white);
 }
 .ver-btn.back {
@@ -4368,7 +4368,7 @@ button.vplus {
 .ver-using {
   margin-top: 10px;
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--c-blue-deep);
 }
 
@@ -4383,7 +4383,7 @@ html.pii-masked .pii::after {
 }
 .set-note {
   margin: 6px 4px 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 17px;
   color: var(--c-gray);
 }
@@ -4435,7 +4435,7 @@ html.pii-masked .pii::after {
   padding: 0 6px 0 8px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.14);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: #fff;
   -webkit-backdrop-filter: blur(6px);
@@ -4446,7 +4446,7 @@ html.pii-masked .pii::after {
   padding: 1px 5px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.22);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 13px;
   color: rgba(255, 255, 255, 0.85);
 }
@@ -4481,7 +4481,7 @@ html.pii-masked .pii::after {
 .opt.purpose small {
   display: block;
   margin-top: 2px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 15px;
   color: var(--c-gray);
 }
@@ -4500,7 +4500,7 @@ html.pii-masked .pii::after {
   gap: 2px;
   margin-top: 8px;
   padding: 4px 0 4px 8px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-blue-deep);
 }
@@ -4540,7 +4540,7 @@ html.pii-masked .pii::after {
   border-color: var(--c-danger);
 }
 .pf-k {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   color: var(--c-slate);
 }
@@ -4551,16 +4551,16 @@ html.pii-masked .pii::after {
   border: 0;
   outline: 0;
   background: transparent;
-  font-size: 18px;
+  font-size: 19px;
   line-height: 22px;
   font-weight: 700;
   color: var(--c-text);
 }
 .pf-in.text {
-  font-size: 15px;
+  font-size: 16px;
 }
 .pf-u {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   color: var(--c-gray);
 }
@@ -4581,11 +4581,11 @@ html.pii-masked .pii::after {
   grid-template-columns: 32px 1fr auto;
   gap: 8px;
   align-items: baseline;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 20px;
 }
 .pf-cmp .k {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--c-gray);
 }
 .pf-cmp b {
@@ -4607,7 +4607,7 @@ html.pii-masked .pii::after {
   padding: 8px 10px;
   border-radius: 8px;
   background: var(--c-surface);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 18px;
   color: var(--c-slate);
 }
@@ -4639,7 +4639,7 @@ html.pii-masked .pii::after {
   align-items: center;
   gap: 6px;
   margin: 14px 4px 6px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   font-weight: 700;
   color: var(--c-text);
@@ -4650,7 +4650,7 @@ html.pii-masked .pii::after {
 .ph-k em {
   font-style: normal;
   font-weight: 400;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--c-warn);
 }
 .ph-k.nudge {
@@ -4666,7 +4666,7 @@ html.pii-masked .pii::after {
   height: 30px;
   padding: 0 12px;
   border: 1px solid var(--c-line);
-  font-size: 14px;
+  font-size: 15px;
 }
 .ph-chips .sort-chip.on {
   border-color: var(--c-slate);
@@ -4686,7 +4686,7 @@ html.pii-masked .pii::after {
   border-radius: 8px;
   background: var(--c-white);
   font: inherit;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--c-text);
   text-align: center;
@@ -4700,7 +4700,7 @@ html.pii-masked .pii::after {
   border-color: var(--c-blue);
 }
 .ph-k small {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   color: var(--c-gray);
 }
@@ -4714,7 +4714,7 @@ html.pii-masked .pii::after {
   border-radius: 8px;
   background: var(--c-white);
   font: inherit;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 20px;
   color: var(--c-text);
   resize: none;
@@ -4751,7 +4751,7 @@ html.pii-masked .pii::after {
   transform: translate(-50%, -50%) scale(0.5);
 }
 .ph-pair figcaption {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 16px;
   color: var(--c-slate);
   text-align: center;
@@ -4808,7 +4808,7 @@ html.pii-masked .pii::after {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 18px;
   color: var(--c-text);
 }
@@ -4819,7 +4819,7 @@ html.pii-masked .pii::after {
   white-space: nowrap;
 }
 .ph-d {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 17px;
   color: var(--c-slate);
 }
@@ -4827,7 +4827,7 @@ html.pii-masked .pii::after {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 15px;
   color: var(--c-danger-text);
 }
@@ -4837,13 +4837,13 @@ html.pii-masked .pii::after {
   flex: 0 0 auto;
 }
 .ph-body small {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 15px;
   color: var(--c-gray);
 }
 .ph-empty {
   padding: 8px 4px 0;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--c-gray);
 }
 .ph-shoot {
@@ -4857,7 +4857,7 @@ html.pii-masked .pii::after {
   border: 1px solid var(--c-blue);
   border-radius: 8px;
   background: var(--c-white);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 18px;
   font-weight: 700;
   color: var(--c-blue-deep);
@@ -4872,7 +4872,7 @@ html.pii-masked .pii::after {
    ========================================================= */
 .ps-sec {
   margin: 12px 4px 6px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   font-weight: 700;
   color: var(--c-slate);
@@ -4902,7 +4902,7 @@ html.pii-masked .pii::after {
 .photo-opt small {
   display: block;
   margin-top: 2px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 15px;
   color: var(--c-gray);
 }
@@ -4916,7 +4916,7 @@ html.pii-masked .pii::after {
   color: #6a43c7;
 }
 .ph-shoot small {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 400;
   color: var(--c-gray);
 }
@@ -4963,7 +4963,7 @@ button.ph-row {
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.62);
   font-style: normal;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 15px;
   color: #fff;
   font-variant-numeric: tabular-nums;
@@ -4999,12 +4999,12 @@ button.ph-row {
   color: var(--c-text);
 }
 .md-add b {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 16px;
   font-weight: 600;
 }
 .md-add small {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   color: var(--c-gray);
 }
@@ -5029,7 +5029,7 @@ button.ph-row {
   padding: 8px 10px;
   border-radius: 8px;
   background: #eef6ff;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 17px;
   color: var(--c-blue-deep);
 }
@@ -5048,7 +5048,7 @@ button.ph-row {
   padding: 22px 0;
   border: 1px dashed var(--c-line);
   border-radius: 12px;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--c-gray);
   text-align: center;
 }
@@ -5080,7 +5080,7 @@ button.ph-row {
   flex: 0 0 auto;
   border-radius: 10px;
   background: var(--c-slate);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: #fff;
 }
@@ -5088,7 +5088,7 @@ button.ph-row {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 18px;
   font-weight: 600;
   color: var(--c-text);
@@ -5119,7 +5119,7 @@ button.ph-row {
   background: #f3edff;
 }
 .md-meta {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 15px;
   color: var(--c-gray);
 }
@@ -5130,7 +5130,7 @@ button.ph-row {
   border-radius: 8px;
   background: var(--c-white);
   font: inherit;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 19px;
   color: var(--c-text);
   resize: none;
@@ -5170,7 +5170,7 @@ button.ph-row {
   height: 26px;
 }
 .mv-demo small {
-  font-size: 12px;
+  font-size: 13px;
 }
 .mv-video {
   display: block;
@@ -5220,7 +5220,7 @@ button.ph-row {
   height: 55%;
 }
 .mv-rec b {
-  font-size: 15px;
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
 }
 .mv-rec small {
@@ -5228,7 +5228,7 @@ button.ph-row {
 }
 .mv-k {
   margin: 12px 4px 6px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--c-slate);
 }
@@ -5254,13 +5254,13 @@ button.ph-row {
   animation: rec-blink 1s ease-in-out infinite;
 }
 .rec-t {
-  font-size: 40px;
+  font-size: 41px;
   line-height: 48px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 .rec-max {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--c-gray);
 }
 .rec-bars {

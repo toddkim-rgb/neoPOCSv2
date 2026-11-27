@@ -105,7 +105,7 @@ html.night .night-badge {
   padding: 0 8px 0 6px;
   border-radius: 10px;
   background: #2a3550;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 13px;
   font-weight: 600;
   color: #c7d4ff;
@@ -152,7 +152,7 @@ html.night .hub-spark {
   border-radius: 13px;
   background: rgba(20, 26, 36, 0.92);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 14px;
   font-weight: 600;
   color: #e6ebf2;
