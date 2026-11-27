@@ -6,19 +6,28 @@
 // measurement within 24 hours (the small history table was removed: too small to read on the PDA).
 import { register, go, pop, rerender } from '../router.js';
 import { confirmReset } from './med.js';
-import { header, aiButton, badge, esc, medGroups, patientLine } from '../ui.js';
+import { header, aiButton, badge, esc, medGroups, patientName } from '../ui.js';
 import { icon, sparkles } from '../icons.js';
 import { patientTitle, PATIENT, NURSE } from '../data.js';
 import { state } from '../state.js';
 import { flagOf } from './vitals.js';
 import { photoRow } from './photo.js';
-import { mediaRow, openMediaAdd, openMediaViewer } from './media.js';
+import { mediaRow, openMediaList, openMediaViewer } from './media.js';
 import { scriptBubbles } from './voice.js';
 
 const infoCard = (title, rows) => `
   <section class="dcard">
     <h3 class="dcard-title">${title}</h3>
     ${rows.map(([k, v]) => `<div class="drow"><span class="k">${k}</span><span>${esc(v)}</span></div>`).join('')}
+  </section>`;
+
+// 환자 기본정보 + 환자상세를 한 카드로 (2026-11-27 요청: 상세정보 · 병상정보가 두 군데 중복 출력되던 것을 합침)
+const basicCard = () => `
+  <section class="dcard">
+    <h3 class="dcard-title">${patientName()}</h3>
+    <div class="drow"><span class="k">병상정보</span><span>${PATIENT.bed}</span></div>
+    <div class="drow"><span class="k">상세정보</span><span>${PATIENT.detail}</span></div>
+    <div class="drow"><span class="k">체격정보</span><span>${PATIENT.body}</span></div>
   </section>`;
 
 // one measurement = one time: it is shown once in the card head, so the cells are shorter (same fonts).
@@ -34,30 +43,52 @@ const vitalCell = (v, head, empty = '미측정') => `
 /** 측정 일시 (MM/DD HH:MM) of the latest record. */
 const measuredAt = () => state.vitals.items[0]?.at || state.vitals.time;
 
-/* 직전 기록: for each item, its previous measurement within 24 hours before the latest record */
-const DAY = 24 * 3600e3;
-function atMs(at) {
-  const m = /^(\d\d)\/(\d\d) (\d\d):(\d\d)$/.exec(at || '');
-  return m ? new Date(2026, m[1] - 1, +m[2], +m[3], +m[4]).getTime() : NaN;
+/**
+ * 활력징후 트렌드 (환자 상세 '트렌드 보기', 2026-11-27 요청): '직전 기록'(24시간 전 값만) 대신 지난 3일 그래프.
+ * 라이브러리 없이 손으로 그리는 작은 꺾은선(SVG) — state.pt[pid].vhist(과거 3일, 오래된 순 아님: 최신이 앞)를 뒤집고
+ * 맨 끝에 지금 값을 더해 '오래된 → 최신' 순서로 만든다.
+ */
+function trendSeries(k) {
+  const hist = [...state.pt[state.pid].vhist].reverse();
+  const pts = hist.map((r) => ({ at: r.at, v: parseFloat(r.values[k]) })).filter((p) => Number.isFinite(p.v));
+  const now = state.vitals.items.find((i) => i.k === k);
+  if (now && String(now.v ?? '').trim()) pts.push({ at: now.at || measuredAt(), v: parseFloat(now.v) });
+  return pts;
 }
-function prevItems() {
-  const t0 = atMs(measuredAt());
-  const hist = state.pt[state.pid].vhist;
-  return state.vitals.items.map((i) => {
-    const row = hist.find((r) => {
-      const t = atMs(r.at);
-      return String(r.values[i.k] ?? '').trim() && (Number.isNaN(t0) || (t < t0 && t0 - t <= DAY));
-    });
-    return row ? { k: i.k, unit: i.unit, v: row.values[i.k], flag: flagOf(i.k, row.values[i.k]), at: row.at } : { k: i.k, unit: i.unit, v: '', at: '' };
-  });
-}
-function prevRecord() {
-  // 항목마다 측정했을 수도, 안 했을 수도 있어 (2026-11-24 요청) 날짜·시각은 공유 헤더가 아니라 각 칸 하단에 표시
-  const items = prevItems();
+function sparkline(pts, w = 96, h = 34) {
+  if (pts.length < 2) return `<svg viewBox="0 0 ${w} ${h}" class="trend-svg" aria-hidden="true"></svg>`;
+  const vals = pts.map((p) => p.v);
+  const min = Math.min(...vals);
+  const span = Math.max(...vals) - min || 1;
+  const stepX = w / (pts.length - 1);
+  const y = (v) => h - 5 - ((v - min) / span) * (h - 9);
+  const coords = vals.map((v, i) => `${(i * stepX).toFixed(1)},${y(v).toFixed(1)}`);
+  const [lx, ly] = coords[coords.length - 1].split(',');
   return `
-    <div class="vprev">
-      <div class="vprev-head"><span class="vprev-title">직전 기록</span><small>24시간 이내</small></div>
-      <div class="vgrid prev">${items.map((v) => vitalCell(v, '', '기록 없음')).join('')}</div>
+    <svg viewBox="0 0 ${w} ${h}" class="trend-svg" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points="${coords.join(' ')}" fill="none" />
+      <circle cx="${lx}" cy="${ly}" r="2.4" />
+    </svg>`;
+}
+function trendCard() {
+  const cells = state.vitals.items
+    .map((i) => {
+      const pts = trendSeries(i.k);
+      const last = pts[pts.length - 1];
+      const flag = last ? flagOf(i.k, String(last.v)) : '';
+      const range = pts.length ? `${Math.min(...pts.map((p) => p.v))}–${Math.max(...pts.map((p) => p.v))} ${i.unit}` : '데이터 없음';
+      return `
+      <div class="vcell trend-cell">
+        <div class="vcell-top"><span class="vk">${i.k}</span>${flag ? `<span class="vflag ${flag}">${flag === 'danger' ? '경고' : '주의'}</span>` : ''}</div>
+        ${sparkline(pts)}
+        <p class="trend-range">${esc(range)}</p>
+      </div>`;
+    })
+    .join('');
+  return `
+    <div class="vprev trend">
+      <div class="vprev-head"><span class="vprev-title">활력징후 트렌드</span><small>최근 3일</small></div>
+      <div class="vgrid prev">${cells}</div>
     </div>`;
 }
 
@@ -116,15 +147,17 @@ function planCard() {
     </div>`;
 }
 
-/** 멀티미디어: 사진 기록 (AI 카메라) + 사진 · 동영상 · 음성기록, newest first ('MM/DD HH:MM' sorts as text). */
+/**
+ * 멀티미디어: 사진 기록 (AI 카메라) + 사진 · 동영상 · 음성기록, newest first ('MM/DD HH:MM' sorts as text).
+ * 2026-11-27 요청: 여기엔 더 이상 '+ 추가'가 없고(추가는 새 멀티미디어 상세화면에서), 카드 머리를 누르면 그 상세화면으로 이동.
+ */
 function mediaCard() {
   const s = state.pt[state.pid];
   const rows = [...s.media.map((m) => [m.at, mediaRow(m)]), ...s.photos.map((p) => [p.at, photoRow(p)])].sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0));
   return `
       <section class="dcard photo-records">
-        <div class="dcard-head"><h3 class="dcard-title">멀티미디어</h3><span class="ai-count">총 ${rows.length}건</span></div>
+        <button class="dcard-head" data-act="media-list"><h3 class="dcard-title">멀티미디어</h3><span class="ai-count">총 ${rows.length}건</span><span class="chev">${icon.chevronRight}</span></button>
         <div class="ph-list">${rows.length ? rows.map((r) => r[1]).join('') : '<p class="ph-empty">사진 · 동영상 · 음성기록이 없습니다.</p>'}</div>
-        <button class="ph-shoot" data-act="media-add">${icon.add}<span>추가</span><small>사진 · 동영상 · 음성기록</small></button>
       </section>`;
 }
 
@@ -135,9 +168,8 @@ register('detail', {
     return `
     ${header({ title: '환자 상세', left: 'back', right: 'menu' })}
     <div class="screen-body scroll detail">
-      ${patientLine()}
+      ${basicCard()}
       ${aiButton()}
-      ${infoCard('환자상세', [['상세정보', PATIENT.detail], ['병상정보', PATIENT.bed], ['체격정보', PATIENT.body]])}
       ${infoCard('진료상세', [['주진단명', PATIENT.dx], ['시술명', PATIENT.surgery], ['진료과', PATIENT.dept], ['담당의', PATIENT.doctor], ['입원일시', PATIENT.admitted]])}
       <section class="dcard allergy">
         <h3 class="dcard-title">${icon.allergy}<span>약물이상반응</span><small>(Allergy)</small></h3>
@@ -150,9 +182,9 @@ register('detail', {
       <section class="dcard vitals">
         <div class="dcard-head"><h3 class="dcard-title">임상관찰기록</h3><span class="dcard-meta vmeta">${icon.alarmOutline}<b>${measuredAt()}</b><i></i>${state.vitals.who}</span></div>
         <div class="vgrid">${state.vitals.items.map((v) => vitalCell(v, measuredAt())).join('')}</div>
-        ${state.vhistOpen ? prevRecord() : ''}
+        ${state.vhistOpen ? trendCard() : ''}
         <button class="vhist-toggle" data-act="vitals-more" aria-expanded="${state.vhistOpen}">${
-          state.vhistOpen ? '직전 기록 접기' : '직전 기록 보기'
+          state.vhistOpen ? '트렌드 접기' : '트렌드 보기'
         }<span class="chev">${state.vhistOpen ? icon.arrowUp : icon.arrowDown}</span></button>
       </section>
       <section class="dcard ai-records">
@@ -175,8 +207,8 @@ register('detail', {
       state.vhistOpen = !state.vhistOpen;
       rerender();
     },
-    // 멀티미디어: + 추가 (사진 · 동영상 · 음성기록, 모아서 메모 → 저장) · 항목 보기 / 메모 수정 / 삭제
-    'media-add': () => openMediaAdd(),
+    // 멀티미디어: 카드 머리 → 상세화면(mlist, 전체 목록 + 추가) · 항목 보기 / 메모 수정 / 삭제는 그대로 여기서도 가능
+    'media-list': () => openMediaList(),
     'media-open': (t) => openMediaViewer(t.dataset.id),
     toggle: (t) => {
       const i = +t.dataset.i;

@@ -28,9 +28,13 @@ function newWork(p) {
   };
 }
 
-/* 임상관찰기록 이전 측정 (환자 상세 '상세보기'): demo records before the patient's latest one, a little different each time */
-const HIST_HOURS = [4, 8, 12, 20];
-const HIST_DELTA = { SBP: [4, -3, 6, -2], DBP: [2, -1, 3, 0], PR: [-5, 3, -8, 2], RR: [0, 2, -2, 1], BT: [-0.3, 0.2, -0.5, 0.1], SpO2: [1, -1, 0, 1] };
+// 임상관찰기록 이전 측정 (환자 상세 '트렌드'): demo records before the patient's latest one, a little different each time.
+// 2026-11-27 요청: '직전 기록'(24시간) 대신 3일 트렌드 그래프를 보여주므로, 과거 3일(72시간)치로 늘림.
+const HIST_HOURS = [12, 24, 36, 48, 60, 72];
+const HIST_DELTA = {
+  SBP: [4, -3, 6, -2, 8, -5], DBP: [2, -1, 3, 0, 4, -2], PR: [-5, 3, -8, 2, -10, 5],
+  RR: [0, 2, -2, 1, -3, 2], BT: [-0.3, 0.2, -0.5, 0.1, -0.6, 0.3], SpO2: [1, -1, 0, 1, -2, 1],
+};
 const pad2 = (n) => String(n).padStart(2, '0');
 function vitalHistory(v) {
   const [md, hm] = (v.items[0]?.at || `09/17 ${v.time}`).split(' ');

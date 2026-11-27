@@ -48,7 +48,7 @@ export const statusBlock = ({ img, title, desc }) => `
 // `scanWarn`: the patient was matched from a prescription but their wristband is not scanned yet.
 // 환자 이름 · 등록번호 sit in the patient box, not the header (요청: the hub header shows the nurse, so a name up
 // there was confusing); the header shows the 업무명 instead.
-const patientName = () => `<span class="pn">${esc(PATIENT.name)}</span><span class="pid">${PATIENT.id}</span>`;
+export const patientName = () => `<span class="pn">${esc(PATIENT.name)}</span><span class="pid">${PATIENT.id}</span>`;
 
 /** Screens without the patient box: one line with 이름 · 등록번호 · 병상 · 상세정보. */
 export const patientLine = () => `

@@ -8,8 +8,8 @@ import { register, go, pop, rerender } from '../router.js';
 import { header, button, esc, toast, openSheet, closeSheet, openDialog, patientLine, badge } from '../ui.js';
 import { icon } from '../icons.js';
 import { NURSE, DEMO_DATE } from '../data.js';
-import { state } from '../state.js';
-import { artSvg } from './photo.js';
+import { state, selectPatient } from '../state.js';
+import { artSvg, photoRow } from './photo.js';
 import { scenePhoto } from './vitals.js';
 import { feedback } from '../feedback.js';
 
@@ -119,11 +119,46 @@ export function openMediaViewer(id) {
   );
 }
 
+/* ---------------- 멀티미디어 상세화면: 기록된 사진·동영상·음성기록 전체 목록 + 추가 ---------------- */
+/**
+ * 환자 상세의 '멀티미디어' 카드 머리를 누르거나(이미 선택된 환자), AI 커맨드바 '+ → 멀티미디어'로
+ * 팔찌를 스캔한 뒤(이때는 `pid`를 줌) 들어오는 전용 화면 (2026-11-27 요청).
+ */
+export function openMediaList(pid) {
+  if (pid) selectPatient(pid);
+  go('mlist');
+}
+
+function mediaRows() {
+  const s = state.pt[state.pid];
+  return [...s.media.map((m) => [m.at, mediaRow(m)]), ...s.photos.map((p) => [p.at, photoRow(p)])].sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0));
+}
+
+register('mlist', {
+  bg: 'screen',
+  render: () => {
+    const rows = mediaRows();
+    return `
+      ${header({ title: '멀티미디어', left: 'back' })}
+      <div class="screen-body scroll media-add">
+        ${patientLine()}
+        <div class="medlist-head"><span class="l"><span class="medlist-title gtext">기록된 멀티미디어</span></span>${badge(`총 ${rows.length}건`, 'count-grad')}</div>
+        <div class="ph-list">${rows.length ? rows.map((r) => r[1]).join('') : '<p class="ph-empty">사진 · 동영상 · 음성기록이 없습니다.</p>'}</div>
+        <button class="ph-shoot" data-act="media-add">${icon.add}<span>추가</span><small>사진 · 동영상 · 음성기록</small></button>
+      </div>`;
+  },
+  actions: {
+    'hdr-back': () => pop(),
+    'media-add': () => openMediaAdd(),
+    'media-open': (t) => openMediaViewer(t.dataset.id),
+  },
+});
+
 /* ---------------- 멀티미디어 추가 (모아서 메모 → 한 번에 저장) ---------------- */
 let draft = [];
 
-/** 환자 상세 '+ 추가': the patient is the one shown, so no wristband scan. */
-export function openMediaAdd() {
+/** 멀티미디어 상세화면의 '+ 추가': the patient is already selected, so no wristband scan. */
+function openMediaAdd() {
   draft = [];
   go('media', {});
 }

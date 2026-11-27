@@ -1308,6 +1308,29 @@ html.shot .wave i {
   background: #f4f6f9;
   min-height: 78px; /* every cell shows its own 날짜·시각 now (2026-11-24): back to the taller size */
 }
+/* 활력징후 트렌드 (지난 3일, 2026-11-27 요청): 라이브러리 없는 손그림 꺾은선 */
+.trend-svg {
+  display: block;
+  width: 100%;
+  height: 34px;
+  margin-top: 4px;
+}
+.trend-svg polyline {
+  stroke: var(--c-blue-deep);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.trend-svg circle {
+  fill: var(--c-blue-deep);
+}
+.trend-range {
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 13px;
+  color: var(--c-gray);
+  text-align: right;
+}
 
 .dcard.allergy,
 .dcard.infection {
@@ -4780,8 +4803,20 @@ html.pii-masked .pii::after {
 
 /* 환자 상세 '사진 기록' */
 .photo-records .dcard-head {
+  width: 100%;
   height: 22px;
   margin-left: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+.photo-records .dcard-head .chev {
+  width: 18px;
+  height: 18px;
+  color: var(--c-gray);
 }
 .photo-records .ai-count {
   border-color: var(--c-gray);

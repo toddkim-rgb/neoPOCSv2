@@ -210,8 +210,8 @@ function bloodTask() {
   const hint =
     done === 0 ? '채혈관 바코드를 스캔해 주세요.' : done < n ? '다른 채혈관 바코드를 스캔해 주세요.' : '모든 채혈관이 확인되었습니다. 채혈 확인을 눌러 주세요.';
   // 채혈 확인 버튼 옆에도 스캔 버튼을 항상 함께 둔다(스마트폰은 하드웨어 스캔 버튼이 없음, 2026-11-27 요청).
-  // 수행 버튼과 나란히 놓일 땐(line) 다른 화면(수혈하기 '혈액 스캔')과 같은 짧은 이름을 써서 줄바꿈 없이 들어가게 한다.
-  const scanBtn = (line) => button(line ? '채혈관 스캔' : done === 0 ? '채혈관 바코드 스캔' : '다른 채혈관 바코드 스캔', 'scan-tube', { line, long: 'scan-sim-tube' });
+  // 수행 버튼과 나란히 놓일 땐 다른 화면(수혈하기 '혈액 스캔')과 같은 짧은 이름 + 같은 배경색(다른 수행 버튼과 통일)을 쓴다.
+  const scanBtn = (paired) => button(paired ? '채혈관 스캔' : done === 0 ? '채혈관 바코드 스캔' : '다른 채혈관 바코드 스캔', 'scan-tube', { long: 'scan-sim-tube' });
   const foot =
     done === n
       ? `<div class="sticky-foot two-btns">${scanBtn(true)}${button('채혈 확인', 'blood-confirm', { cta: true })}</div>`
@@ -400,11 +400,14 @@ function trfList(interactive) {
     </div>`;
 }
 
-/** 혈액 스캔 버튼은 수행하기 · 확인 옆에 항상 함께 둔다(스마트폰은 하드웨어 스캔 버튼이 없음, 2026-11-27 요청). */
+/**
+ * 혈액 스캔 버튼은 수행하기 · 확인 옆에 항상 함께 둔다(스마트폰은 하드웨어 스캔 버튼이 없음, 2026-11-27 요청).
+ * 다른 수행 버튼과 배경색을 통일(흰 테두리 line 스타일 제거, 2026-11-27 요청).
+ */
 function trfFoot() {
-  const scan = (label, cls = ' line') => `<button class="btn${cls}" data-act="scan-bag" data-long="scan-sim-bag">${label}</button>`;
+  const scan = (label) => `<button class="btn" data-act="scan-bag" data-long="scan-sim-bag">${label}</button>`;
   if (!trfLeft().length) return `<div class="sticky-foot two-btns">${scan('혈액 바코드 스캔')}${button('확인', 'trf-finish', { cta: true })}</div>`;
-  if (!trfNext()) return `<div class="sticky-foot">${scan('혈액 바코드 스캔', '')}</div>`;
+  if (!trfNext()) return `<div class="sticky-foot">${scan('혈액 바코드 스캔')}</div>`;
   const perform = button(KINDS.trf.action, 'perform', { cta: true });
   return `<div class="sticky-foot two-btns">${scan('혈액 스캔')}${perform}</div>`;
 }

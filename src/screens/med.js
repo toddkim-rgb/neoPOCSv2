@@ -277,7 +277,7 @@ register('task', {
       <div class="screen-body scroll task-b">
         <div class="task-top">${aiButton()}${patientCard({ prn: hasPrn(), confirmed: true })}</div>
         ${medList({ interactive: true })}
-        <div class="sticky-foot two-btns${hamPending() ? ' ham-pending' : ''}">${button('처방 스캔', 'scan-drug', { line: true, long: 'scan-sim-drug' })}${button('투약수행', 'administer', { cta: true })}</div>
+        <div class="sticky-foot two-btns${hamPending() ? ' ham-pending' : ''}">${button('약봉투 스캔', 'scan-drug', { long: 'scan-sim-drug' })}${button('투약수행', 'administer', { cta: true })}</div>
       </div>`;
   },
   actions: {

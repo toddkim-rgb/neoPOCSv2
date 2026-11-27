@@ -152,7 +152,7 @@ try {
   const open = await page.$eval('.ai-chips', (e) => e.classList.contains('open'));
   if (!open) throw new Error('AI chips did not open');
   const hubChips = await page.$$eval('.hub-foot .ai-chip', (els) => els.map((e) => e.textContent).join(' / '));
-  if (hubChips !== '음성메모 / 사진 / 스캔') throw new Error(`+ menu: ${hubChips}`);
+  if (hubChips !== '음성메모 / 사진 / 스캔 / 멀티미디어') throw new Error(`+ menu: ${hubChips}`);
   await tap('[data-act="ai-photo"]', 'ai-photo');
   const photoOpts = await page.$$eval('.sheet .photo-opt .lbl', (els) => els.map((e) => e.firstChild.textContent.trim()).join(' / '));
   if (photoOpts !== '환자 / 장비 / 기타 / 갤러리에서 선택') throw new Error(`사진 sheet: ${photoOpts}`);
@@ -203,7 +203,7 @@ try {
   await expect('task');
   if (!(await page.$('.task-b'))) throw new Error('the drug scan should activate the 투약 list');
   if (!(await page.$('.med-card.alert'))) throw new Error('고위험약물 should be flagged in the active list (no auto 인증)');
-  if ((await footBtns()) !== '처방 스캔|투약수행') throw new Error(`active list buttons: ${await footBtns()}`); // 스캔 버튼이 투약수행 옆에 항상 있음
+  if ((await footBtns()) !== '약봉투 스캔|투약수행') throw new Error(`active list buttons: ${await footBtns()}`); // 스캔 버튼이 투약수행 옆에 항상 있음
   await scanWedge('D9999');
   await expectDialog('환자/처방 불일치');
   await tap('.dlg [data-sheet-act="ok"]', 'mismatch-ok');
@@ -514,19 +514,22 @@ try {
   if (!saved.includes('37.9')) throw new Error('saved BT not shown on the detail screen');
   const savedAt = await page.$eval('.dcard.vitals .dcard-meta', (e) => e.textContent);
   if (!savedAt.includes(picked)) throw new Error(`saved 측정 시간: ${savedAt} (picked ${picked})`);
-  // 직전 기록 보기: the same 6 cells as the latest record (no small table), each item's previous value within 24 hours
-  await tap('[data-act="vitals-more"]', 'vital-prev');
-  const prevRec = await page.evaluate(() => ({
+  // 활력징후 트렌드 (2026-11-27): '직전 기록'(24시간 전 값) 대신 과거 3일치 그래프를 6칸에 각각 보여준다
+  await tap('[data-act="vitals-more"]', 'vital-trend');
+  const trendRec = await page.evaluate(() => ({
     head: document.querySelector('.vprev-head')?.textContent.replace(/\s+/g, ' ').trim() || '',
-    cells: [...document.querySelectorAll('.vgrid.prev .vcell')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
+    cells: [...document.querySelectorAll('.vgrid.prev .vcell')].map((e) => ({
+      text: e.textContent.replace(/\s+/g, ' ').trim(),
+      points: (e.querySelector('.trend-svg polyline')?.getAttribute('points') || '').trim().split(/\s+/).filter(Boolean).length,
+    })),
     table: !!document.querySelector('.vhist, .vh-row'),
   }));
-  console.log('직전 기록:', prevRec);
-  if (prevRec.table || prevRec.cells.length !== 6 || !prevRec.head.startsWith('직전 기록') || !prevRec.head.includes('24시간 이내')) throw new Error(`직전 기록: ${JSON.stringify(prevRec)}`);
-  // measured after 15:30 today: the replaced record (09/17 15:30, SBP 118) is the previous one; each cell shows its own date·time (2026-11-24)
-  if (picked > '15:30' && (!prevRec.cells[0].includes('118') || !prevRec.cells[0].includes('09/17 15:30'))) throw new Error(`직전 기록 values: ${JSON.stringify(prevRec)}`);
-  await tap('[data-act="vitals-more"]', 'vital-prev-close');
-  if (await page.$('.vprev')) throw new Error('접기 should hide 직전 기록');
+  console.log('트렌드:', trendRec);
+  if (trendRec.table || trendRec.cells.length !== 6 || !trendRec.head.includes('트렌드') || !trendRec.head.includes('3일')) throw new Error(`트렌드: ${JSON.stringify(trendRec)}`);
+  if (trendRec.cells.some((c) => c.points < 2)) throw new Error(`트렌드 그래프 점 부족: ${JSON.stringify(trendRec)}`);
+  if (!trendRec.cells.every((c) => /\d.*–.*\d/.test(c.text))) throw new Error(`트렌드 범위(최소–최대) 표시 누락: ${JSON.stringify(trendRec)}`);
+  await tap('[data-act="vitals-more"]', 'vital-trend-close');
+  if (await page.$('.vprev')) throw new Error('접기 should hide 트렌드');
 
   // ---------- 사용자설정: alarms and quick menu change the hub ----------
   await tap('[data-act="hdr-menu"]', 'detail-menu');
@@ -941,7 +944,7 @@ try {
   // the 녹음 input's + is the same menu as the AI 커맨드바; leaving asks first
   await tap('.voice-foot [data-act="ai-more"]', 'free-memo-plus');
   const vchips = await page.$$eval('.voice-foot .ai-chips.open .ai-chip', (els) => els.map((e) => e.textContent).join(' / '));
-  if (vchips !== '음성메모 / 사진 / 스캔') throw new Error(`녹음 + menu: ${vchips}`);
+  if (vchips !== '음성메모 / 사진 / 스캔 / 멀티미디어') throw new Error(`녹음 + menu: ${vchips}`);
   await tap('.voice-foot [data-act="ai-photo"]', 'free-memo-leave-ask');
   await expectDialog('음성메모 녹음 중');
   await tap('.dlg [data-sheet-act="cancel"]', 'free-memo-stay');
@@ -1104,8 +1107,12 @@ try {
   const nPhotos = await page.$$eval('.photo-records .ph-row', (els) => els.length);
   if (nPhotos !== 2) throw new Error(`강태우 멀티미디어 (사진 기록): ${nPhotos}`);
 
-  // 멀티미디어 추가: 사진 · 동영상 · 음성기록(최대 10분) · 갤러리(여러 개) → 항목마다 메모 → 한 번에 저장
+  // 멀티미디어 상세화면 (2026-11-27: 환자상세엔 '+ 추가'가 없고 카드 머리 → 상세화면에서 추가) → 추가: 사진 · 동영상 ·
+  // 음성기록(최대 10분) · 갤러리(여러 개) → 항목마다 메모 → 한 번에 저장
   if ((await page.$eval('.photo-records .dcard-title', (e) => e.textContent)) !== '멀티미디어') throw new Error('the card should be 멀티미디어');
+  await tap('[data-act="media-list"]', 'media-list');
+  await expect('mlist');
+  await expectTitle('강태우(20733345)');
   await tap('[data-act="media-add"]', 'media-add');
   await expect('media');
   await expectTitle('강태우(20733345)');
@@ -1128,10 +1135,10 @@ try {
   const saveLabel = await page.$eval('.screen-foot .btn', (e) => e.textContent);
   if (saveLabel !== '저장 (4건)') throw new Error(`save button: ${saveLabel}`);
   await tap('[data-act="md-save"]', 'media-save');
-  await expect('detail');
-  const mdRows = await page.$$eval('.photo-records .ph-row', (els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
-  console.log('멀티미디어 카드:', mdRows.length, mdRows[0]);
-  if (mdRows.length !== 6 || !mdRows[0].includes('천골 부위 드레싱 교환 전')) throw new Error(`멀티미디어 card rows: ${mdRows.length}`);
+  await expect('mlist');
+  const mdRows = await page.$$eval('.ph-list .ph-row', (els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
+  console.log('멀티미디어 상세화면:', mdRows.length, mdRows[0]);
+  if (mdRows.length !== 6 || !mdRows[0].includes('천골 부위 드레싱 교환 전')) throw new Error(`멀티미디어 상세화면 rows: ${mdRows.length}`);
   // a saved item opens with its memo: 메모 수정 → 저장
   await tap('.md-row[data-act="media-open"]', 'media-view');
   if (!(await page.$('.sheet.media-view .mv-memo'))) throw new Error('media viewer expected');
@@ -1139,6 +1146,10 @@ try {
   await page.type('.sheet.media-view .mv-memo', '드레싱 교환 전 · 삼출물 소량');
   await tap('.sheet.media-view [data-sheet-act="save"]', 'media-memo-save');
   if (!(await page.$eval('.md-row', (e) => e.textContent.includes('삼출물 소량')))) throw new Error('메모 수정 not shown');
+  await tap('[data-act="hdr-back"]', 'mlist-back');
+  await expect('detail');
+  const detailRows = await page.$$eval('.photo-records .ph-row', (els) => els.length);
+  if (detailRows !== 6) throw new Error(`환자상세 멀티미디어 카드도 전체가 보여야 함: ${detailRows}`);
   await tap('[data-act="hdr-back"]', 'photo-detail-back');
   await expect('hub');
 

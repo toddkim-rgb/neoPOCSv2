@@ -12,15 +12,18 @@ import { startWork, startCare3 } from './screens/work.js';
 import { openLogout, openRoomSheet } from './screens/nav.js';
 import { startFreeMemo } from './screens/voice.js';
 import { startCamera, startAttach, openPhotoSheet } from './screens/vitals.js';
+import { openMediaList } from './screens/media.js';
+import { askPatient } from './patientscan.js';
 
 export const TODO = '프로토타입에서는 투약·채혈·수혈·활력징후를 체험할 수 있습니다.';
 
-/** The + menu: 음성메모 · 사진 · 스캔 (also above the 음성메모 녹음 input). 사진 = 사진 촬영 + 사진첨부 (2026-11-23). */
+/** The + menu: 음성메모 · 사진 · 스캔 · 멀티미디어(2026-11-27) (also above the 음성메모 녹음 입력). 사진 = 사진 촬영 + 사진첨부 (2026-11-23). */
 export const aiChips = () => `
     <div class="ai-chips${state.aiMore ? ' open' : ''}" aria-hidden="${!state.aiMore}">
       <button class="ai-chip" data-act="ai-voice-memo">음성메모</button>
       <button class="ai-chip" data-act="ai-photo">사진</button>
       <button class="ai-chip" data-act="ai-scan">스캔</button>
+      <button class="ai-chip" data-act="ai-media">멀티미디어</button>
     </div>`;
 
 /** `dots`: the hub's page indicator (only the hub has pages). */
@@ -182,6 +185,13 @@ export const AI_ACTIONS = {
   'ai-photo': () => (setAiMore(false), openPhotoSheet()),
   // 스캔: 스캔 준비 화면 (환자 팔찌 → 업무 선택 · 처방/채혈관/혈액 → 그 업무)
   'ai-scan': () => (setAiMore(false), go('qscan')),
+  // 멀티미디어 (2026-11-27 요청): 환자 팔찌 스캔 → 그 환자의 기록된 멀티미디어 상세화면 (조회 전용 진입점)
+  'ai-media': () =>
+    (setAiMore(false),
+    askPatient({
+      desc: '조회할 환자의 팔찌를\n스캔하세요.',
+      onPatient: (pid) => openMediaList(pid),
+    })),
   'ai-go': () => {
     const el = screenEl();
     const input = el.querySelector('.ai-input');
