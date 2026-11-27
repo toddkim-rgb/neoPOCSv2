@@ -24,10 +24,10 @@ import { startBag } from './transfuse.js';
 export const FAIL_SIM = { label: '인식 실패 (손상된 바코드)', code: '#FAIL' };
 /** One wristband per sample patient (the PDA scan button reads the selected one). */
 export const patientSims = () => PATIENTS.map((p) => ({ label: `환자 바코드 · ${fullName(p)}`, code: p.barcode }));
-const firstOrder = (id = state.pid) => state.pt[id].orders.find((o) => o.now && !o.prn) || state.pt[id].orders[0];
-const drugSim = (id = state.pid) => ({ label: `처방 바코드 · ${firstOrder(id).name}`, code: firstOrder(id).code });
+export const firstOrder = (id = state.pid) => state.pt[id].orders.find((o) => o.now && !o.prn) || state.pt[id].orders[0];
+export const drugSim = (id = state.pid) => ({ label: `처방 바코드 · ${firstOrder(id).name}`, code: firstOrder(id).code });
 /** A real prescription of the next patient — scanning it here is 환자/처방 불일치. */
-function otherDrugSim() {
+export function otherDrugSim() {
   const other = PATIENTS[(PATIENTS.findIndex((p) => p.id === state.pid) + 1) % PATIENTS.length];
   return { label: `다른 환자의 처방 바코드 · ${other.name}`, code: firstOrder(other.id).code };
 }
@@ -97,12 +97,50 @@ function scanDrug(owner) {
 // (고위험약물이 있으면) 투약수행을 누를 때 2차 인증 → 확인 → 수행. 바코드 스캔 직후 자동으로 인증 화면을 띄우지 않는다
 // (예전엔 여기서 바로 startCheck('med')를 불렀음 — administer 액션의 hamPending() 분기가 그 역할을 대신한다).
 function showMedTask() {
-  const onTask = document.querySelector('.scr-task');
-  if (onTask) rerender();
-  else replace('task', {}, 'fade');
+  // care3(투약/채혈/수혈 통합)에 투약 목록이 끼워져 있을 때는 그 화면을 다시 그린다(별도 'task' 화면으로 가지 않음).
+  if (document.querySelector('.scr-task') || document.querySelector('.scr-care3')) return rerender();
+  replace('task', {}, 'fade');
 }
 
-const hamPending = () => highAlertOrders().length > 0 && !state.ham?.done;
+export const hamPending = () => highAlertOrders().length > 0 && !state.ham?.done;
+
+/** 투약수행 버튼 — 'task' 화면과 care3(투약/채혈/수혈 통합)가 함께 쓴다. */
+export function administerMed() {
+  const excl = excludedOrders().length;
+  if (!pendingOrders().length) {
+    if (!excl) return toast('투약할 처방이 없습니다.');
+    return recordExclusionsOnly(excl);
+  }
+  // 2차 인증 미완료 시 → 고위험약물 인증 다시 활성화
+  if (hamPending()) {
+    toast('고위험약물 이중 인증을 먼저 완료해 주세요.');
+    return startCheck('med');
+  }
+  commitAdministration();
+  go('done');
+  if (excl) toast(`제외한 ${excl}건은 미투약 사유로 기록되었습니다.`);
+}
+
+/**
+ * 투약 목록의 '약정보 활성화' 이후 몸통 (안내 카드 또는 목록 + 하단 버튼) — 'task' 화면과 care3(투약/채혈/수혈
+ * 통합, 2026-11-27 요청)가 함께 쓴다. care3는 환자 팔찌만 확인되면(`state.scan.patient`) 이 함수를 그대로 끼워 넣고,
+ * 약봉투 스캔 여부(`state.scan.drug`)에 따라 안내 카드 또는 활성 목록이 나온다 — 투약만 아직 한 단계(약봉투 스캔)가
+ * 남아 있어, care3에서도 다른 업무(채혈·수혈)처럼 바로 활성화되지 않는다.
+ */
+export function medBody() {
+  if (!state.scan.drug) {
+    return `
+      <div class="drug-scan">
+        <img src="${asset3d('scan')}" alt="">
+        <div><p class="drug-scan-t gtext">투약 바코드 스캔</p><p class="drug-scan-d">투약할 약의 바코드를 PDA 레이저로 스캔하세요.<br>스캔하면 투약 목록이 활성화됩니다.</p></div>
+      </div>
+      ${medList()}
+      <div class="sticky-foot">${button('투약 바코드 스캔', 'scan-drug', { long: 'scan-sim-drug' })}</div>`;
+  }
+  return `
+    ${medList({ interactive: true })}
+    <div class="sticky-foot two-btns${hamPending() ? ' ham-pending' : ''}">${button('투약 바코드 스캔', 'scan-drug', { long: 'scan-sim-drug' })}${button('투약수행', 'administer', { cta: true })}</div>`;
+}
 
 /* ---------------- popups ---------------- */
 const PRN_GUIDE = [
@@ -138,7 +176,7 @@ export function openMedDialog(kind, { then = 'hub', check = 'med' } = {}) {
       { ...c.pop, buttons: [{ label: '취소', act: 'cancel', line: true }, { label: '확인', act: 'ok' }] },
       {
         // 취소 → 목록 (수행하기 비활성화)
-        cancel: () => (closeSheet(), backTo(c.back)),
+        cancel: () => (closeSheet(), backTo(c.back())),
         // the PDA would now wait for the 2nd nurse's RFID badge; 확인 stands in for that tag on the prototype
         ok: () => (closeSheet(), secondNurseTagged(check)),
       },
@@ -254,12 +292,7 @@ register('task', {
       return `${hdr}${resetBar()}
         <div class="screen-body scroll task-d task-lock task-drug">
           <div class="task-top">${aiButton()}${patientCard({ prn: hasPrn(), confirmed: true })}</div>
-          <div class="drug-scan">
-            <img src="${asset3d('scan')}" alt="">
-            <div><p class="drug-scan-t gtext">투약 바코드 스캔</p><p class="drug-scan-d">투약할 약의 바코드를 PDA 레이저로 스캔하세요.<br>스캔하면 투약 목록이 활성화됩니다.</p></div>
-          </div>
-          ${medList()}
-          <div class="sticky-foot">${button('투약 바코드 스캔', 'scan-drug', { long: 'scan-sim-drug' })}</div>
+          ${medBody()}
         </div>`;
     }
     if (drug && !patient) {
@@ -276,8 +309,7 @@ register('task', {
     return `${hdr}${resetBar()}
       <div class="screen-body scroll task-b">
         <div class="task-top">${aiButton()}${patientCard({ prn: hasPrn(), confirmed: true })}</div>
-        ${medList({ interactive: true })}
-        <div class="sticky-foot two-btns${hamPending() ? ' ham-pending' : ''}">${button('약봉투 스캔', 'scan-drug', { long: 'scan-sim-drug' })}${button('투약수행', 'administer', { cta: true })}</div>
+        ${medBody()}
       </div>`;
   },
   actions: {
@@ -306,21 +338,7 @@ register('task', {
     excl: (t) => openExcludeSheet(t.dataset.id),
     'swipe-close': () => closeSwipes(),
     'excl-undo': (t) => undoExclude(t.dataset.id),
-    administer: () => {
-      const excl = excludedOrders().length;
-      if (!pendingOrders().length) {
-        if (!excl) return toast('투약할 처방이 없습니다.');
-        return recordExclusionsOnly(excl);
-      }
-      // 2차 인증 미완료 시 → 고위험약물 인증 다시 활성화
-      if (hamPending()) {
-        toast('고위험약물 이중 인증을 먼저 완료해 주세요.');
-        return startCheck('med');
-      }
-      commitAdministration();
-      go('done');
-      if (excl) toast(`제외한 ${excl}건은 미투약 사유로 기록되었습니다.`);
-    },
+    administer: () => administerMed(),
   },
   onBack: () => {
     confirmReset('hub');
@@ -338,7 +356,7 @@ const sheetDrug = (o) => `
 
 const modeChip = () => `<span class="chip on"><span>${state.planMode === 'plan' ? '플랜' : '실시간'}</span></span>`;
 
-function openTimeSheet(id) {
+export function openTimeSheet(id) {
   const o = state.orders.find((x) => x.id === id);
   if (!o?.now || o.prn) return;
   openSheet(
@@ -357,7 +375,7 @@ function openTimeSheet(id) {
   );
 }
 
-function openStatusSheet(id) {
+export function openStatusSheet(id) {
   const o = state.orders.find((x) => x.id === id);
   if (!o?.now || o.prn) return;
   openSheet(
@@ -389,7 +407,7 @@ const EXCL_REASONS = [
   { code: 'NO', label: '기타' },
 ];
 
-function openExcludeSheet(id) {
+export function openExcludeSheet(id) {
   const o = state.orders.find((x) => x.id === id);
   if (!o?.now || o.prn) return;
   openSheet(
@@ -419,7 +437,7 @@ function openExcludeSheet(id) {
   );
 }
 
-function undoExclude(id) {
+export function undoExclude(id) {
   const o = state.orders.find((x) => x.id === id);
   if (!o?.excl) return;
   o.excl = null;
@@ -484,7 +502,8 @@ const CHECK = {
     bothOnSecond: false,
     pop: { title: '고위험약물 2차 인증', desc: '고위험약물 2차 담당자 확인을 시작합니다.\n사용자의 RFID 바코드를 스캔하세요.' },
     done: { title: '고위험약물 이중점검 완료', desc: '고위험약물 이중 인증이 완료되었습니다.\nEMR 정보에 투약 로그가 기록되었습니다.' },
-    back: 'task',
+    // care3(투약/채혈/수혈 통합)에 끼워진 투약 목록에서 시작했으면 거기로, 'task' 화면에서 시작했으면 그대로.
+    back: () => (state.origin === 'care3' ? 'care3' : 'task'),
   },
   trf: {
     // one double check per 항목 (수혈 오더): a check made for another 항목 does not count
@@ -511,7 +530,7 @@ const CHECK = {
     bothOnSecond: true, // neo-trf-check 2차 shows the confirmed 1차 담당자 above the 2차
     pop: { title: '고위험수행 이중 확인', desc: '고위험수행 2차 담당자 확인을 시작합니다.\n사용자의 RFID 바코드를 스캔하세요.' },
     done: { title: '고위험수행 이중 확인', desc: '고위험수행 이중 인증이 완료되었습니다.\nEMR 정보에 로그가 기록되었습니다.' },
-    back: 'wtask',
+    back: () => (state.origin === 'care3' ? 'care3' : 'wtask'),
   },
 };
 
@@ -589,7 +608,7 @@ register('ham', {
       <div class="screen-foot">${button('확인', 'next')}</div>`;
   },
   actions: {
-    'hdr-close': (t, { kind = 'med' }) => backTo(CHECK[kind].back),
+    'hdr-close': (t, { kind = 'med' }) => backTo(CHECK[kind].back()),
     next: (t, { step, kind = 'med' }) => {
       const c = CHECK[kind];
       const ham = c.get();
@@ -600,7 +619,7 @@ register('ham', {
           state.work.trf.checked[ham.oid || trfBag().o.id] = true; // its later bags: 혈액번호 only
           return startBag();
         }
-        return backTo(c.back);
+        return backTo(c.back());
       }
       const checks = step === 'first' ? ham.checks1 : ham.checks2;
       if (!checks.every(Boolean)) return nudgeChecks();
@@ -626,7 +645,7 @@ register('ham', {
     },
   },
   onBack: ({ kind = 'med' }) => {
-    backTo(CHECK[kind].back);
+    backTo(CHECK[kind].back());
     return true;
   },
   // neo-med/trf-check-02 is waiting for the 2nd nurse's RFID badge

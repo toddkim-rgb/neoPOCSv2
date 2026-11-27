@@ -3,7 +3,7 @@ import { PATIENTS, DEFAULT_PID, URGENT, patientById, profileOf } from './patient
 
 /** 사용자설정 defaults (design: 투약·수혈 알림 on 30분, 퀵메뉴 투약/채혈/활력/산모아기, 2차인증 on, 자동 로그아웃 30분). */
 export function defaultSettings() {
-  const on = { med: true, trf: true, vital: true };
+  const on = { med: true, bld: true, trf: true, vital: true }; // 투약/채혈/수혈 알림 통합(2026-11-27 요청) — 하나의 버튼이라 셋 다 같은 기본값
   return {
     alarms: Object.fromEntries(MENU_GROUPS.flatMap((g) => g.items.map((i) => [i.key, { on: !!on[i.key], min: 30 }]))),
     open: { perform: true }, // 메뉴별 알림 설정: expanded groups
@@ -98,7 +98,6 @@ export const state = {
   settings: defaultSettings(), // 사용자설정 — kept across logins, cleared by 로그아웃
   room: ROOMS[0], // 주사실 설정 (= 근무위치, 사용자 정보에 표시)
   care3Scanned: false, // 투약/채혈/수혈 통합 업무: 환자 팔찌를 이미 스캔했는지
-  carePassthrough: false, // 위 업무를 스캔 화면에서 이미 읽은 팔찌로 들어왔는지 (업무를 골라도 다시 스캔하지 않음)
   memoTab: 'perform', // 수행별 | 병상 라운딩
   vhistOpen: false, // 환자 상세 · 임상관찰기록 '상세보기'
 };
@@ -275,6 +274,31 @@ export const urgentItems = () =>
   URGENT.filter((u) => state.settings.alarms[u.menu]?.on && !state.pt[u.pid].done[u.menu]).sort(
     (a, b) => b.elapsed - a.elapsed || (a.dueIn ?? Infinity) - (b.dueIn ?? Infinity),
   );
+
+/**
+ * 투약/채혈/수혈 메뉴 통합 (2026-11-27 요청): 환자허브 긴급 처리 업무도 같은 환자의 투약·채혈·수혈 카드를
+ * 한 장으로 합쳐서 보여준다 (활력징후는 그대로 따로). `urgentItems()`가 이미 경과순으로 정렬해 뒀으므로,
+ * 같은 pid를 처음 만난 자리(= 그 환자의 가장 급한 건)에 카드가 생기고 나머지는 그 카드에 합쳐진다.
+ * 반환: `{ vital: item }`(활력징후, 기존과 동일) 또는 `{ care: [item, ...] }`(투약/채혈/수혈, 1건 이상).
+ */
+export function urgentGroups() {
+  const byPid = new Map();
+  const groups = [];
+  for (const u of urgentItems()) {
+    if (u.menu === 'vital') {
+      groups.push({ vital: u });
+      continue;
+    }
+    let g = byPid.get(u.pid);
+    if (!g) {
+      g = { care: [] };
+      byPid.set(u.pid, g);
+      groups.push(g);
+    }
+    g.care.push(u);
+  }
+  return groups;
+}
 
 /** Restores the demo to its initial data (called on every login). */
 export function resetDemo() {

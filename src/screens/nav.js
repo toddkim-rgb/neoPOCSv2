@@ -5,7 +5,7 @@ import { header, asset3d, esc, toast, openSheet, closeSheet, openDialog } from '
 import { icon } from '../icons.js';
 import { NURSE, MENU_GROUPS, MENU_ITEM, ROOMS } from '../data.js';
 import { PATIENTS } from '../patients.js';
-import { state, resetUser, urgentItems } from '../state.js';
+import { state, resetUser, urgentGroups } from '../state.js';
 import { startMenu } from '../aibar.js';
 import { installed } from '../versions.js';
 import { appInfoSection, APP_INFO_ACTIONS } from './update.js';
@@ -27,7 +27,7 @@ function nightSection() {
 const CARE3_ITEM = { key: 'care3', label: '투약/채혈/수혈' };
 const navItems = (g) => (g.key === 'perform' ? [CARE3_ITEM, ...g.items.filter((m) => !['med', 'bld', 'trf'].includes(m.key))] : g.items);
 
-const urgentCount = () => urgentItems().length;
+const urgentCount = () => urgentGroups().length; // 투약/채혈/수혈 통합 카드는 한 건으로 셈
 const memoPending = () => Object.values(state.pt).reduce((n, s) => n + s.memos.filter((m) => !m.reviewed).length, 0);
 
 const toggle = (on, act, data) =>
@@ -41,6 +41,8 @@ const stepper = (value, act, data) => `
 const stepIn = (list, cur, d) => list[Math.min(list.length - 1, Math.max(0, list.indexOf(cur) + d))];
 
 /* ---------------- 사용자설정 ---------------- */
+// 투약/채혈/수혈 통합 (2026-11-27 요청): 메뉴별 알림 설정의 오더 경과 알림도 셋을 하나의 버튼으로 묶는다(값은 항상 같이 움직임).
+const CARE_ALARM_KEYS = ['med', 'bld', 'trf'];
 function alarmGroup(g) {
   const open = !!state.settings.open[g.key];
   const head = `
@@ -49,8 +51,15 @@ function alarmGroup(g) {
       <span class="chev${open ? ' open' : ''}">${icon.arrowDown}</span>
     </button>`;
   if (!open) return `<div class="set-card">${head}</div>`;
+  const careRow = () => {
+    const a = state.settings.alarms.med; // med/bld/trf는 항상 같은 값
+    const sub = a.on ? `<div class="set-row sub"><span>오더 경과 알림</span>${stepper(a.min, 'alarm-min', `data-k="care"`)}</div>` : '';
+    return `<div class="set-row"><span>투약/채혈/수혈</span>${toggle(a.on, 'alarm', `data-k="care"`)}</div>${sub}`;
+  };
   const rows = g.items
+    .filter((i) => g.key !== 'perform' || !CARE_ALARM_KEYS.includes(i.key) || i.key === CARE_ALARM_KEYS[0])
     .map((i) => {
+      if (g.key === 'perform' && i.key === CARE_ALARM_KEYS[0]) return careRow();
       const a = state.settings.alarms[i.key];
       const sub = a.on && i.alarm ? `<div class="set-row sub"><span>${i.alarm}</span>${stepper(a.min, 'alarm-min', `data-k="${i.key}"`)}</div>` : '';
       return `<div class="set-row"><span>${esc(i.label)}</span>${toggle(a.on, 'alarm', `data-k="${i.key}"`)}</div>${sub}`;
@@ -111,13 +120,25 @@ register('setting', {
       rerender();
     },
     alarm: (t) => {
-      const a = state.settings.alarms[t.dataset.k];
-      a.on = !a.on;
+      const k = t.dataset.k;
+      if (k === 'care') {
+        const on = !state.settings.alarms.med.on;
+        CARE_ALARM_KEYS.forEach((key) => (state.settings.alarms[key].on = on));
+      } else {
+        const a = state.settings.alarms[k];
+        a.on = !a.on;
+      }
       rerender();
     },
     'alarm-min': (t) => {
-      const a = state.settings.alarms[t.dataset.k];
-      a.min = stepIn(ALARM_MIN, a.min, Number(t.dataset.d));
+      const k = t.dataset.k;
+      if (k === 'care') {
+        const min = stepIn(ALARM_MIN, state.settings.alarms.med.min, Number(t.dataset.d));
+        CARE_ALARM_KEYS.forEach((key) => (state.settings.alarms[key].min = min));
+      } else {
+        const a = state.settings.alarms[k];
+        a.min = stepIn(ALARM_MIN, a.min, Number(t.dataset.d));
+      }
       rerender();
     },
     'auto-min': (t) => {

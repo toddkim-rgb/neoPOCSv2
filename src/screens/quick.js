@@ -42,7 +42,7 @@ export function quickScan(code) {
     // a wristband (any other label stands for the selected patient, so the demo always moves on)
     const pid = p?.id || state.pid;
     selectPatient(pid);
-    // 투약/채혈/수혈 통합 카드: 팔찌는 이미 읽었으므로 업무를 골라도 다시 스캔을 묻지 않는다 (carePassthrough)
+    // 투약/채혈/수혈 통합 카드: 팔찌는 이미 읽었으므로 care3도 다시 묻지 않고 바로 연다
     return openTaskSheet(pid, { onTask: (kind) => (kind === 'care3' ? startCare3(pid, { scanned: true }) : startScanned(kind, pid)) });
   }
   if (label.kind === 'med') return handleMedScan(c);

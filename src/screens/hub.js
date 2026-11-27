@@ -7,7 +7,7 @@ import { header, asset3d, esc, toast, openSheet, closeSheet } from '../ui.js';
 import { icon, sparkles } from '../icons.js';
 import { NURSE, MENU, MENU_ITEM } from '../data.js';
 import { PATIENTS, patientById, fullName } from '../patients.js';
-import { state, urgentItems, taskStatus, careStatus, selectPatient, TASK_LABEL, trfDue } from '../state.js';
+import { state, urgentGroups, taskStatus, careStatus, selectPatient, TASK_LABEL, trfDue } from '../state.js';
 import { aiBar, mountAiBar, AI_ACTIONS, aiBack, startMenu, onHubTab, TODO } from '../aibar.js';
 import { openCheck } from './transfuse.js';
 
@@ -19,7 +19,44 @@ const meta = (m) => `<span class="meta">${esc(m[0])}<i class="sep">|</i>${esc(m[
 const chip = (text, tone) => `<span class="gchip ${tone}"><span>${esc(text)}</span></span>`;
 
 /* ---------------- 환자허브: 긴급처리업무 + 퀵메뉴 ---------------- */
-const UC_TASK = { med: '투약', bld: '채혈', vital: 'V/S', trf: '수혈' }; // 업무명 under the card icon
+const UC_TASK = { vital: 'V/S' }; // 업무명 under the card icon (투약/채혈/수혈은 통합 라벨 CARE_LABEL)
+const CARE_LABEL = '투/채/수'; // 투약/채혈/수혈 통합 (2026-11-27 요청): 긴급 카드도 하나로
+
+/** 활력징후 긴급 카드 (투약/채혈/수혈과 달리 통합하지 않음). */
+function vitalCard(u) {
+  const p = patientById(u.pid);
+  return `
+        <button class="ucard" data-act="urgent" data-go="${u.menu}" data-pid="${p.id}">
+          <span class="ucard-task"><img class="ucard-ico" src="${asset3d(u.icon)}" alt=""><span class="ucard-tname">${UC_TASK[u.menu]}</span></span>
+          <span class="ucard-body">
+            <span class="ucard-name">${esc(fullName(p))}</span>
+            ${meta([p.bed, p.detail])}
+            <span class="ucard-dx">${esc(p.dx)}</span>
+          </span>
+          ${chip(u.chip(state.settings.alarms[u.menu].min), u.tone)}
+        </button>`;
+}
+
+/**
+ * 투약/채혈/수혈 긴급 카드: 같은 환자의 여러 건도 한 장으로 합쳐 보여준다. 1건뿐이면 지금까지처럼 그 업무로
+ * 바로 들어가고(data-go=그 menu), 2건 이상이면 care3 카드 선택 화면으로 들어가 그중 고른다(data-go='care3').
+ */
+function careCard(care) {
+  const [lead] = care;
+  const p = patientById(lead.pid);
+  const text = lead.chip(state.settings.alarms[lead.menu].min);
+  const multi = care.length > 1;
+  return `
+        <button class="ucard" data-act="urgent" data-go="${multi ? 'care3' : lead.menu}" data-pid="${p.id}">
+          <span class="ucard-task"><img class="ucard-ico" src="${asset3d(lead.icon)}" alt=""><span class="ucard-tname">${CARE_LABEL}</span></span>
+          <span class="ucard-body">
+            <span class="ucard-name">${esc(fullName(p))}</span>
+            ${meta([p.bed, p.detail])}
+            <span class="ucard-dx">${esc(p.dx)}</span>
+          </span>
+          ${chip(multi ? `${text} 외 ${care.length - 1}건` : text, lead.tone)}
+        </button>`;
+}
 
 /** 수혈 15분 체크 to do: first in 긴급 처리 업무 (the alarm's '나중에' leaves it here). */
 function checkCard({ pid, unit, run }) {
@@ -37,32 +74,18 @@ function checkCard({ pid, unit, run }) {
 }
 
 function urgentTab() {
-  const items = urgentItems();
+  const groups = urgentGroups();
   const checks = trfDue();
   const quick = state.settings.quick.map((k) => MENU_ITEM[k]).filter(Boolean);
   return `
     <div class="hub-hello">
       <span class="hub-spark">${sparkles('hub-spark-u')}</span><span class="night-badge">${icon.moon}야간모드</span>
-      <p class="hub-headline"><span class="gtext">긴급 처리 업무</span>가<br><span class="gtext">${items.length + checks.length}건</span> 기다리고 있습니다.</p>
+      <p class="hub-headline"><span class="gtext">긴급 처리 업무</span>가<br><span class="gtext">${groups.length + checks.length}건</span> 기다리고 있습니다.</p>
     </div>
     <div class="ucards-scroll scroll">
       <div class="ucards">
         ${checks.map(checkCard).join('')}
-        ${items
-          .map((u) => {
-            const p = patientById(u.pid);
-            return `
-          <button class="ucard" data-act="urgent" data-go="${u.menu}" data-pid="${p.id}">
-            <span class="ucard-task"><img class="ucard-ico" src="${asset3d(u.icon)}" alt=""><span class="ucard-tname">${UC_TASK[u.menu]}</span></span>
-            <span class="ucard-body">
-              <span class="ucard-name">${esc(fullName(p))}</span>
-              ${meta([p.bed, p.detail])}
-              <span class="ucard-dx">${esc(p.dx)}</span>
-            </span>
-            ${chip(u.chip(state.settings.alarms[u.menu].min), u.tone)}
-          </button>`;
-          })
-          .join('')}
+        ${groups.map((g) => (g.vital ? vitalCard(g.vital) : careCard(g.care))).join('')}
       </div>
     </div>
     <div class="shortcuts">
